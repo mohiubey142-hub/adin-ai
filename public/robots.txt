@@ -1,0 +1,93 @@
+# ============================================
+# ROBOTS.TXT - Adin AI
+# For: Google, Bing, DuckDuckGo, Brave, Yahoo, AI Crawlers
+# ============================================
+
+# ✅ ALLOW ALL CRAWLERS
+User-agent: *
+Allow: /
+
+# ✅ SITEMAP LOCATION
+Sitemap: https://adin-ai.com/sitemap.xml
+
+# ============================================
+# CRAWL DELAY - Respectful crawling
+# ============================================
+User-agent: *
+Crawl-delay: 2
+
+# ============================================
+# GOOGLE SPECIFIC
+# ============================================
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 1
+
+# ============================================
+# BING SPECIFIC
+# ============================================
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 2
+
+# ============================================
+# DUCKDUCKGO / BRAVE / YAHOO
+# ============================================
+User-agent: DuckDuckBot
+Allow: /
+
+User-agent: Bravebot
+Allow: /
+
+User-agent: Slurp
+Allow: /
+
+# ============================================
+# AI CRAWLERS - ChatGPT, Gemini, Claude, Perplexity, Copilot
+# ============================================
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Omgilibot
+Allow: /
+
+User-agent: FacebookBot
+Allow: /
+
+User-agent: TwitterBot
+Allow: /
+
+# ============================================
+# BLOCK: Admin / Private / Sensitive paths
+# ============================================
+# (kuch nahi blocking - all public accessible hai)
+
+# ============================================
+# BLOCK: Common bad bots (optional)
+# ============================================
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /
+
+User-agent: MJ12bot
+Disallow: /
+
+User-agent: DotBot
+Disallow: /
+
+User-agent: Baiduspider
+Disallow: /
+
+User-agent: YandexBot
+Disallow: /

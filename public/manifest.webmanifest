@@ -1,0 +1,32 @@
+{
+  "name": "Adin AI",
+  "short_name": "Adin AI",
+  "description": "Premium AI-Powered Creation Suite - Chat, CV Builder, Cover Letters & More",
+  "start_url": "/?source=pwa",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0a0a",
+  "theme_color": "#8b5cf6",
+  "categories": ["productivity", "business", "education"],
+  "icons": [
+    {
+      "src": "/icon-192x192.png?v=3",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512x512.png?v=3",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot-1.png",
+      "sizes": "1280x720",
+      "type": "image/png"
+    }
+  ]
+}

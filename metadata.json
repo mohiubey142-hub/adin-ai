@@ -1,0 +1,6 @@
+{
+  "name": "Adin AI",
+  "description": "Premium multi-mode AI assistant platform featuring web grounded search, math solving, coding assistance, document summaries, and high-quality audio narration voice synthesizer.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
