@@ -514,11 +514,11 @@ export default function App() {
       window.location.hash = 'templates';
       localStorage.setItem("adin-current-page", "templates");
     } else if (page === 'cover-letter') {
-      setCurrentPage('app');
-      setActive('Cover Letter');
-      window.location.hash = 'cover-letter';
-      localStorage.setItem("adin-active-tab", "Cover Letter");
-      localStorage.setItem("adin-current-page", "app");
+      // ✅ FIX: Navigate to Cover Templates first, NOT directly to builder
+      setCurrentPage('cover-templates');
+      setActive('Cover Templates');
+      window.location.hash = 'cover-templates';
+      localStorage.setItem("adin-current-page", "cover-templates");
     } else if (page === 'founder') {
       setCurrentPage('founder');
       setActive('Founder');
