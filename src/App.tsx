@@ -21,7 +21,7 @@ const CVBuilder = lazy(() => import("./components/cv-builder/CVBuilder"));
 const CoverLetter = lazy(() => import("./components/cover-letter/CoverLetter"));
 const CVTemplatesPage = lazy(() => import("./components/Templates/CVTemplatesPage"));
 const CoverTemplatesPage = lazy(() => import("./components/Templates/CoverTemplatesPage"));
-const WorkspacePage = lazy(() => import("./components/workspace").then(m => ({ default: m.WorkspacePage })));
+const WorkspacePage = lazy(() => import("./components/Workspace").then(m => ({ default: m.WorkspacePage })));
 // ✅ Founder Page Lazy Loading
 const Founder = lazy(() => import("./pages/Founder"));
 // ✅ Legal Pages Lazy Loading
