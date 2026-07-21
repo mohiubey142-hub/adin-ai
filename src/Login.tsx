@@ -1,7 +1,33 @@
 // src/Login.tsx
+import { useState } from "react";
 import { LoginForm } from "./components/auth";
 
 export default function Login() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [userName, setUserName] = useState("");
+
+  // ✅ Guest Entry handler - Now accepts name parameter
+  const handleGuestEntry = (name: string) => {
+    setUserName(name);
+    setIsLoading(true);
+
+    // ✅ 2 second premium loading animation
+    setTimeout(() => {
+      // ✅ Save user name to localStorage (no "Guest" wording)
+      localStorage.setItem("adin_user_name", name);
+      
+      // ✅ Save guest session (internal - no Guest wording in UI)
+      const guestSession = {
+        isGuest: true,
+        guestCreatedAt: new Date().toISOString(),
+      };
+      localStorage.setItem("adin-guest-session", JSON.stringify(guestSession));
+
+      // ✅ Navigate to home using window.location
+      window.location.href = "/";
+    }, 2000);
+  };
+
   return (
     <div className="w-screen h-screen flex items-center justify-center relative overflow-hidden bg-[#0a0a0f]">
       
@@ -50,8 +76,31 @@ export default function Login() {
           ============================================ */}
       
       <div className="scale-[0.90] relative z-10 w-full max-w-md">
-        <LoginForm />
+        {/* ✅ Pass guest entry handler to LoginForm with name parameter */}
+        <LoginForm onGuestEntry={handleGuestEntry} isLoading={isLoading} />
       </div>
+
+      {/* ✅ Premium Loading Overlay with user name */}
+      {isLoading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-6">
+            {/* Premium spinner */}
+            <div className="relative">
+              <div className="w-20 h-20 rounded-full border-4 border-zinc-800/50 border-t-purple-500 animate-spin" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 animate-pulse" />
+              </div>
+            </div>
+            {/* Loading text with user name */}
+            <div className="text-center">
+              <p className="text-white text-lg font-medium tracking-wide">
+                Welcome, {userName || "Adin AI"}!
+              </p>
+              <p className="text-zinc-500 text-sm mt-1">Setting up your premium experience...</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

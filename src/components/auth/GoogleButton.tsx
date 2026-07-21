@@ -1,45 +1,44 @@
 // src/components/auth/GoogleButton.tsx
 import { useState } from "react";
-import { useSignIn } from "@clerk/clerk-react";
 import { Button } from "../ui/Button";
 
 interface GoogleButtonProps {
   children?: React.ReactNode;
   onLoadingChange?: (loading: boolean) => void;
+  onClick?: () => void;
 }
 
 export const GoogleButton = ({ 
   children = "Continue with Google",
-  onLoadingChange 
+  onLoadingChange,
+  onClick
 }: GoogleButtonProps) => {
-  const { signIn, isLoaded } = useSignIn();
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleGoogleLogin = async () => {
-    if (isLoading || !isLoaded) return;
+  const handleClick = () => {
+    if (isLoading) return;
     
     setIsLoading(true);
     onLoadingChange?.(true);
 
-    try {
-      await signIn.authenticateWithRedirect({
-        strategy: "oauth_google",
-        redirectUrl: "/sso-callback",
-        redirectUrlComplete: "/",
-      });
-    } catch (error) {
-      console.error("Google login error:", error);
-      setIsLoading(false);
-      onLoadingChange?.(false);
+    // ✅ Call parent handler (Guest Entry)
+    if (onClick) {
+      onClick();
     }
+
+    // ✅ Reset loading state after parent handles it
+    // Parent will manage loading state via onLoadingChange
   };
+
+  // ✅ Allow parent to control loading state
+  // We keep internal state for button UI
 
   return (
     <Button
       variant="google"
       fullWidth
-      onClick={handleGoogleLogin}
-      disabled={isLoading || !isLoaded}
+      onClick={handleClick}
+      disabled={isLoading}
       className="gap-2.5 relative transition-all duration-300"
     >
       {isLoading ? (

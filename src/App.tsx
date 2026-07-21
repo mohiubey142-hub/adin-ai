@@ -1,9 +1,10 @@
 // App.tsx - Complete updated file with SEO & Lazy Loading + Founder Profile + Legal Pages (No 404)
 import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import ReactMarkdown from "react-markdown";
-import { SignedIn, SignedOut, UserButton, useUser } from "@clerk/clerk-react";
+// ❌ Clerk removed - Guest Mode only
 import Login from "./Login";
 import Signup from "./Signup";
+import { Onboarding } from "./components/Onboarding";
 import Settings from "./components/Settings";
 import Search from "./components/Search";
 import Library from "./components/Library";
@@ -15,6 +16,7 @@ import SpeakButton from "./components/SpeakButton";
 import FileUpload, { FileUploadRef } from "./components/FileUpload";
 import { SEOHead } from "./components/SEO/SEOHead";
 import { generatePageSchemas, generateJSONLDScript } from "./utils/seo";
+import { initializeGA, trackPageView, setUserID } from "./utils/analytics";
 
 // ✅ LAZY LOADING - SEO friendly code splitting
 const CVBuilder = lazy(() => import("./components/cv-builder/CVBuilder"));
@@ -34,7 +36,7 @@ import {
   Globe, FileText, Settings as SettingsIcon, Plus, Pencil, Trash2,
   Copy, Check, Wifi, Pin, ThumbsUp, ThumbsDown, RotateCcw, Edit, Sparkles, User,
   X, Code2, ArrowLeft, Terminal, Database, Cloud, Shield, Braces, Layout, Server, GitBranch, Cpu,
-  BookOpen, Bug, Rocket, Target, Briefcase, Mail
+  BookOpen, Bug, Rocket, Target, Briefcase, Mail, LogOut, ChevronDown
 } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import { sendToAI, saveMemoryFromResponse } from "./services/ai";
@@ -73,7 +75,7 @@ function CodingExpert({ userId, onBack }: { userId: string; onBack?: () => void 
     const savedLang = localStorage.getItem(`user_language_${userId}`);
     if (savedLevel) setUserLevel(savedLevel);
     if (savedLang) setSelectedLanguage(savedLang);
-    
+
     if (!savedLevel) {
       setMessages([{
         role: "ai",
@@ -102,7 +104,7 @@ function CodingExpert({ userId, onBack }: { userId: string; onBack?: () => void 
   const handleSetLevel = (level: string) => {
     setUserLevel(level);
     localStorage.setItem(`user_level_${userId}`, level);
-    setMessages(prev => [...prev, 
+    setMessages(prev => [...prev,
       { role: "user", text: level },
       { role: "ai", text: `**${level}** level selected.\n\n**Select a technology to master:**` }
     ]);
@@ -121,16 +123,16 @@ function CodingExpert({ userId, onBack }: { userId: string; onBack?: () => void 
 
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
-    
+
     const userMessage = input;
     setInput("");
     setMessages(prev => [...prev, { role: "user", text: userMessage }]);
     setLoading(true);
-    
+
     try {
       const context = `User Level: ${userLevel || "beginner"}, Current Language: ${selectedLanguage || "javascript"}`;
       const fullMessage = `${context}\n\nUser: ${userMessage}`;
-      
+
       const res = await sendToAI(
         [{ role: "user", text: fullMessage }],
         [],
@@ -139,7 +141,7 @@ function CodingExpert({ userId, onBack }: { userId: string; onBack?: () => void 
       );
       const data = await res.json();
       const aiText = data.choices?.[0]?.message?.content || "How can I help you master coding?";
-      
+
       setMessages(prev => [...prev, { role: "ai", text: aiText }]);
     } catch (err) {
       console.error(err);
@@ -295,13 +297,13 @@ function CodingExpert({ userId, onBack }: { userId: string; onBack?: () => void 
   return (
     <div className="flex-1 flex flex-col bg-black overflow-hidden">
       <Toaster position="top-right" />
-      
+
       <div className="h-[56px] flex justify-between items-center px-5 border-b border-zinc-900 shrink-0">
         <button onClick={() => setShowResetConfirm(true)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 transition">
           <ArrowLeft size={16} className="text-gray-400" />
           <span className="text-sm text-gray-400">Back</span>
         </button>
-        
+
         <div className="flex items-center gap-2">
           <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${currentLang?.gradient} flex items-center justify-center shadow-lg`}>
             <div className="text-white text-sm">{currentLang?.icon}</div>
@@ -309,7 +311,7 @@ function CodingExpert({ userId, onBack }: { userId: string; onBack?: () => void 
           <span className="text-sm font-semibold text-white">{currentLang?.name} Expert</span>
           <span className="text-xs text-gray-500 ml-1">{userLevel}</span>
         </div>
-        
+
         <button onClick={() => setWebEnabled(!webEnabled)} className={`px-3 py-1.5 rounded-lg text-xs ${webEnabled ? "bg-green-600/20 text-green-400" : "bg-zinc-800 text-gray-400"}`}>
           <Sparkles size={12} className="inline mr-1" /> {webEnabled ? "AI On" : "AI Off"}
         </button>
@@ -338,8 +340,8 @@ function CodingExpert({ userId, onBack }: { userId: string; onBack?: () => void 
                   key={tool.id}
                   onClick={() => setActiveTool(tool.id)}
                   className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${
-                    activeTool === tool.id 
-                      ? "bg-gradient-to-r from-purple-600/20 to-blue-600/20 text-white border-l-2 border-purple-500" 
+                    activeTool === tool.id
+                      ? "bg-gradient-to-r from-purple-600/20 to-blue-600/20 text-white border-l-2 border-purple-500"
                       : "text-gray-400 hover:bg-zinc-900"
                   }`}
                 >
@@ -374,8 +376,8 @@ function CodingExpert({ userId, onBack }: { userId: string; onBack?: () => void 
               return (
                 <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div className={`max-w-[80%] p-3 rounded-xl ${
-                    msg.role === "user" 
-                      ? "bg-gradient-to-r from-purple-600 to-blue-500 text-white" 
+                    msg.role === "user"
+                      ? "bg-gradient-to-r from-purple-600 to-blue-500 text-white"
                       : "bg-zinc-900 border border-zinc-800"
                   }`}>
                     <div className="text-sm prose prose-invert max-w-none">
@@ -459,6 +461,13 @@ type MemoryType = { id: number; text: string };
 type ChatType = { id: number; title: string; pinned?: boolean; createdAt: number };
 
 export default function App() {
+  // ✅ Guest session state
+  const [isGuest, setIsGuest] = useState<boolean>(false);
+  const [isOnboardingComplete, setIsOnboardingComplete] = useState<boolean>(false);
+  const [userName, setUserName] = useState<string>("User");
+  const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false);
+  const profileRef = useRef<HTMLDivElement>(null);
+
   // ✅ Page state - Workspace is default
   const [currentPage, setCurrentPage] = useState<'workspace' | 'app' | 'templates' | 'cover-templates' | 'founder' | 'legal'>('workspace');
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
@@ -481,7 +490,7 @@ export default function App() {
     if (hash === "contact") return "Contact";
     return savedTab || "AI Chat";
   });
-  
+
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<MessageType[]>([]);
@@ -502,9 +511,127 @@ export default function App() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileUploadRef = useRef<FileUploadRef>(null);
   const loaded = useRef(false);
-  const { user, isLoaded: isUserLoaded } = useUser();
-  const userId = user?.id || "anonymous";
+  const userId = "guest_" + Date.now().toString(36);
   const isSendingRef = useRef(false);
+
+  // ✅ Close profile dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setIsProfileOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // ✅ Get user name from localStorage (no "Guest" wording)
+  const getUserName = (): string => {
+    const savedName = localStorage.getItem("adin_user_name");
+    return savedName || "User";
+  };
+
+  // ✅ Get avatar letter (first letter of name, capital)
+  const getAvatarLetter = (name: string): string => {
+    if (!name || name === "User") return "U";
+    return name.trim().charAt(0).toUpperCase();
+  };
+
+  // ✅ Get avatar color based on name
+  const getAvatarColor = (name: string): string => {
+    const colors = [
+      "from-purple-500 to-blue-500",
+      "from-pink-500 to-rose-500",
+      "from-emerald-500 to-teal-500",
+      "from-amber-500 to-orange-500",
+      "from-indigo-500 to-purple-500",
+      "from-cyan-500 to-blue-500",
+      "from-violet-500 to-fuchsia-500",
+      "from-rose-500 to-red-500",
+    ];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
+  };
+
+  // ✅ Check guest session on mount
+  useEffect(() => {
+    const guestSession = localStorage.getItem("adin-guest-session");
+    const onboardingCompleted = localStorage.getItem("adin-onboarding-completed");
+    
+    if (guestSession) {
+      try {
+        const session = JSON.parse(guestSession);
+        setIsGuest(true);
+        // ✅ Get user name from separate storage
+        const savedName = localStorage.getItem("adin_user_name");
+        if (savedName) {
+          setUserName(savedName);
+        } else {
+          setUserName("User");
+        }
+        // ✅ Check if onboarding completed
+        if (onboardingCompleted === "true") {
+          setIsOnboardingComplete(true);
+        }
+      } catch (e) {
+        console.error("Failed to parse guest session:", e);
+      }
+    } else {
+      // ✅ Check if user name exists without session (edge case)
+      const savedName = localStorage.getItem("adin_user_name");
+      if (savedName) {
+        setIsGuest(true);
+        setUserName(savedName);
+        if (onboardingCompleted === "true") {
+          setIsOnboardingComplete(true);
+        }
+      }
+    }
+  }, []);
+
+  // ✅ Handle Onboarding Complete
+  const handleOnboardingComplete = (name: string) => {
+    // ✅ Save user name to localStorage
+    localStorage.setItem("adin_user_name", name);
+    
+    // ✅ Save guest session
+    const guestSession = {
+      isGuest: true,
+      guestCreatedAt: new Date().toISOString(),
+    };
+    localStorage.setItem("adin-guest-session", JSON.stringify(guestSession));
+    
+    // ✅ Mark onboarding as completed
+    localStorage.setItem("adin-onboarding-completed", "true");
+    
+    // ✅ Update state
+    setIsGuest(true);
+    setIsOnboardingComplete(true);
+    setUserName(name);
+  };
+
+  // ✅ Guest Logout handler - Clears ALL guest data
+  const handleGuestLogout = () => {
+    localStorage.removeItem("adin-guest-session");
+    localStorage.removeItem("adin_user_name");
+    localStorage.removeItem("adin-onboarding-completed");
+    setIsGuest(false);
+    setIsOnboardingComplete(false);
+    setUserName("User");
+    setIsProfileOpen(false);
+    toast.success("Logged out successfully");
+    // ✅ Redirect to login page
+    window.location.href = "/login";
+  };
+
+  // ✅ GA: Track page views on page/route change
+  useEffect(() => {
+    const pagePath = window.location.pathname + window.location.hash;
+    trackPageView(pagePath);
+  }, [active, currentPage]);
 
   // ✅ Navigation handler for workspace - Direct navigation to builders or galleries
   const handleWorkspaceNavigate = (page: string) => {
@@ -514,7 +641,6 @@ export default function App() {
       window.location.hash = 'templates';
       localStorage.setItem("adin-current-page", "templates");
     } else if (page === 'cover-letter') {
-      // ✅ FIX: Navigate to Cover Templates first, NOT directly to builder
       setCurrentPage('cover-templates');
       setActive('Cover Templates');
       window.location.hash = 'cover-templates';
@@ -527,7 +653,7 @@ export default function App() {
     }
   };
 
-  // ✅ Handler for CV template selection - opens CV Builder with selected template
+  // ✅ Handler for CV template selection
   const handleTemplateSelect = (templateId: string) => {
     setSelectedTemplateId(templateId);
     setCurrentPage('app');
@@ -584,7 +710,7 @@ export default function App() {
   const setActiveTab = (tabName: string) => {
     setActive(tabName);
     localStorage.setItem("adin-active-tab", tabName);
-    
+
     let hash = "";
     if (tabName === "CV Builder") hash = "cv-builder";
     else if (tabName === "Cover Letter") hash = "cover-letter";
@@ -600,15 +726,15 @@ export default function App() {
     else if (tabName === "Privacy Policy") hash = "privacy-policy";
     else if (tabName === "Terms of Service") hash = "terms-of-service";
     else if (tabName === "Contact") hash = "contact";
-    
+
     window.location.hash = hash;
   };
 
-  // ✅ Hash change listener - Handles all navigation routes (No 404)
+  // ✅ Hash change listener
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1);
-      
+
       if (hash === "templates") {
         setCurrentPage('templates');
         setActive("CV Templates");
@@ -619,13 +745,13 @@ export default function App() {
         setActive("Cover Templates");
         localStorage.setItem("adin-active-tab", "Cover Templates");
         localStorage.setItem("adin-current-page", "cover-templates");
-      } else if (hash === "cv-builder") { 
-        setCurrentPage('app'); 
+      } else if (hash === "cv-builder") {
+        setCurrentPage('app');
         setActive("CV Builder");
         localStorage.setItem("adin-active-tab", "CV Builder");
         localStorage.setItem("adin-current-page", "app");
-      } else if (hash === "cover-letter") { 
-        setCurrentPage('app'); 
+      } else if (hash === "cover-letter") {
+        setCurrentPage('app');
         setActive("Cover Letter");
         localStorage.setItem("adin-active-tab", "Cover Letter");
         localStorage.setItem("adin-current-page", "app");
@@ -640,13 +766,12 @@ export default function App() {
         setActive(pageName);
         localStorage.setItem("adin-active-tab", pageName);
         localStorage.setItem("adin-current-page", "legal");
-      } else if (hash === "" || hash === "workspace") { 
+      } else if (hash === "" || hash === "workspace") {
         setCurrentPage('workspace');
         localStorage.setItem("adin-current-page", "workspace");
       }
-      // ✅ NO 404 - Unknown hash redirects to workspace
     };
-    
+
     window.addEventListener("hashchange", handleHashChange);
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
@@ -664,6 +789,15 @@ export default function App() {
     if (input) localStorage.setItem("adin-draft-input", input);
     else localStorage.removeItem("adin-draft-input");
   }, [input]);
+
+  // ✅ GA: Initialize Google Analytics on app mount
+  useEffect(() => {
+    initializeGA();
+
+    if (isGuest) {
+      setUserID(userId);
+    }
+  }, [isGuest]);
 
   useEffect(() => {
     if (loaded.current) return;
@@ -684,12 +818,11 @@ export default function App() {
       const messagesData = savedMessages ? JSON.parse(savedMessages) : {};
       const currentData = savedCurrent ? JSON.parse(savedCurrent) : null;
 
-      // ✅ Restore current page - No 404
+      // ✅ Restore current page
       if (savedCurrentPage) {
         const page = savedCurrentPage as 'workspace' | 'app' | 'templates' | 'cover-templates' | 'founder' | 'legal';
         setCurrentPage(page);
-        
-        // Also update hash to match
+
         if (page === 'workspace') {
           window.location.hash = '';
         } else if (page === 'templates') {
@@ -747,13 +880,13 @@ export default function App() {
   useEffect(() => { localStorage.setItem("adin-web-enabled", JSON.stringify(webEnabled)); }, [webEnabled]);
   useEffect(() => { saveMemory(aiMemory); }, [aiMemory]);
 
-  const copyMessage = (text: string, i: number) => { 
-    navigator.clipboard.writeText(text); 
-    setCopiedIndex(i); 
-    toast.success("Copied"); 
-    setTimeout(() => setCopiedIndex(null), 2000); 
+  const copyMessage = (text: string, i: number) => {
+    navigator.clipboard.writeText(text);
+    setCopiedIndex(i);
+    toast.success("Copied");
+    setTimeout(() => setCopiedIndex(null), 2000);
   };
-  
+
   const handleVoiceTranscript = (text: string, language: string) => {
     if (!text.trim()) return;
     setInput(text);
@@ -768,17 +901,17 @@ export default function App() {
     setPendingFiles([]);
     fileUploadRef.current?.clearFile();
   };
-  
+
   const toggleLike = (i: number, text: string, role: string) => {
     const currentChat = chatHistory.find(chat => chat.id === currentChatId);
     const chatTitle = currentChat?.title || "Chat";
-    
+
     let favorites = [];
     const saved = localStorage.getItem("adin-favorites");
     if (saved) favorites = JSON.parse(saved);
-    
+
     const exists = favorites.some((fav: any) => fav.text === text);
-    
+
     if (!exists) {
       favorites.push({ id: Date.now(), text, role, chatTitle, createdAt: new Date().toISOString() });
       localStorage.setItem("adin-favorites", JSON.stringify(favorites));
@@ -786,48 +919,48 @@ export default function App() {
     } else {
       toast.info("Already in favorites");
     }
-    
+
     setLikedMessages(prev => prev.includes(i) ? prev.filter(x=>x!==i) : [...prev, i]);
     setDislikedMessages(prev => prev.filter(x=>x!==i));
   };
-  
-  const toggleDislike = (i: number, text: string) => { 
+
+  const toggleDislike = (i: number, text: string) => {
     const old = JSON.parse(localStorage.getItem("adin-feedback") || "[]");
     old.push({ type: "dislike", text, createdAt: new Date().toISOString() });
     localStorage.setItem("adin-feedback", JSON.stringify(old));
-    setDislikedMessages(prev => prev.includes(i) ? prev.filter(x=>x!==i) : [...prev, i]); 
-    setLikedMessages(prev => prev.filter(x=>x!==i)); 
-    toast.success("Feedback saved"); 
+    setDislikedMessages(prev => prev.includes(i) ? prev.filter(x=>x!==i) : [...prev, i]);
+    setLikedMessages(prev => prev.filter(x=>x!==i));
+    toast.success("Feedback saved");
   };
-  
-  const deleteChat = (id: number) => { 
-    const newHistory = chatHistory.filter(c=>c.id!==id); 
-    const newMsgs = {...chatMessages}; 
-    delete newMsgs[id]; 
-    setChatHistory(sortChats(newHistory)); 
-    setChatMessages(newMsgs); 
-    if(currentChatId===id){ 
-      setCurrentChatId(null); 
-      setMessages([]); 
-    } 
-    toast.success("Chat deleted"); 
+
+  const deleteChat = (id: number) => {
+    const newHistory = chatHistory.filter(c=>c.id!==id);
+    const newMsgs = {...chatMessages};
+    delete newMsgs[id];
+    setChatHistory(sortChats(newHistory));
+    setChatMessages(newMsgs);
+    if(currentChatId===id){
+      setCurrentChatId(null);
+      setMessages([]);
+    }
+    toast.success("Chat deleted");
   };
-  
-  const pinChat = (id: number) => { 
-    const updated = chatHistory.map(c=>c.id===id?{...c, pinned:!c.pinned}:c); 
-    setChatHistory(sortChats(updated)); 
-    localStorage.setItem("adin-history", JSON.stringify(sortChats(updated))); 
+
+  const pinChat = (id: number) => {
+    const updated = chatHistory.map(c=>c.id===id?{...c, pinned:!c.pinned}:c);
+    setChatHistory(sortChats(updated));
+    localStorage.setItem("adin-history", JSON.stringify(sortChats(updated)));
   };
-  
-  const saveRename = (id: number) => { 
-    if(!renameValue.trim()) return; 
-    const updated = chatHistory.map(c=>c.id===id?{...c, title:renameValue}:c); 
-    setChatHistory(sortChats(updated)); 
-    setEditingChatId(null); 
-    setRenameValue(""); 
-    toast.success("Renamed"); 
+
+  const saveRename = (id: number) => {
+    if(!renameValue.trim()) return;
+    const updated = chatHistory.map(c=>c.id===id?{...c, title:renameValue}:c);
+    setChatHistory(sortChats(updated));
+    setEditingChatId(null);
+    setRenameValue("");
+    toast.success("Renamed");
   };
-  
+
   const saveEditedMessage = async (idx: number) => {
     const updated = [...messages]; updated[idx].text = editText;
     const sliced = updated.slice(0, idx+1);
@@ -841,16 +974,16 @@ export default function App() {
       setChatMessages(prev => ({ ...prev, [currentChatId!]: final }));
     } catch (err) { console.log(err); toast.error("Error"); } finally { setLoading(false); }
   };
-  
+
   const sendMessage = async (retry?: string) => {
     if (isSendingRef.current) return;
-    
+
     const finalInput = retry || input;
-    
+
     if (!finalInput.trim() && pendingFiles.length === 0) return;
-    
+
     isSendingRef.current = true;
-    
+
     localStorage.removeItem("adin-draft-input");
     let activeId = currentChatId;
     if(!activeId){
@@ -859,31 +992,31 @@ export default function App() {
       setChatHistory(sortChats([first, ...chatHistory]));
       setCurrentChatId(activeId);
     }
-    
+
     let fullMessage = finalInput;
-    
+
     const filesToSend = [...pendingFiles];
     if (filesToSend.length > 0) {
       filesToSend.forEach(file => {
         fullMessage += `\n\nFile: ${file.name}\nContent:\n${file.content}`;
       });
     }
-    
+
     setPendingFiles([]);
     fileUploadRef.current?.clearFile();
     setInput("");
-    
-    const userMsg: MessageType = { 
-      role: "user", 
+
+    const userMsg: MessageType = {
+      role: "user",
       text: fullMessage,
       files: filesToSend
     };
-    
+
     const updated = [...messages, userMsg];
     setMessages(updated);
     setLoading(true);
     setChatMessages(prev => ({ ...prev, [activeId!]: updated }));
-    
+
     try {
       const res = await sendToAI(updated, aiMemory, webEnabled, userId);
       const data = await res.json();
@@ -892,22 +1025,22 @@ export default function App() {
       setMessages(final);
       setChatMessages(prev => ({ ...prev, [activeId!]: final }));
       if(userId !== "anonymous" && aiText) await saveMemoryFromResponse(userId, finalInput, aiText);
-    } catch(err) { 
-      console.log(err); 
-      toast.error("Connection Error"); 
-    } finally { 
-      setLoading(false); 
+    } catch(err) {
+      console.log(err);
+      toast.error("Connection Error");
+    } finally {
+      setLoading(false);
       isSendingRef.current = false;
     }
   };
-  
-  const newChat = () => { 
-    setCurrentChatId(null); 
-    setMessages([]); 
-    setInput(""); 
+
+  const newChat = () => {
+    setCurrentChatId(null);
+    setMessages([]);
+    setInput("");
     setPendingFiles([]);
     fileUploadRef.current?.clearFile();
-    localStorage.removeItem("adin-draft-input"); 
+    localStorage.removeItem("adin-draft-input");
   };
 
   const renderAIChat = () => {
@@ -923,13 +1056,13 @@ export default function App() {
               <p className="mt-2 text-sm text-gray-500">How can I help you today?</p>
             </div>
           )}
-          
+
           {messages.map((m,i)=>(
             <div key={i} className={`group relative mb-3 flex ${m.role==="user" ? "justify-end" : "justify-start"}`}>
               <div className={`max-w-[75%] ${m.role==="user" ? "order-1" : "order-1"}`}>
                 <div className={`rounded-xl px-3 py-2 ${
-                  m.role==="user" 
-                    ? "bg-gradient-to-r from-purple-600 to-blue-500 text-white" 
+                  m.role==="user"
+                    ? "bg-gradient-to-r from-purple-600 to-blue-500 text-white"
                     : "bg-zinc-900 border border-zinc-800"
                 }`}>
                   {editingMessage===i ? (
@@ -962,7 +1095,7 @@ export default function App() {
                     </div>
                   )}
                 </div>
-                
+
                 <div className="flex gap-1.5 mt-1 opacity-0 group-hover:opacity-100 transition">
                   <button onClick={()=>copyMessage(m.text,i)} className="p-1 hover:bg-gray-800 rounded">
                     {copiedIndex===i ? <Check size={10} className="text-green-400"/> : <Copy size={10} className="text-gray-400"/>}
@@ -988,7 +1121,7 @@ export default function App() {
               </div>
             </div>
           ))}
-          
+
           {(pendingFiles.length > 0) && (
             <div className="mb-2 p-2 bg-gray-800/50 rounded-lg">
               <div className="flex flex-wrap gap-2">
@@ -1004,7 +1137,7 @@ export default function App() {
               </div>
             </div>
           )}
-          
+
           {(loading) && (
             <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 max-w-[150px]">
               <div className="flex gap-1.5">
@@ -1016,31 +1149,31 @@ export default function App() {
           )}
           <div ref={messagesEndRef}/>
         </div>
-        
+
         <div className="p-3 border-t border-zinc-900 shrink-0">
           <div className="max-w-4xl mx-auto">
             <div className="flex gap-2 mb-2">
-              <FileUpload 
+              <FileUpload
                 ref={fileUploadRef}
-                onFileUploaded={handleFileUpload} 
+                onFileUploaded={handleFileUpload}
               />
             </div>
-            
+
             <div className="flex gap-2">
-              <VoiceMic 
+              <VoiceMic
                 onTranscript={handleVoiceTranscript}
                 isDisabled={loading}
               />
-              <input 
-                value={input} 
-                onChange={e=>setInput(e.target.value)} 
-                onKeyDown={e=>e.key==="Enter" && !loading && sendMessage()} 
-                placeholder="Message Adin AI..." 
+              <input
+                value={input}
+                onChange={e=>setInput(e.target.value)}
+                onKeyDown={e=>e.key==="Enter" && !loading && sendMessage()}
+                placeholder="Message Adin AI..."
                 className="flex-1 h-10 rounded-lg bg-zinc-950 border border-zinc-800 px-3 text-sm text-white outline-none focus:border-purple-500"
               />
-              <button 
-                onClick={() => sendMessage()} 
-                disabled={loading} 
+              <button
+                onClick={() => sendMessage()}
+                disabled={loading}
                 className="h-10 px-4 rounded-lg bg-gradient-to-r from-purple-600 to-blue-500 disabled:opacity-50 text-white text-sm font-medium hover:scale-105 transition-transform"
               >
                 Send
@@ -1054,134 +1187,178 @@ export default function App() {
 
   const recentChats = chatHistory.filter(chat => !chat.pinned);
 
-  // ✅ Show loading screen while Clerk is loading
-  if (!isUserLoaded) {
-    return <LoadingScreen />;
+  // ✅ Show Onboarding if not completed
+  if (!isOnboardingComplete) {
+    return <Onboarding onComplete={handleOnboardingComplete} />;
   }
+
+  // ✅ Show loading screen while checking guest session
+  if (!isGuest) {
+    return <Login />;
+  }
+
+  // ✅ Premium Avatar Component - Only Avatar, Click to Open Dropdown
+  const PremiumAvatar = () => {
+    const displayName = userName || "User";
+    const avatarLetter = getAvatarLetter(displayName);
+    const avatarColor = getAvatarColor(displayName);
+
+    return (
+      <div className="relative" ref={profileRef}>
+        {/* Avatar Button - Click to toggle dropdown */}
+        <button
+          onClick={() => setIsProfileOpen(!isProfileOpen)}
+          className="relative group focus:outline-none"
+        >
+          <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${avatarColor} flex items-center justify-center text-white font-semibold text-sm shadow-lg shadow-purple-500/20 ring-2 ring-white/10 backdrop-blur-sm transition-all duration-300 hover:scale-105 hover:ring-2 hover:ring-purple-500/50`}>
+            {avatarLetter}
+          </div>
+        </button>
+
+        {/* Dropdown Menu */}
+        {isProfileOpen && (
+          <div className="absolute right-0 top-12 w-64 rounded-xl bg-zinc-900/95 border border-zinc-800/50 backdrop-blur-sm shadow-2xl shadow-black/50 overflow-hidden z-50 animate-slide-down">
+            <div className="p-4 border-b border-zinc-800/50">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${avatarColor} flex items-center justify-center text-white font-semibold text-sm shadow-lg shadow-purple-500/20 ring-2 ring-white/10`}>
+                  {avatarLetter}
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-white">{displayName}</div>
+                  <div className="text-xs text-zinc-400">Member</div>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={handleGuestLogout}
+              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-400 hover:bg-red-400/10 transition-colors duration-200"
+            >
+              <LogOut size={16} />
+              <span>Logout</span>
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <>
       {/* ✅ SEO: Global Head with Structured Data */}
-      <SEOHead 
+      <SEOHead
         title="Free CV Builder & Cover Letter Maker"
         description="Create professional CV and cover letter free with Adin AI. Best free CV builder and cover letter maker online. AI-powered resume builder, document management, and career assistant."
         canonicalUrl="https://adin-ai.com/"
         ogType="website"
       />
-      
+
       {/* ✅ JSON-LD Structured Data for Home Page */}
       <script type="application/ld+json">
         {generateJSONLDScript(generatePageSchemas("home"))}
       </script>
 
       <Toaster position="top-right" />
-      <SignedOut>
-        {window.location.pathname === "/signup" ? <Signup /> : <Login />}
-      </SignedOut>
-      <SignedIn>
-        <div className="w-screen h-screen flex bg-black text-white overflow-hidden">
-          {/* ✅ Workspace Page */}
-          {currentPage === 'workspace' ? (
-            <div className="w-full h-full flex flex-col">
-              <div className="h-[56px] flex justify-between items-center px-5 border-b border-zinc-900 shrink-0 bg-black/50">
-                <div></div>
-                <div className="flex items-center gap-3">
-                  <div className="px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 text-xs flex items-center gap-1">
-                    <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></div>
-                    <span>Ready</span>
-                  </div>
-                  <UserButton />
+
+      <div className="w-screen h-screen flex bg-black text-white overflow-hidden">
+        {/* ✅ Workspace Page */}
+        {currentPage === 'workspace' ? (
+          <div className="w-full h-full flex flex-col">
+            <div className="h-[56px] flex justify-between items-center px-5 border-b border-zinc-900 shrink-0 bg-black/50">
+              <div></div>
+              <div className="flex items-center gap-3">
+                <div className="px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 text-xs flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></div>
+                  <span>Ready</span>
                 </div>
-              </div>
-              <Suspense fallback={<LoadingScreen />}>
-                <WorkspacePage 
-                  onNavigate={handleWorkspaceNavigate} 
-                  userId={userId} 
-                />
-              </Suspense>
-            </div>
-          ) : currentPage === 'templates' ? (
-            <div className="w-full h-full flex flex-col">
-              <Suspense fallback={<LoadingScreen />}>
-                <CVTemplatesPage 
-                  onBackToHome={navigateToWorkspace}
-                  onTemplateSelect={handleTemplateSelect}
-                />
-              </Suspense>
-            </div>
-          ) : currentPage === 'cover-templates' ? (
-            <div className="w-full h-full flex flex-col">
-              <Suspense fallback={<LoadingScreen />}>
-                <CoverTemplatesPage 
-                  onBackToHome={navigateToWorkspace}
-                  onTemplateSelect={handleCoverTemplateSelect}
-                />
-              </Suspense>
-            </div>
-          ) : currentPage === 'founder' ? (
-            <div className="w-full h-full flex flex-col">
-              <Suspense fallback={<LoadingScreen />}>
-                <Founder />
-              </Suspense>
-            </div>
-          ) : currentPage === 'legal' ? (
-            /* ✅ LEGAL PAGES (Privacy Policy, Terms of Service, Contact) */
-            <div className="w-full h-full flex flex-col">
-              <Suspense fallback={<LoadingScreen />}>
-                {active === "Privacy Policy" && <PrivacyPolicy />}
-                {active === "Terms of Service" && <TermsOfService />}
-                {active === "Contact" && <Contact />}
-              </Suspense>
-            </div>
-          ) : currentPage === 'app' ? (
-            /* ✅ APP PAGES (CV Builder, Cover Letter) - NO HEADER */
-            <div className="w-full flex-1 flex flex-col">
-              <div className="flex-1 overflow-hidden">
-                {active === "CV Builder" ? (
-                  <Suspense fallback={<LoadingScreen />}>
-                    <CVBuilder 
-                      userId={userId} 
-                      onBackToHome={navigateToTemplates}
-                      initialTemplateId={selectedTemplateId || undefined}
-                    />
-                  </Suspense>
-                ) : active === "Cover Letter" ? (
-                  <Suspense fallback={<LoadingScreen />}>
-                    <CoverLetter 
-                      onBackToHome={navigateToCoverTemplates}
-                      initialTemplateId={selectedCoverTemplateId || undefined}
-                    />
-                  </Suspense>
-                ) : (
-                  <div className="flex items-center justify-center h-full text-gray-500">
-                    <p>Loading...</p>
-                  </div>
-                )}
+                <PremiumAvatar />
               </div>
             </div>
-          ) : (
-            /* ✅ FALLBACK - Workspace */
-            <div className="w-full h-full flex flex-col">
-              <div className="h-[56px] flex justify-between items-center px-5 border-b border-zinc-900 shrink-0 bg-black/50">
-                <div></div>
-                <div className="flex items-center gap-3">
-                  <div className="px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 text-xs flex items-center gap-1">
-                    <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></div>
-                    <span>Ready</span>
-                  </div>
-                  <UserButton />
+            <Suspense fallback={<LoadingScreen />}>
+              <WorkspacePage
+                onNavigate={handleWorkspaceNavigate}
+                userId={userId}
+              />
+            </Suspense>
+          </div>
+        ) : currentPage === 'templates' ? (
+          <div className="w-full h-full flex flex-col">
+            <Suspense fallback={<LoadingScreen />}>
+              <CVTemplatesPage
+                onBackToHome={navigateToWorkspace}
+                onTemplateSelect={handleTemplateSelect}
+              />
+            </Suspense>
+          </div>
+        ) : currentPage === 'cover-templates' ? (
+          <div className="w-full h-full flex flex-col">
+            <Suspense fallback={<LoadingScreen />}>
+              <CoverTemplatesPage
+                onBackToHome={navigateToWorkspace}
+                onTemplateSelect={handleCoverTemplateSelect}
+              />
+            </Suspense>
+          </div>
+        ) : currentPage === 'founder' ? (
+          <div className="w-full h-full flex flex-col">
+            <Suspense fallback={<LoadingScreen />}>
+              <Founder />
+            </Suspense>
+          </div>
+        ) : currentPage === 'legal' ? (
+          <div className="w-full h-full flex flex-col">
+            <Suspense fallback={<LoadingScreen />}>
+              {active === "Privacy Policy" && <PrivacyPolicy />}
+              {active === "Terms of Service" && <TermsOfService />}
+              {active === "Contact" && <Contact />}
+            </Suspense>
+          </div>
+        ) : currentPage === 'app' ? (
+          <div className="w-full flex-1 flex flex-col">
+            <div className="flex-1 overflow-hidden">
+              {active === "CV Builder" ? (
+                <Suspense fallback={<LoadingScreen />}>
+                  <CVBuilder
+                    userId={userId}
+                    onBackToHome={navigateToTemplates}
+                    initialTemplateId={selectedTemplateId || undefined}
+                  />
+                </Suspense>
+              ) : active === "Cover Letter" ? (
+                <Suspense fallback={<LoadingScreen />}>
+                  <CoverLetter
+                    onBackToHome={navigateToCoverTemplates}
+                    initialTemplateId={selectedCoverTemplateId || undefined}
+                  />
+                </Suspense>
+              ) : (
+                <div className="flex items-center justify-center h-full text-gray-500">
+                  <p>Loading...</p>
                 </div>
-              </div>
-              <Suspense fallback={<LoadingScreen />}>
-                <WorkspacePage 
-                  onNavigate={handleWorkspaceNavigate} 
-                  userId={userId} 
-                />
-              </Suspense>
+              )}
             </div>
-          )}
-        </div>
-      </SignedIn>
+          </div>
+        ) : (
+          /* ✅ FALLBACK - Workspace */
+          <div className="w-full h-full flex flex-col">
+            <div className="h-[56px] flex justify-between items-center px-5 border-b border-zinc-900 shrink-0 bg-black/50">
+              <div></div>
+              <div className="flex items-center gap-3">
+                <div className="px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 text-xs flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></div>
+                  <span>Ready</span>
+                </div>
+                <PremiumAvatar />
+              </div>
+            </div>
+            <Suspense fallback={<LoadingScreen />}>
+              <WorkspacePage
+                onNavigate={handleWorkspaceNavigate}
+                userId={userId}
+              />
+            </Suspense>
+          </div>
+        )}
+      </div>
     </>
   );
 }

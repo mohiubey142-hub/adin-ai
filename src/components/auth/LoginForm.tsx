@@ -1,6 +1,5 @@
 // src/components/auth/LoginForm.tsx
 import { useState, useEffect, useRef } from "react";
-import { useSignIn } from "@clerk/clerk-react";
 import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
 import { GoogleButton } from "./GoogleButton";
@@ -9,7 +8,13 @@ import { Toast } from "../ui/Toast";
 // ✅ Email validation regex
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
-export const LoginForm = () => {
+interface LoginFormProps {
+  onGuestEntry?: (name: string) => void;
+  isLoading?: boolean;
+}
+
+export const LoginForm = ({ onGuestEntry, isLoading: externalLoading }: LoginFormProps) => {
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [emailError, setEmailError] = useState("");
@@ -19,15 +24,13 @@ export const LoginForm = () => {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [toastType, setToastType] = useState<"success" | "error" | "info">("error");
-  
-  const { signIn, isLoaded } = useSignIn();
-  
-  // ✅ Auto-focus on email input
-  const emailInputRef = useRef<HTMLInputElement>(null);
-  
+
+  // ✅ Auto-focus on name input
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
-    if (emailInputRef.current) {
-      emailInputRef.current.focus();
+    if (nameInputRef.current) {
+      nameInputRef.current.focus();
     }
   }, []);
 
@@ -50,54 +53,67 @@ export const LoginForm = () => {
     validateEmail(value);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // ✅ Check if form is valid (name required + email valid + password)
+  const isFormValid = () => {
+    return name.trim().length > 0 && EMAIL_REGEX.test(email) && password.length > 0;
+  };
+
+  // ✅ Guest Entry Handler for "Continue" button
+  const handleGuestSignIn = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    
+
+    // ✅ Validate name
+    if (!name.trim()) {
+      setError("Please enter your name");
+      return;
+    }
+
     // ✅ Validate email before submit
     if (!EMAIL_REGEX.test(email)) {
       setEmailError("Please enter a valid email address");
       return;
     }
 
-    setIsLoading(true);
+    // ✅ Show welcome toast then trigger guest entry with name
+    setToastMessage(`Welcome, ${name.trim()}! 🎉`);
+    setToastType("success");
+    setShowToast(true);
 
-    if (!isLoaded) {
-      setIsLoading(false);
+    // ✅ Call parent guest entry handler after toast
+    setTimeout(() => {
+      if (onGuestEntry) {
+        onGuestEntry(name.trim());
+      }
+    }, 600);
+  };
+
+  // ✅ Guest Entry Handler for Google button
+  const handleGoogleGuestEntry = () => {
+    setIsGoogleLoading(true);
+
+    // ✅ Validate name before Google entry
+    if (!name.trim()) {
+      setError("Please enter your name");
+      setIsGoogleLoading(false);
       return;
     }
 
-    try {
-      const result = await signIn.create({
-        identifier: email,
-        password,
-      });
+    // ✅ Show welcome toast
+    setToastMessage(`Welcome, ${name.trim()}! 🎉`);
+    setToastType("success");
+    setShowToast(true);
 
-      if (result.status === "complete") {
-        setToastMessage("Welcome back! 🎉");
-        setToastType("success");
-        setShowToast(true);
-        
-        setTimeout(() => {
-          window.location.href = "/";
-        }, 1000);
-      } else {
-        setError("Invalid email or password");
+    // ✅ Call parent guest entry handler after toast
+    setTimeout(() => {
+      setIsGoogleLoading(false);
+      if (onGuestEntry) {
+        onGuestEntry(name.trim());
       }
-    } catch (err: any) {
-      // ✅ Better error handling with rate limiting
-      const errorCode = err.errors?.[0]?.code;
-      if (errorCode === "too_many_requests") {
-        setError("Too many failed attempts. Please try again in a few minutes.");
-      } else if (errorCode === "form_identifier_not_found") {
-        setError("No account found with this email. Please sign up first.");
-      } else {
-        setError(err.errors?.[0]?.message || "Something went wrong");
-      }
-    } finally {
-      setIsLoading(false);
-    }
+    }, 600);
   };
+
+  const combinedLoading = isLoading || isGoogleLoading || externalLoading || false;
 
   return (
     <>
@@ -116,14 +132,17 @@ export const LoginForm = () => {
       <div className="w-full max-w-md mx-auto p-6">
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-white tracking-tight">
-            Sign in to Adin AI
+            Welcome to Adin AI
           </h2>
           <p className="text-[#a1a1aa] text-sm mt-1">
-            Welcome back! Please sign in to continue
+            Enter your name to get started
           </p>
         </div>
 
-        <GoogleButton onLoadingChange={setIsGoogleLoading} />
+        {/* ✅ Google Button - Now triggers Guest Entry with name */}
+        <div onClick={handleGoogleGuestEntry}>
+          <GoogleButton onLoadingChange={setIsGoogleLoading} />
+        </div>
 
         <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
@@ -136,9 +155,20 @@ export const LoginForm = () => {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {/* ✅ Sign In form - Now triggers Guest Entry with name */}
+        <form onSubmit={handleGuestSignIn} className="space-y-4">
+          {/* ✅ NEW: Your Name field - Required */}
           <Input
-            ref={emailInputRef}
+            ref={nameInputRef}
+            type="text"
+            label="Your Name"
+            placeholder="Enter your name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+
+          <Input
             type="email"
             label="Email address"
             placeholder="name@example.com"
@@ -167,18 +197,18 @@ export const LoginForm = () => {
             type="submit"
             variant="primary"
             fullWidth
-            isLoading={isLoading || isGoogleLoading}
-            disabled={isLoading || isGoogleLoading || !!emailError}
+            isLoading={combinedLoading}
+            disabled={combinedLoading || !isFormValid()}
           >
-            Sign In
+            Continue
           </Button>
         </form>
 
         <div className="mt-6 text-center">
           <p className="text-[#71717a] text-sm">
             Don't have an account?{" "}
-            <a 
-              href="/signup" 
+            <a
+              href="/signup"
               className="text-[#8b5cf6] hover:text-[#a78bfa] font-medium transition-colors"
             >
               Sign up
@@ -188,7 +218,7 @@ export const LoginForm = () => {
 
         <div className="mt-4 text-center">
           <p className="text-[#52525b] text-xs">
-            Secure by Clerk
+            Secure by Adin AI
           </p>
         </div>
       </div>
