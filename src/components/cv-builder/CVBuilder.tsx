@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { Toaster } from 'react-hot-toast';
 import { 
@@ -23,7 +23,7 @@ import { getStrengthStatus } from './utils/atsCalculator';
 import { generateTextPDF } from './utils/pdfGeneratorText';
 
 // Hooks
-import { useSections } from './hooks/useSections';
+// ⚠️ useSections REMOVED - replaced with direct useState for localStorage persistence
 import { useAutoSave } from './hooks/useAutoSave';
 import { useValidation } from './hooks/useValidation';
 import { useScoreCalculation } from './hooks/useScoreCalculation';
@@ -85,19 +85,15 @@ const CVBuilder: React.FC<CVBuilderProps> = ({ userId, initialTemplateId, onBack
     const [step, setStep] = useState(() => savedData?.step || 1);
     
     // ✅ FIXED: Template state with initialTemplateId override
-    // Supported templates: modern, classic, minimal, executive, creative, academic
     const validTemplates = ['modern', 'classic', 'minimal', 'executive', 'creative', 'academic'];
     
     const [template, setTemplate] = useState<'modern' | 'classic' | 'minimal' | 'executive' | 'creative' | 'academic'>(() => {
-        // 1️⃣ FIRST: Check if initialTemplateId is provided (from Gallery)
         if (initialTemplateId && validTemplates.includes(initialTemplateId)) {
             return initialTemplateId as any;
         }
-        // 2️⃣ SECOND: Check if savedData has a template
         if (savedData?.template && validTemplates.includes(savedData.template)) {
             return savedData.template;
         }
-        // 3️⃣ DEFAULT: 'modern'
         return 'modern';
     });
     
@@ -139,34 +135,213 @@ const CVBuilder: React.FC<CVBuilderProps> = ({ userId, initialTemplateId, onBack
     const previewRef = useRef<HTMLDivElement>(null);
     
     // ============================================
-    // 3. SECTIONS HOOK
+    // 3. SECTIONS STATE - ✅ FIXED: Direct useState with savedData
+    // useSections REMOVED - it was causing data loss on refresh
     // ============================================
-    const sections = useSections(savedData);
-    const {
-        experiences, setExperiences,
-        addExperience, removeExperience, updateExperience,
-        educations, setEducations,
-        addEducation, removeEducation, updateEducation,
-        projects, setProjects,
-        addProject, removeProject, updateProject,
-        certifications, setCertifications,
-        addCertification, removeCertification, updateCertification,
-        languages, setLanguages,
-        addLanguage, removeLanguage, updateLanguage,
-        achievements, setAchievements,
-        addAchievement, removeAchievement, updateAchievement,
-    } = sections;
     
+    // Experiences
+    const [experiences, setExperiences] = useState(() => {
+        if (savedData?.experiences && Array.isArray(savedData.experiences)) {
+            return savedData.experiences;
+        }
+        return [];
+    });
+    
+    const addExperience = () => {
+        const newExp = {
+            id: Date.now().toString(),
+            title: '',
+            company: '',
+            startDate: '',
+            endDate: '',
+            description: '',
+            location: '',
+            currentlyWorking: false,
+            highlights: []
+        };
+        setExperiences(prev => [...prev, newExp]);
+    };
+    
+    const removeExperience = (index: number) => {
+        setExperiences(prev => prev.filter((_, i) => i !== index));
+    };
+    
+    const updateExperience = (index: number, field: string, value: any) => {
+        setExperiences(prev => prev.map((exp, i) => 
+            i === index ? { ...exp, [field]: value } : exp
+        ));
+    };
+    
+    // Educations
+    const [educations, setEducations] = useState(() => {
+        if (savedData?.educations && Array.isArray(savedData.educations)) {
+            return savedData.educations;
+        }
+        return [];
+    });
+    
+    const addEducation = () => {
+        const newEdu = {
+            id: Date.now().toString(),
+            degree: '',
+            institution: '',
+            startDate: '',
+            endDate: '',
+            description: '',
+            location: '',
+            currentlyStudying: false
+        };
+        setEducations(prev => [...prev, newEdu]);
+    };
+    
+    const removeEducation = (index: number) => {
+        setEducations(prev => prev.filter((_, i) => i !== index));
+    };
+    
+    const updateEducation = (index: number, field: string, value: any) => {
+        setEducations(prev => prev.map((edu, i) => 
+            i === index ? { ...edu, [field]: value } : edu
+        ));
+    };
+    
+    // Projects
+    const [projects, setProjects] = useState(() => {
+        if (savedData?.projects && Array.isArray(savedData.projects)) {
+            return savedData.projects;
+        }
+        return [];
+    });
+    
+    const addProject = () => {
+        const newProject = {
+            id: Date.now().toString(),
+            name: '',
+            description: '',
+            technologies: [],
+            link: '',
+            startDate: '',
+            endDate: ''
+        };
+        setProjects(prev => [...prev, newProject]);
+    };
+    
+    const removeProject = (index: number) => {
+        setProjects(prev => prev.filter((_, i) => i !== index));
+    };
+    
+    const updateProject = (index: number, field: string, value: any) => {
+        setProjects(prev => prev.map((proj, i) => 
+            i === index ? { ...proj, [field]: value } : proj
+        ));
+    };
+    
+    // Certifications
+    const [certifications, setCertifications] = useState(() => {
+        if (savedData?.certifications && Array.isArray(savedData.certifications)) {
+            return savedData.certifications;
+        }
+        return [];
+    });
+    
+    const addCertification = () => {
+        const newCert = {
+            id: Date.now().toString(),
+            name: '',
+            issuer: '',
+            date: '',
+            link: '',
+            credentialId: ''
+        };
+        setCertifications(prev => [...prev, newCert]);
+    };
+    
+    const removeCertification = (index: number) => {
+        setCertifications(prev => prev.filter((_, i) => i !== index));
+    };
+    
+    const updateCertification = (index: number, field: string, value: any) => {
+        setCertifications(prev => prev.map((cert, i) => 
+            i === index ? { ...cert, [field]: value } : cert
+        ));
+    };
+    
+    // Languages
+    const [languages, setLanguages] = useState(() => {
+        if (savedData?.languages && Array.isArray(savedData.languages)) {
+            return savedData.languages;
+        }
+        return [];
+    });
+    
+    const addLanguage = () => {
+        const newLang = {
+            id: Date.now().toString(),
+            language: '',
+            proficiency: ''
+        };
+        setLanguages(prev => [...prev, newLang]);
+    };
+    
+    const removeLanguage = (index: number) => {
+        setLanguages(prev => prev.filter((_, i) => i !== index));
+    };
+    
+    const updateLanguage = (index: number, field: string, value: any) => {
+        setLanguages(prev => prev.map((lang, i) => 
+            i === index ? { ...lang, [field]: value } : lang
+        ));
+    };
+    
+    // Achievements
+    const [achievements, setAchievements] = useState(() => {
+        if (savedData?.achievements && Array.isArray(savedData.achievements)) {
+            return savedData.achievements;
+        }
+        return [];
+    });
+    
+    const addAchievement = () => {
+        const newAch = {
+            id: Date.now().toString(),
+            title: '',
+            description: '',
+            date: ''
+        };
+        setAchievements(prev => [...prev, newAch]);
+    };
+    
+    const removeAchievement = (index: number) => {
+        setAchievements(prev => prev.filter((_, i) => i !== index));
+    };
+    
+    const updateAchievement = (index: number, field: string, value: any) => {
+        setAchievements(prev => prev.map((ach, i) => 
+            i === index ? { ...ach, [field]: value } : ach
+        ));
+    };
+    
+    // Skills
     const [skills, setSkills] = useState(() => savedData?.skills || '');
     
     // ============================================
-    // 4. VALIDATION HOOK
+    // ✅ NEW: Filter complete experiences for PDF/ATS
+    // ============================================
+    const isExperienceComplete = (exp: any): boolean => {
+        return !!(exp.title?.trim() && exp.company?.trim() && exp.startDate?.trim() && exp.endDate?.trim() && exp.description?.trim());
+    };
+    
+    const getCompleteExperiences = useMemo(() => {
+        return experiences.filter(exp => isExperienceComplete(exp));
+    }, [experiences]);
+    
+    // ============================================
+    // 4. VALIDATION HOOK - Use complete experiences
     // ============================================
     const validation = useValidation(
         personalInfo,
         phoneNumber,
         selectedCountryCode,
-        experiences,
+        getCompleteExperiences,
         educations,
         projects,
         skills,
@@ -188,12 +363,12 @@ const CVBuilder: React.FC<CVBuilderProps> = ({ userId, initialTemplateId, onBack
     } = validation;
     
     // ============================================
-    // 5. SCORE CALCULATION HOOK
+    // 5. SCORE CALCULATION HOOK - Use complete experiences
     // ============================================
     const scores = useScoreCalculation(
         personalInfo,
         phoneNumber,
-        experiences,
+        getCompleteExperiences,
         educations,
         projects,
         skills,
@@ -264,7 +439,7 @@ const CVBuilder: React.FC<CVBuilderProps> = ({ userId, initialTemplateId, onBack
         selectedCountryCode,
         educations,
         skills,
-        experiences,
+        getCompleteExperiences,
         hasReachedPreview,
         areRequiredSectionsComplete,
         validateStep
@@ -303,7 +478,7 @@ const CVBuilder: React.FC<CVBuilderProps> = ({ userId, initialTemplateId, onBack
     const { clearAllData, restoreOriginalSummary, updatePersonalInfo, handlePhoneChange, handlePhotoUpload } = cvActions;
     
     // ============================================
-    // 9. AI ACTIONS - ✅ FIXED: applyAIEnhancement added
+    // 9. AI ACTIONS
     // ============================================
     const aiActions = createAIActions(
         personalInfo,
@@ -340,13 +515,13 @@ const CVBuilder: React.FC<CVBuilderProps> = ({ userId, initialTemplateId, onBack
     // 10. DOWNLOAD ACTIONS - WITH FEEDBACK TRIGGER
     // ============================================
     
-    // ✅ STEP 1: Define downloadActions FIRST
+    // ✅ STEP 1: Define downloadActions using complete experiences
     const downloadActions = createDownloadActions(
         personalInfo,
         phoneNumber,
         selectedCountryCode,
         professionalSummary,
-        experiences,
+        getCompleteExperiences,
         educations,
         projects,
         certifications,
@@ -362,16 +537,10 @@ const CVBuilder: React.FC<CVBuilderProps> = ({ userId, initialTemplateId, onBack
     
     // ✅ STEP 3: Create wrapper functions with feedback - FEATURE-SPECIFIC
     const handleDownloadPDF = async () => {
-        // ✅ FEATURE-SPECIFIC: Pass 'cv-builder' source
         const shouldShow = shouldShowFeedback('cv-builder');
-        
-        // Download PDF
         await downloadPDF();
-        
-        // ✅ Show feedback modal if should show
         if (shouldShow) {
             setFeedbackSourceKey('cv-builder');
-            // Small delay to let PDF download start
             setTimeout(() => {
                 setShowFeedbackModal(true);
             }, 500);
@@ -810,7 +979,7 @@ const CVBuilder: React.FC<CVBuilderProps> = ({ userId, initialTemplateId, onBack
                     setShowFeedbackModal(false);
                     markFeedbackShown('cv-builder');
                 }}
-                onMinimize={handleMinimize} // ✅ NEW: Minimize to widget
+                onMinimize={handleMinimize}
                 source="cv-builder"
                 sourceKey="cv-builder"
             />

@@ -1,5 +1,5 @@
 // App.tsx - Complete updated file with SEO & Lazy Loading + Founder Profile + Legal Pages (No 404)
-import { useState, useEffect, useRef, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, lazy, Suspense, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 // ❌ Clerk removed - Guest Mode only
 import Login from "./Login";
@@ -468,6 +468,41 @@ export default function App() {
   const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false);
   const profileRef = useRef<HTMLDivElement>(null);
 
+  // ✅ CRITICAL FIX: Stable userId that persists across page refreshes
+  // This solves the localStorage data loss bug
+  const userId = useMemo(() => {
+    // First, check if we have a stored userId
+    const storedUserId = localStorage.getItem('adin-guest-user-id');
+    if (storedUserId) {
+      console.log('✅ Restored userId from localStorage:', storedUserId);
+      return storedUserId;
+    }
+    
+    // If no stored userId, check if we have a session
+    const session = localStorage.getItem('adin-guest-session');
+    if (session) {
+      try {
+        const parsed = JSON.parse(session);
+        // Create userId from session timestamp for consistency
+        if (parsed.guestCreatedAt) {
+          const timestamp = new Date(parsed.guestCreatedAt).getTime();
+          const newUserId = "guest_" + timestamp.toString(36);
+          localStorage.setItem('adin-guest-user-id', newUserId);
+          console.log('✅ Created userId from session:', newUserId);
+          return newUserId;
+        }
+      } catch (e) {
+        console.error('Failed to parse session:', e);
+      }
+    }
+    
+    // Create brand new userId
+    const newUserId = "guest_" + Date.now().toString(36);
+    localStorage.setItem('adin-guest-user-id', newUserId);
+    console.log('✅ Created new userId:', newUserId);
+    return newUserId;
+  }, []);
+
   // ✅ Page state - Workspace is default
   const [currentPage, setCurrentPage] = useState<'workspace' | 'app' | 'templates' | 'cover-templates' | 'founder' | 'legal'>('workspace');
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
@@ -511,7 +546,6 @@ export default function App() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileUploadRef = useRef<FileUploadRef>(null);
   const loaded = useRef(false);
-  const userId = "guest_" + Date.now().toString(36);
   const isSendingRef = useRef(false);
 
   // ✅ Close profile dropdown on outside click
@@ -618,6 +652,7 @@ export default function App() {
     localStorage.removeItem("adin-guest-session");
     localStorage.removeItem("adin_user_name");
     localStorage.removeItem("adin-onboarding-completed");
+    localStorage.removeItem("adin-guest-user-id");
     setIsGuest(false);
     setIsOnboardingComplete(false);
     setUserName("User");

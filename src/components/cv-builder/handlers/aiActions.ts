@@ -1,3 +1,5 @@
+// src/components/cv-builder/handlers/aiActions.ts
+
 import toast from 'react-hot-toast';
 import { 
     enhanceUserSkills, 
@@ -9,9 +11,26 @@ import {
 import { 
     aiEnhancerOptions 
 } from '../constants/aiConfig';
+import { ExperienceItem } from '../types/cvTypes';
 
 // ============================================
-// 8 AI ENHANCEMENT FUNCTIONS (Restored)
+// HELPER: Minimum Delay for Professional Loading
+// ============================================
+const withMinimumDelay = async <T,>(
+    promise: Promise<T>,
+    minDelay: number = 3000
+): Promise<T> => {
+    const startTime = Date.now();
+    const result = await promise;
+    const elapsed = Date.now() - startTime;
+    if (elapsed < minDelay) {
+        await new Promise(resolve => setTimeout(resolve, minDelay - elapsed));
+    }
+    return result;
+};
+
+// ============================================
+// 8 AI ENHANCEMENT FUNCTIONS
 // ============================================
 const enhanceProfessional = (text: string): string => {
     return text
@@ -104,7 +123,7 @@ const enhanceGrammar = (text: string): string => {
 };
 
 // ============================================
-// APPLY AI ENHANCEMENT - 8 Options
+// APPLY AI ENHANCEMENT - 8 Options (with loading)
 // ============================================
 const applyAIEnhancementLogic = (
     professionalSummary: string,
@@ -135,6 +154,7 @@ const applyAIEnhancementLogic = (
     setAiEnhancerLoading(type);
     toast.loading(`Applying ${type} enhancement...`, { id: 'ai-enhancer' });
     
+    // ✅ Minimum 3-second delay for professional feel
     setTimeout(() => {
         let enhancedText = professionalSummary;
         
@@ -181,12 +201,12 @@ const applyAIEnhancementLogic = (
             }
         });
         setAiEnhancerLoading(null);
-    }, 1200);
+    }, 3000); // ✅ Increased to 3 seconds
 };
 
 export const createAIActions = (
     personalInfo: any,
-    experiences: any[],
+    experiences: ExperienceItem[],
     educations: any[],
     projects: any[],
     skills: string,
@@ -206,6 +226,14 @@ export const createAIActions = (
     originalSummary: string,
     isEnhancerUsed: boolean
 ) => {
+
+    // ✅ Check if experience is valid before generating
+    const canGenerateForExperience = (exp: ExperienceItem): boolean => {
+        if (!exp.jobLevel || !exp.startDate || !exp.endDate) {
+            return true;
+        }
+        return exp.isValid !== false;
+    };
 
     // Skills Enhancement
     const enhanceSkills = () => {
@@ -307,7 +335,7 @@ export const createAIActions = (
         }, 1000);
     };
 
-    // AI Generate Summary
+    // ✅ AI Generate Summary - WITH MINIMUM 3-SECOND DELAY
     const handleAIGenerateSummary = async () => {
         const title = personalInfo.title;
         if (!title.trim()) {
@@ -319,6 +347,7 @@ export const createAIActions = (
                     border: '1px solid rgba(239, 68, 68, 0.3)',
                 }
             });
+            setAiGenerating(null);
             return;
         }
 
@@ -330,14 +359,18 @@ export const createAIActions = (
             const years = getYears(experiences);
             const skillsArray = skills ? skills.split(',').map(s => s.trim()).filter(s => s) : [];
             
-            const summary = await generateAISummary({
-                jobTitle: title,
-                company: personalInfo.company || '',
-                years: years,
-                profession: profession,
-                skills: skillsArray,
-                experiences: experiences
-            });
+            // ✅ Wrap with minimum 3-second delay
+            const summary = await withMinimumDelay(
+                generateAISummary({
+                    jobTitle: title,
+                    company: personalInfo.company || '',
+                    years: years,
+                    profession: profession,
+                    skills: skillsArray,
+                    experiences: experiences
+                }),
+                3000
+            );
 
             if (!originalSummary && !isEnhancerUsed) {
                 setOriginalSummary(professionalSummary);
@@ -379,8 +412,23 @@ export const createAIActions = (
         setAiGenerating(null);
     };
 
-    // AI Generate Experience
-    const handleAIGenerateExperience = async (index: number, exp: any) => {
+    // ✅ AI Generate Experience - WITH MINIMUM 3-SECOND DELAY + VALIDATION
+    const handleAIGenerateExperience = async (index: number, exp: ExperienceItem) => {
+        // ✅ Check validation first
+        if (!canGenerateForExperience(exp)) {
+            toast.error('Please fix the Experience Level mismatch before generating AI content.', {
+                position: 'top-center',
+                duration: 4000,
+                style: {
+                    background: '#1a1a2e',
+                    color: '#fff',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                }
+            });
+            setAiGenerating(null);
+            return;
+        }
+
         if (!exp.title.trim() || !exp.company.trim()) {
             toast.error('Please add job title and company first', {
                 position: 'top-center',
@@ -390,6 +438,7 @@ export const createAIActions = (
                     border: '1px solid rgba(239, 68, 68, 0.3)',
                 }
             });
+            setAiGenerating(null);
             return;
         }
 
@@ -398,12 +447,17 @@ export const createAIActions = (
 
         try {
             const level = getLevel(exp.title, 0);
-            const bullets = await generateAIExperienceBullets({
-                title: exp.title,
-                company: exp.company,
-                description: exp.description,
-                level: level
-            });
+            
+            // ✅ Wrap with minimum 3-second delay
+            const bullets = await withMinimumDelay(
+                generateAIExperienceBullets({
+                    title: exp.title,
+                    company: exp.company,
+                    description: exp.description,
+                    level: level
+                }),
+                3000
+            );
 
             const updated = [...experiences];
             updated[index].description = bullets.join('\n');
@@ -446,22 +500,48 @@ export const createAIActions = (
         setAiGenerating(null);
     };
 
-    // Generate Description for field
+    // ✅ Generate Description for field - WITH MINIMUM 3-SECOND DELAY + VALIDATION
     const generateDescriptionForField = async (type: 'experience' | 'project' | 'achievement' | 'summary', index?: number, currentData?: any) => {
+        // ✅ Check validation for experience
+        if (type === 'experience' && currentData) {
+            if (!canGenerateForExperience(currentData)) {
+                toast.error('Please fix the Experience Level mismatch before generating AI content.', {
+                    position: 'top-center',
+                    duration: 4000,
+                    style: {
+                        background: '#1a1a2e',
+                        color: '#fff',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                    }
+                });
+                return;
+            }
+        }
+
         setGenerating(true);
         toast.loading(`Generating professional ${type} content...`, { id: 'desc' });
         
-        setTimeout(() => {
-            const generatedDesc = generateDescriptionFromData({
-                type,
-                jobTitle: personalInfo.title,
-                companyName: type === 'experience' && currentData?.company,
-                projectName: type === 'project' && currentData?.name,
-                achievementTitle: type === 'achievement' && currentData?.title,
-                currentStartDate: type === 'experience' && currentData?.startDate,
-                currentEndDate: type === 'experience' && currentData?.endDate,
-                userData: { personalInfo, experiences, educations, projects, skills, certifications, achievements }
+        // ✅ Wrap with minimum 3-second delay
+        const generateContent = async (): Promise<string> => {
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    const generatedDesc = generateDescriptionFromData({
+                        type,
+                        jobTitle: personalInfo.title,
+                        companyName: type === 'experience' && currentData?.company,
+                        projectName: type === 'project' && currentData?.name,
+                        achievementTitle: type === 'achievement' && currentData?.title,
+                        currentStartDate: type === 'experience' && currentData?.startDate,
+                        currentEndDate: type === 'experience' && currentData?.endDate,
+                        userData: { personalInfo, experiences, educations, projects, skills, certifications, achievements }
+                    });
+                    resolve(generatedDesc);
+                }, 1500);
             });
+        };
+
+        try {
+            const generatedDesc = await withMinimumDelay(generateContent(), 3000);
             
             if (type === 'summary') {
                 setProfessionalSummary(generatedDesc);
@@ -489,8 +569,19 @@ export const createAIActions = (
                     border: '1px solid rgba(168, 85, 247, 0.3)',
                 }
             });
-            setGenerating(false);
-        }, 1500);
+        } catch (error) {
+            toast.error('Failed to generate content', {
+                id: 'desc',
+                position: 'top-center',
+                duration: 3000,
+                style: {
+                    background: '#1a1a2e',
+                    color: '#fff',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                }
+            });
+        }
+        setGenerating(false);
     };
 
     // ✅ AI ENHANCER - 8 Options (applyAIEnhancement)
@@ -508,7 +599,7 @@ export const createAIActions = (
     };
 
     // Helper functions
-    const getYears = (experiences: any[]): number => {
+    const getYears = (experiences: ExperienceItem[]): number => {
         if (!experiences || experiences.length === 0) return 0;
         const currentYear = new Date().getFullYear();
         let totalYears = 0;
@@ -545,8 +636,9 @@ export const createAIActions = (
         handleAIGenerateSummary,
         handleAIGenerateExperience,
         generateDescriptionForField,
-        applyAIEnhancement,  // ✅ ADDED: AI Enhancer function
+        applyAIEnhancement,
         getYears,
-        getLevel
+        getLevel,
+        canGenerateForExperience,
     };
 };

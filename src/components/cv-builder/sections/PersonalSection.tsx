@@ -1,6 +1,6 @@
 // PersonalSection.tsx - Phone Input with Dynamic Hint + Image Cropper
 
-import React, { RefObject, useState } from 'react';
+import React, { RefObject, useState, useRef, useEffect } from 'react';
 import { PersonalInfo } from '../types/cvTypes';
 import { countryCodes } from '../constants/cvDefaults';
 import { validatePhoneNumber, formatPhoneNumber, getCountryFormat } from '../utils/phoneValidation';
@@ -38,10 +38,17 @@ const PersonalSection: React.FC<PersonalSectionProps> = ({
 }) => {
     const currentCountry = countryCodes.find(c => c.code === selectedCountryCode);
     const [emailSuggestion, setEmailSuggestion] = useState<string | null>(null);
+    const titleInputRef = useRef<HTMLInputElement>(null);
 
     // ✅ Image Cropper State
     const [isCropModalOpen, setIsCropModalOpen] = useState(false);
     const [tempImage, setTempImage] = useState<string | null>(null);
+
+    // ✅ Job Level State - Clean version (Junior, Mid, Senior)
+    const [selectedLevel, setSelectedLevel] = useState<string>(() => {
+        // Restore from personalInfo if exists
+        return personalInfo.jobLevel || '';
+    });
 
     // ✅ Get dynamic placeholder based on country
     const getPhonePlaceholder = (): string => {
@@ -89,6 +96,165 @@ const PersonalSection: React.FC<PersonalSectionProps> = ({
         }
     };
 
+    // ✅ Clean level text (remove "Level" word)
+    const getCleanLevel = (level: string): string => {
+        if (!level) return '';
+        return level.replace(/\s*Level$/, '').trim();
+    };
+
+    // ✅ Get clean title (without level prefix)
+    const getCleanTitle = (fullTitle: string): string => {
+        if (!fullTitle) return '';
+        const levelPattern = /^(Junior|Mid|Senior)\s*/;
+        return fullTitle.replace(levelPattern, '');
+    };
+
+    // ✅ Get current level prefix to check
+    const getLevelPrefix = (level: string): string => {
+        if (!level) return '';
+        return getCleanLevel(level) + ' ';
+    };
+
+    // ✅ Handle level selection
+    const handleLevelChange = (level: string) => {
+        const cleanLevel = getCleanLevel(level);
+        setSelectedLevel(level);
+        updatePersonalInfo('jobLevel', level);
+        
+        // Get current clean title (without any level prefix)
+        const currentTitle = personalInfo.title || '';
+        const cleanTitle = getCleanTitle(currentTitle);
+        
+        // Build new title with clean level prefix
+        const newTitle = cleanLevel ? `${cleanLevel} ${cleanTitle}`.trim() : cleanTitle;
+        updatePersonalInfo('title', newTitle);
+        
+        // Focus on input after selection
+        setTimeout(() => {
+            if (titleInputRef.current) {
+                titleInputRef.current.focus();
+                const len = titleInputRef.current.value.length;
+                titleInputRef.current.setSelectionRange(len, len);
+            }
+        }, 50);
+    };
+
+    // ✅ Handle title change - user types in input
+    const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        const cleanLevel = getCleanLevel(selectedLevel);
+        
+        // If no level selected, just save the value
+        if (!cleanLevel) {
+            updatePersonalInfo('title', value);
+            return;
+        }
+
+        // Check if user is trying to remove the level prefix
+        const levelPattern = new RegExp(`^${cleanLevel}\\s+`);
+        
+        // If user typed something that doesn't start with level prefix
+        if (!value.startsWith(cleanLevel + ' ')) {
+            // User might be trying to remove the level
+            // Check if the value is empty or just whitespace
+            if (value.trim() === '') {
+                // User cleared everything - remove level
+                updatePersonalInfo('title', '');
+                return;
+            }
+            
+            // User typed something else - keep the level prefix
+            const cleanValue = value.replace(new RegExp(`^${cleanLevel}\\s*`), '');
+            const newTitle = cleanLevel + ' ' + cleanValue;
+            updatePersonalInfo('title', newTitle.trim());
+            
+            // Update cursor position to end
+            setTimeout(() => {
+                if (titleInputRef.current) {
+                    const len = titleInputRef.current.value.length;
+                    titleInputRef.current.setSelectionRange(len, len);
+                }
+            }, 0);
+        } else {
+            // User typed with level prefix - save as is
+            updatePersonalInfo('title', value);
+        }
+    };
+
+    // ✅ Handle keydown for backspace and space
+    const handleTitleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        const input = e.currentTarget;
+        const cleanLevel = getCleanLevel(selectedLevel);
+        
+        if (!cleanLevel) return;
+
+        // Handle Backspace
+        if (e.key === 'Backspace') {
+            const cursorPos = input.selectionStart || 0;
+            const value = input.value;
+            const levelPrefix = cleanLevel + ' ';
+            
+            // If cursor is at the beginning or within the level prefix
+            if (cursorPos <= levelPrefix.length) {
+                // Check if user wants to remove the level
+                const selectionStart = input.selectionStart || 0;
+                const selectionEnd = input.selectionEnd || 0;
+                
+                // If nothing selected or cursor at start of level
+                if (selectionStart === 0 && selectionEnd === 0) {
+                    // Allow backspace to work normally
+                    return;
+                }
+                
+                // If selecting within level prefix
+                if (selectionStart < levelPrefix.length) {
+                    // Don't let backspace delete the level prefix
+                    e.preventDefault();
+                    // Move cursor to end of level prefix
+                    input.setSelectionRange(levelPrefix.length, levelPrefix.length);
+                    return;
+                }
+            }
+        }
+
+        // Handle Space
+        if (e.key === ' ') {
+            // Allow space to work normally
+            // But prevent double spaces
+            const value = input.value;
+            const cursorPos = input.selectionStart || 0;
+            
+            // If cursor is at the end and value ends with space, prevent extra space
+            if (cursorPos === value.length && value.endsWith(' ')) {
+                e.preventDefault();
+                return;
+            }
+            
+            // Space bar always works
+            return;
+        }
+    };
+
+    // ✅ Get display title (what shows in input box)
+    const getDisplayTitle = (): string => {
+        if (!personalInfo.title) return '';
+        const cleanLevel = getCleanLevel(selectedLevel);
+        
+        // If no level selected, show clean title
+        if (!cleanLevel) {
+            return getCleanTitle(personalInfo.title);
+        }
+        
+        // If title starts with level, show as is
+        if (personalInfo.title.startsWith(cleanLevel + ' ')) {
+            return personalInfo.title;
+        }
+        
+        // Otherwise, add level prefix
+        const cleanTitle = getCleanTitle(personalInfo.title);
+        return cleanLevel + ' ' + cleanTitle;
+    };
+
     // ✅ Handle file selection - open cropper instead of saving directly
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -100,23 +266,11 @@ const PersonalSection: React.FC<PersonalSectionProps> = ({
             };
             reader.readAsDataURL(file);
         }
-        // Reset input so same file can be selected again
         e.target.value = '';
     };
 
     // ✅ Save cropped image
     const handleCropSave = (croppedImage: string) => {
-        // ✅ Replace the existing upload logic with cropped image
-        // This mimics the original handlePhotoUpload behavior but with cropped image
-        const event = {
-            target: {
-                files: [new File([croppedImage], 'profile.jpg', { type: 'image/jpeg' })]
-            }
-        } as unknown as React.ChangeEvent<HTMLInputElement>;
-        
-        // Use the original handlePhotoUpload with the cropped image
-        // Since handlePhotoUpload expects a file event, we need to convert
-        // Create a blob from base64
         fetch(croppedImage)
             .then(res => res.blob())
             .then(blob => {
@@ -136,6 +290,29 @@ const PersonalSection: React.FC<PersonalSectionProps> = ({
         setIsCropModalOpen(false);
     };
 
+    const levelOptions = [
+        { value: 'Junior', label: 'Junior Level' },
+        { value: 'Mid', label: 'Mid Level' },
+        { value: 'Senior', label: 'Senior Level' },
+    ];
+
+    // ✅ Sync title when personalInfo changes from outside
+    useEffect(() => {
+        if (selectedLevel && personalInfo.title) {
+            const cleanLevel = getCleanLevel(selectedLevel);
+            const cleanTitle = getCleanTitle(personalInfo.title);
+            const expectedTitle = cleanLevel + ' ' + cleanTitle;
+            
+            // If title doesn't match expected format, fix it
+            if (!personalInfo.title.startsWith(cleanLevel + ' ')) {
+                const fixedTitle = cleanLevel + ' ' + cleanTitle;
+                if (fixedTitle.trim() !== personalInfo.title) {
+                    updatePersonalInfo('title', fixedTitle.trim());
+                }
+            }
+        }
+    }, [selectedLevel, personalInfo.title]);
+
     return (
         <div className="space-y-5">
             <h2 className="text-xl font-semibold text-white mb-4">Personal Information</h2>
@@ -154,16 +331,43 @@ const PersonalSection: React.FC<PersonalSectionProps> = ({
                 {errors.name && <p className="text-xs text-red-400 mt-1">⚠ Full Name is required</p>}
             </div>
             
-            {/* Job Title - Required */}
+            {/* ✅ Job Title - Required with Level Dropdown */}
             <div>
                 <label className="text-sm text-gray-300 mb-1 block">Job Title <span className="text-red-400">*</span></label>
+                
+                {/* Level Dropdown */}
+                <div className="mb-2">
+                    <select
+                        value={selectedLevel}
+                        onChange={e => handleLevelChange(e.target.value)}
+                        className={`w-full p-3 rounded-xl bg-gray-800 border ${errors.title ? 'border-red-500' : 'border-gray-700'} text-white outline-none focus:border-purple-500 appearance-none`}
+                        style={{ textAlignLast: 'center' }}
+                    >
+                        <option value="">Select Level</option>
+                        {levelOptions.map(level => (
+                            <option key={level.value} value={level.value}>
+                                {level.label}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+                
+                {/* Job Title Input - Shows full title with level prefix */}
                 <input 
+                    ref={titleInputRef}
                     type="text" 
-                    placeholder="e.g., Software Engineer" 
-                    value={personalInfo.title} 
-                    onChange={e => updatePersonalInfo('title', e.target.value)} 
+                    placeholder={selectedLevel ? "e.g., Software Engineer" : "Select level first"}
+                    value={getDisplayTitle()} 
+                    onChange={handleTitleChange}
+                    onKeyDown={handleTitleKeyDown}
                     className={`w-full p-3 rounded-xl bg-gray-800 border ${errors.title ? 'border-red-500' : 'border-gray-700'} text-white outline-none focus:border-purple-500`} 
+                    disabled={!selectedLevel}
                 />
+                
+                {selectedLevel && !getCleanTitle(personalInfo.title) && (
+                    <p className="text-xs text-gray-500 mt-1">Type your job title (e.g., Software Engineer)</p>
+                )}
+                
                 {errors.title && <p className="text-xs text-red-400 mt-1">⚠ Job Title is required</p>}
             </div>
             
@@ -185,38 +389,45 @@ const PersonalSection: React.FC<PersonalSectionProps> = ({
                 )}
             </div>
             
-            {/* Phone Number - Required - FIXED with dynamic hint */}
+            {/* ✅ Phone Number - FIXED: Full width centered country select */}
             <div>
                 <label className="text-sm text-gray-300 mb-1 block">Phone Number <span className="text-red-400">*</span></label>
-                <div className="flex gap-2">
+                <div className="space-y-2">
+                    {/* Line 1: Dial code - Full width, centered text */}
                     <select 
                         value={selectedCountryCode} 
                         onChange={e => handleCountryChange(e.target.value)} 
-                        className="w-auto min-w-[130px] p-3 rounded-xl bg-gray-800 border border-gray-700 text-white outline-none focus:border-purple-500"
+                        className="w-full p-3 rounded-xl bg-gray-800 border border-gray-700 text-white text-center outline-none focus:border-purple-500 appearance-none"
+                        style={{ textAlignLast: 'center' }}
                     >
                         {countryCodes.map(cc => (
-                            <option key={cc.code} value={cc.code}>
+                            <option key={cc.code} value={cc.code} className="text-left">
                                 {cc.flag} {cc.dialCode} ({cc.country})
                             </option>
                         ))}
                     </select>
-                    <div className="flex-1">
-                        <input 
-                            type="tel" 
-                            placeholder={getPhonePlaceholder()} 
-                            value={phoneNumber} 
-                            onChange={e => handlePhoneInputChange(e.target.value)} 
-                            className={`w-full p-3 rounded-xl bg-gray-800 border ${(errors.phone || phoneError) && phoneNumber ? 'border-red-500' : 'border-gray-700'} text-white outline-none focus:border-purple-500`} 
-                        />
-                        {phoneNumber && phoneError && (
-                            <p className="text-xs text-red-400 mt-1 flex items-center gap-1">
-                                ⚠ {phoneError}
-                            </p>
-                        )}
-                        {phoneNumber && !phoneError && (
-                            <p className="text-xs text-green-400 mt-1 flex items-center gap-1">
-                                ✓ Valid {currentCountry?.country} number
-                            </p>
+                    
+                    {/* Line 2: Number input - Full width */}
+                    <input 
+                        type="tel" 
+                        placeholder={getPhonePlaceholder()} 
+                        value={phoneNumber} 
+                        onChange={e => handlePhoneInputChange(e.target.value)} 
+                        className={`w-full p-3 rounded-xl bg-gray-800 border ${(errors.phone || phoneError) && phoneNumber ? 'border-red-500' : 'border-gray-700'} text-white text-center outline-none focus:border-purple-500`} 
+                    />
+                    
+                    {/* Line 3: Validation message - Center aligned */}
+                    <div className="flex justify-center items-center gap-2">
+                        {phoneNumber ? (
+                            phoneError ? (
+                                <span className="text-xs text-red-400">⚠ {phoneError}</span>
+                            ) : (
+                                <span className="text-xs text-green-400">✓ Valid {currentCountry?.country} number</span>
+                            )
+                        ) : (
+                            <span className="text-xs text-gray-500">
+                                {currentCountry?.flag} {currentCountry?.country} • Example: {currentCountry?.example || "3123456789"}
+                            </span>
                         )}
                     </div>
                 </div>

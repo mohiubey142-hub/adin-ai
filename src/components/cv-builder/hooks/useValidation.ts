@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+// src/components/cv-builder/hooks/useValidation.ts
+
+import { useState, useEffect, useMemo } from 'react';
 import { 
     validatePersonalSection,
     validateExperienceSection,
@@ -11,13 +13,85 @@ import {
     validateSummarySection,
 } from '../utils/sectionValidator';
 import { validatePhoneNumber } from '../utils/phoneValidation';
-import { SectionStatus } from '../types/cvTypes';
+import { SectionStatus, ExperienceItem, ExperienceValidationResult, EXPERIENCE_LEVELS } from '../types/cvTypes';
+
+// ✅ Validate experience years
+const validateExperienceYearsFn = (level: string, startDate: string, endDate: string): ExperienceValidationResult => {
+    const defaultResult: ExperienceValidationResult = {
+        isValid: true,
+        years: 0,
+        expectedLevel: '',
+        selectedLevel: level,
+        message: ''
+    };
+
+    if (!level || !startDate || !endDate) {
+        return defaultResult;
+    }
+
+    const startYearMatch = startDate.match(/\d{4}/);
+    const endYearMatch = endDate.match(/\d{4}/);
+
+    if (!startYearMatch || !endYearMatch) {
+        return defaultResult;
+    }
+
+    const startYear = parseInt(startYearMatch[0]);
+    const endYear = parseInt(endYearMatch[0]);
+
+    if (startYear > endYear) {
+        return {
+            ...defaultResult,
+            isValid: false,
+            years: 0,
+            expectedLevel: '',
+            selectedLevel: level,
+            message: 'Start year cannot be after end year'
+        };
+    }
+
+    const years = endYear - startYear;
+    let expectedLevel = '';
+
+    if (years <= 2) expectedLevel = EXPERIENCE_LEVELS.JUNIOR;
+    else if (years >= 3 && years <= 6) expectedLevel = EXPERIENCE_LEVELS.MID;
+    else if (years >= 7) expectedLevel = EXPERIENCE_LEVELS.SENIOR;
+
+    const isValid = level === expectedLevel;
+
+    const levelDisplayNames: Record<string, string> = {
+        'Junior': 'Junior (0-2 years)',
+        'Mid': 'Mid Level (3-6 years)',
+        'Senior': 'Senior (7+ years)'
+    };
+
+    const expectedDisplay = levelDisplayNames[expectedLevel] || expectedLevel;
+
+    return {
+        isValid,
+        years,
+        expectedLevel,
+        selectedLevel: level,
+        message: isValid 
+            ? `✓ ${years} years matches ${level} level`
+            : `⚠ ${level} Level mismatch: ${years} years (Expected: ${expectedDisplay})`
+    };
+};
+
+// ✅ Validate a single experience item
+const validateExperienceItem = (exp: ExperienceItem): boolean => {
+    if (!exp.jobLevel || !exp.startDate || !exp.endDate) {
+        return true;
+    }
+    const result = validateExperienceYearsFn(exp.jobLevel, exp.startDate, exp.endDate);
+    return result.isValid;
+};
 
 export const useValidation = (
     personalInfo: any,
     phoneNumber: string,
     selectedCountryCode: string,
-    experiences: any[],
+    experiences: ExperienceItem[],
     educations: any[],
     projects: any[],
     skills: string,
@@ -30,6 +104,24 @@ export const useValidation = (
     const [phoneError, setPhoneError] = useState('');
     const [errors, setErrors] = useState({ name: false, title: false, email: false, phone: false });
     const [validationErrors, setValidationErrors] = useState<string[]>([]);
+
+    // ✅ NEW: Validate all experiences
+    const validatedExperiences = useMemo(() => {
+        return experiences.map(exp => ({
+            ...exp,
+            isValid: validateExperienceItem(exp)
+        }));
+    }, [experiences]);
+
+    // ✅ NEW: Check if all experiences are valid
+    const areAllExperiencesValid = useMemo(() => {
+        return validatedExperiences.every(exp => exp.isValid !== false);
+    }, [validatedExperiences]);
+
+    // ✅ NEW: Get only valid experiences for ATS
+    const validExperiences = useMemo(() => {
+        return validatedExperiences.filter(exp => exp.isValid !== false);
+    }, [validatedExperiences]);
 
     // Phone validation
     useEffect(() => {
@@ -151,5 +243,8 @@ export const useValidation = (
         clearValidationErrors,
         areRequiredSectionsComplete,
         validateStep,
+        validatedExperiences,
+        areAllExperiencesValid,
+        validExperiences,
     };
 };

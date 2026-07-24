@@ -1,9 +1,12 @@
+// src/components/cv-builder/hooks/useScoreCalculation.ts
+
 import { useMemo } from 'react';
+import { ExperienceItem } from '../types/cvTypes';
 
 export const useScoreCalculation = (
     personalInfo: any,
     phoneNumber: string,
-    experiences: any[],
+    experiences: ExperienceItem[],
     educations: any[],
     projects: any[],
     skills: string,
@@ -13,6 +16,18 @@ export const useScoreCalculation = (
     professionalSummary: string,
     selectedCountryCode: string
 ) => {
+    // ✅ Filter out invalid experiences for ATS
+    const validExperiencesForATS = useMemo(() => {
+        return experiences.filter(exp => {
+            // If no level selected, treat as valid
+            if (!exp.jobLevel) return true;
+            // If no dates, treat as valid
+            if (!exp.startDate || !exp.endDate) return true;
+            // Otherwise, check validation status
+            return exp.isValid !== false;
+        });
+    }, [experiences]);
+
     const calculatePersonalScore = (): number => {
         let score = 0;
         if (personalInfo.name?.trim()) score += 25;
@@ -23,7 +38,8 @@ export const useScoreCalculation = (
     };
 
     const calculateExperienceScore = (): number => {
-        const validExperiences = experiences.filter(exp => 
+        // ✅ Use only valid experiences for ATS
+        const validExperiences = validExperiencesForATS.filter(exp => 
             exp.title?.trim() && exp.company?.trim()
         );
         if (validExperiences.length === 0) return 0;
@@ -82,7 +98,6 @@ export const useScoreCalculation = (
     };
 
     const calculateCertificationsScore = (): number => {
-        // ✅ FIXED: Sirf name check karo, issuer optional hai
         const validCerts = certifications.filter(c => c.name?.trim());
         if (validCerts.length === 0) return 0;
         return Math.min(validCerts.length * 34, 100);
@@ -104,7 +119,7 @@ export const useScoreCalculation = (
         Languages: calculateLanguagesScore(),
         Certifications: calculateCertificationsScore(),
         Achievements: calculateAchievementsScore()
-    }), [personalInfo, phoneNumber, experiences, educations, projects, skills, languages, certifications, achievements, professionalSummary]);
+    }), [personalInfo, phoneNumber, validExperiencesForATS, educations, projects, skills, languages, certifications, achievements, professionalSummary]);
 
     const getATSBreakdown = () => {
         let keywords = 0;
@@ -158,7 +173,7 @@ export const useScoreCalculation = (
         const hasEducation = educations.some(e => e.degree?.trim() && e.institution?.trim());
         if (!hasEducation) suggestions.push('Add at least one education entry');
         
-        const hasExperience = experiences.some(e => e.title?.trim() && e.company?.trim());
+        const hasExperience = validExperiencesForATS.some(e => e.title?.trim() && e.company?.trim());
         if (!hasExperience) suggestions.push('Add work experience');
         
         if (!skills.trim()) suggestions.push('Add your skills');
@@ -170,7 +185,6 @@ export const useScoreCalculation = (
         const hasProjects = projects.some(p => p.name?.trim() && p.description?.trim());
         if (!hasProjects) suggestions.push('Add projects to showcase your work');
         
-        // ✅ FIXED: Sirf name check karo, issuer optional hai
         const hasCertifications = certifications.some(c => c.name?.trim());
         if (!hasCertifications) suggestions.push('Add certifications to boost credibility');
         

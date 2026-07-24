@@ -60,11 +60,7 @@ class ModernPDFGenerator extends PDFGeneratorBase {
     }
 
     async generate(): Promise<Blob> {
-        // ✅ FIXED: Adjusted vertical offset - moved content up by ~2.5mm (7.5 points)
-        // This shifts the ENTIRE printable content upward, reducing whitespace at top
-        const VERTICAL_OFFSET = -7.5; // ~2.5mm at 72dpi (3 points per mm)
-        
-        // Apply offset to current Y position
+        const VERTICAL_OFFSET = -7.5;
         this.currentY += VERTICAL_OFFSET;
         
         await this.renderHeader();
@@ -109,7 +105,20 @@ class ModernPDFGenerator extends PDFGeneratorBase {
         return minHeight + 2;
     }
 
-    // ✅ FIXED: renderHeader with proper spacing between name and title
+    // ✅ Helper to get label for contact type
+    private getContactLabel(type: string): string {
+        const labels: Record<string, string> = {
+            email: 'Email:',
+            phone: 'Phone:',
+            address: 'Address:',
+            linkedin: 'LinkedIn:',
+            github: 'GitHub:',
+            portfolio: 'Portfolio:'
+        };
+        return labels[type] || '';
+    }
+
+    // ✅ Render header with contact labels
     private async renderHeader(): Promise<void> {
         const { personalInfo, profilePhoto } = this.params;
         const photoSize = 28;
@@ -129,7 +138,6 @@ class ModernPDFGenerator extends PDFGeneratorBase {
                 const nameFontSize = this.theme.nameFontSize;
                 const titleFontSize = this.theme.jobTitleFontSize;
                 
-                // ✅ FIXED: Name moved 0.5 unit down (was imgY + 13, now imgY + 13.5)
                 const nameY = imgY + 13.5;
                 
                 this.pdf.setFontSize(nameFontSize);
@@ -139,9 +147,9 @@ class ModernPDFGenerator extends PDFGeneratorBase {
                 const nameLines = this.pdf.splitTextToSize(name, nameMaxWidth);
                 this.pdf.text(nameLines, nameX, nameY);
                 
-                // Title Y - tight gap
                 const nameHeight = nameLines.length * (nameFontSize * 0.35);
-                const titleY = nameY + nameHeight + 0.5;
+                // ✅ FIXED: Title 0.5 units up (removed +0.5)
+                const titleY = nameY + nameHeight;
                 
                 this.pdf.setFontSize(titleFontSize);
                 this.pdf.setFont('helvetica', 'normal');
@@ -152,20 +160,24 @@ class ModernPDFGenerator extends PDFGeneratorBase {
                 
                 this.currentY = imgY + photoSize + 6;
                 
+                // ✅ Build contact items with labels
+                const contactItems: string[] = [];
+                if (personalInfo.email) contactItems.push(`Email: ${this.cleanText(personalInfo.email)}`);
+                if (this.fullPhone) contactItems.push(`Phone: ${this.cleanText(this.fullPhone)}`);
+                if (personalInfo.address) contactItems.push(`Address: ${this.cleanText(personalInfo.address)}`);
+                if (personalInfo.linkedin) contactItems.push(`LinkedIn: ${this.cleanText(personalInfo.linkedin)}`);
+                if (personalInfo.github) contactItems.push(`GitHub: ${this.cleanText(personalInfo.github)}`);
+                if (personalInfo.portfolio) contactItems.push(`Portfolio: ${this.cleanText(personalInfo.portfolio)}`);
+                
+                const contactLine = contactItems.join('  |  ');
+                
                 this.pdf.setFontSize(this.theme.contactFontSize);
                 this.pdf.setFont('helvetica', 'normal');
                 this.pdf.setTextColor(this.colors.textLight[0], this.colors.textLight[1], this.colors.textLight[2]);
-                const contacts: string[] = [];
-                if (personalInfo.email) contacts.push(this.cleanText(personalInfo.email));
-                if (this.fullPhone) contacts.push(this.cleanText(this.fullPhone));
-                if (personalInfo.address) contacts.push(this.cleanText(personalInfo.address));
-                if (personalInfo.linkedin) contacts.push(`LinkedIn: ${this.cleanText(personalInfo.linkedin)}`);
-                if (personalInfo.github) contacts.push(`GitHub: ${this.cleanText(personalInfo.github)}`);
-                if (personalInfo.portfolio) contacts.push(`Portfolio: ${this.cleanText(personalInfo.portfolio)}`);
-                const contactLine = contacts.join('  |  ');
-                const contactLines = this.pdf.splitTextToSize(contactLine, this.maxLineWidth);
                 
+                const contactLines = this.pdf.splitTextToSize(contactLine, this.maxLineWidth);
                 const contactLineHeight = 5.8;
+                
                 for (let i = 0; i < contactLines.length; i++) {
                     this.pdf.text(contactLines[i], this.marginX, this.currentY + (i * contactLineHeight));
                 }
@@ -189,36 +201,50 @@ class ModernPDFGenerator extends PDFGeneratorBase {
                 this.addNewPage('');
             }
             
-            this.pdf.setFontSize(this.theme.nameFontSize);
+            const nameFontSize = this.theme.nameFontSize;
+            const titleFontSize = this.theme.jobTitleFontSize;
+            
+            // ✅ FIXED: Name 3 units down (was this.currentY, now this.currentY + 3)
+            const nameY = this.currentY + 3;
+            
+            this.pdf.setFontSize(nameFontSize);
             this.pdf.setFont('helvetica', 'bold');
             this.pdf.setTextColor(this.colors.primary[0], this.colors.primary[1], this.colors.primary[2]);
             const name = this.cleanText(personalInfo.name.toUpperCase() || 'YOUR NAME');
             const nameLines = this.pdf.splitTextToSize(name, this.maxLineWidth);
-            this.pdf.text(nameLines, this.marginX, this.currentY);
-            this.currentY += nameLines.length * (this.theme.nameFontSize * 0.38) + 1.5;
+            this.pdf.text(nameLines, this.marginX, nameY);
             
-            this.pdf.setFontSize(this.theme.jobTitleFontSize);
+            const nameHeight = nameLines.length * (nameFontSize * 0.38);
+            // ✅ FIXED: Title 0.5 units up (removed +1.5, now +1.0)
+            const titleY = nameY + nameHeight + 1.0;
+            
+            this.pdf.setFontSize(titleFontSize);
             this.pdf.setFont('helvetica', 'normal');
             this.pdf.setTextColor(this.colors.textLight[0], this.colors.textLight[1], this.colors.textLight[2]);
             const jobTitle = this.cleanText(personalInfo.title || 'JOB TITLE');
             const jobTitleLines = this.pdf.splitTextToSize(jobTitle, this.maxLineWidth);
-            this.pdf.text(jobTitleLines, this.marginX, this.currentY);
-            this.currentY += jobTitleLines.length * (this.theme.jobTitleFontSize * 0.38) + 2;
+            this.pdf.text(jobTitleLines, this.marginX, titleY);
+            
+            this.currentY = titleY + (jobTitleLines.length * (titleFontSize * 0.38)) + 2;
+            
+            // ✅ Build contact items with labels
+            const contactItems: string[] = [];
+            if (personalInfo.email) contactItems.push(`Email: ${this.cleanText(personalInfo.email)}`);
+            if (this.fullPhone) contactItems.push(`Phone: ${this.cleanText(this.fullPhone)}`);
+            if (personalInfo.address) contactItems.push(`Address: ${this.cleanText(personalInfo.address)}`);
+            if (personalInfo.linkedin) contactItems.push(`LinkedIn: ${this.cleanText(personalInfo.linkedin)}`);
+            if (personalInfo.github) contactItems.push(`GitHub: ${this.cleanText(personalInfo.github)}`);
+            if (personalInfo.portfolio) contactItems.push(`Portfolio: ${this.cleanText(personalInfo.portfolio)}`);
+            
+            const contactLine = contactItems.join('  |  ');
             
             this.pdf.setFontSize(this.theme.contactFontSize);
             this.pdf.setFont('helvetica', 'normal');
             this.pdf.setTextColor(this.colors.textLight[0], this.colors.textLight[1], this.colors.textLight[2]);
-            const contacts: string[] = [];
-            if (personalInfo.email) contacts.push(this.cleanText(personalInfo.email));
-            if (this.fullPhone) contacts.push(this.cleanText(this.fullPhone));
-            if (personalInfo.address) contacts.push(this.cleanText(personalInfo.address));
-            if (personalInfo.linkedin) contacts.push(`LinkedIn: ${this.cleanText(personalInfo.linkedin)}`);
-            if (personalInfo.github) contacts.push(`GitHub: ${this.cleanText(personalInfo.github)}`);
-            if (personalInfo.portfolio) contacts.push(`Portfolio: ${this.cleanText(personalInfo.portfolio)}`);
-            const contactLine = contacts.join('  |  ');
-            const contactLines = this.pdf.splitTextToSize(contactLine, this.maxLineWidth);
             
+            const contactLines = this.pdf.splitTextToSize(contactLine, this.maxLineWidth);
             const contactLineHeight = 5.8;
+            
             for (let i = 0; i < contactLines.length; i++) {
                 this.pdf.text(contactLines[i], this.marginX, this.currentY + (i * contactLineHeight));
             }
@@ -601,7 +627,7 @@ class ModernPDFGenerator extends PDFGeneratorBase {
         }
 
         // ============================================================
-        // ✅ FIXED: CERTIFICATIONS - Now comes BEFORE Languages
+        // CERTIFICATIONS
         // ============================================================
         const validCerts = certifications.filter(c => c.name?.trim());
         if (validCerts.length > 0) {
@@ -649,7 +675,7 @@ class ModernPDFGenerator extends PDFGeneratorBase {
         }
 
         // ============================================================
-        // ✅ FIXED: LANGUAGES - Now comes AFTER Certifications
+        // LANGUAGES
         // ============================================================
         const validLangs = languages.filter(l => l.language?.trim());
         if (validLangs.length > 0) {
@@ -709,8 +735,7 @@ class ModernPDFGenerator extends PDFGeneratorBase {
                 
                 achievementData.push({
                     title: titleText,
-                    bullets: bulletLines
-                });
+                    bullets: bulletLines                });
             }
             
             const headingHeight = 16;
