@@ -72,6 +72,62 @@ import {
   closeWidget
 } from '../../services/feedbackService';
 
+// ✅ Helper: Create default section item
+const createDefaultExperience = () => ({
+    id: Date.now().toString(),
+    title: '',
+    company: '',
+    startDate: '',
+    endDate: '',
+    description: '',
+    location: '',
+    currentlyWorking: false,
+    highlights: []
+});
+
+const createDefaultEducation = () => ({
+    id: Date.now().toString(),
+    degree: '',
+    institution: '',
+    startDate: '',
+    endDate: '',
+    description: '',
+    location: '',
+    currentlyStudying: false
+});
+
+const createDefaultProject = () => ({
+    id: Date.now().toString(),
+    name: '',
+    description: '',
+    technologies: [],
+    link: '',
+    startDate: '',
+    endDate: ''
+});
+
+const createDefaultCertification = () => ({
+    id: Date.now().toString(),
+    name: '',
+    issuer: '',
+    date: '',
+    link: '',
+    credentialId: ''
+});
+
+const createDefaultLanguage = () => ({
+    id: Date.now().toString(),
+    language: '',
+    proficiency: ''
+});
+
+const createDefaultAchievement = () => ({
+    id: Date.now().toString(),
+    title: '',
+    description: '',
+    date: ''
+});
+
 // ✅ UPDATED: Props now include initialTemplateId and onBackToHome
 const CVBuilder: React.FC<CVBuilderProps> = ({ userId, initialTemplateId, onBackToHome }) => {
     // ============================================
@@ -136,29 +192,20 @@ const CVBuilder: React.FC<CVBuilderProps> = ({ userId, initialTemplateId, onBack
     
     // ============================================
     // 3. SECTIONS STATE - ✅ FIXED: Direct useState with savedData
-    // useSections REMOVED - it was causing data loss on refresh
+    // ✅ FIXED: Default to ONE item when savedData is empty
     // ============================================
     
-    // Experiences
+    // Experiences - ✅ FIXED: Default to ONE item
     const [experiences, setExperiences] = useState(() => {
-        if (savedData?.experiences && Array.isArray(savedData.experiences)) {
+        if (savedData?.experiences && Array.isArray(savedData.experiences) && savedData.experiences.length > 0) {
             return savedData.experiences;
         }
-        return [];
+        // ✅ Return ONE default item instead of empty array
+        return [createDefaultExperience()];
     });
     
     const addExperience = () => {
-        const newExp = {
-            id: Date.now().toString(),
-            title: '',
-            company: '',
-            startDate: '',
-            endDate: '',
-            description: '',
-            location: '',
-            currentlyWorking: false,
-            highlights: []
-        };
+        const newExp = createDefaultExperience();
         setExperiences(prev => [...prev, newExp]);
     };
     
@@ -172,25 +219,16 @@ const CVBuilder: React.FC<CVBuilderProps> = ({ userId, initialTemplateId, onBack
         ));
     };
     
-    // Educations
+    // Educations - ✅ FIXED: Default to ONE item
     const [educations, setEducations] = useState(() => {
-        if (savedData?.educations && Array.isArray(savedData.educations)) {
+        if (savedData?.educations && Array.isArray(savedData.educations) && savedData.educations.length > 0) {
             return savedData.educations;
         }
-        return [];
+        return [createDefaultEducation()];
     });
     
     const addEducation = () => {
-        const newEdu = {
-            id: Date.now().toString(),
-            degree: '',
-            institution: '',
-            startDate: '',
-            endDate: '',
-            description: '',
-            location: '',
-            currentlyStudying: false
-        };
+        const newEdu = createDefaultEducation();
         setEducations(prev => [...prev, newEdu]);
     };
     
@@ -204,24 +242,16 @@ const CVBuilder: React.FC<CVBuilderProps> = ({ userId, initialTemplateId, onBack
         ));
     };
     
-    // Projects
+    // Projects - ✅ FIXED: Default to ONE item
     const [projects, setProjects] = useState(() => {
-        if (savedData?.projects && Array.isArray(savedData.projects)) {
+        if (savedData?.projects && Array.isArray(savedData.projects) && savedData.projects.length > 0) {
             return savedData.projects;
         }
-        return [];
+        return [createDefaultProject()];
     });
     
     const addProject = () => {
-        const newProject = {
-            id: Date.now().toString(),
-            name: '',
-            description: '',
-            technologies: [],
-            link: '',
-            startDate: '',
-            endDate: ''
-        };
+        const newProject = createDefaultProject();
         setProjects(prev => [...prev, newProject]);
     };
     
@@ -235,23 +265,16 @@ const CVBuilder: React.FC<CVBuilderProps> = ({ userId, initialTemplateId, onBack
         ));
     };
     
-    // Certifications
+    // Certifications - ✅ FIXED: Default to ONE item
     const [certifications, setCertifications] = useState(() => {
-        if (savedData?.certifications && Array.isArray(savedData.certifications)) {
+        if (savedData?.certifications && Array.isArray(savedData.certifications) && savedData.certifications.length > 0) {
             return savedData.certifications;
         }
-        return [];
+        return [createDefaultCertification()];
     });
     
     const addCertification = () => {
-        const newCert = {
-            id: Date.now().toString(),
-            name: '',
-            issuer: '',
-            date: '',
-            link: '',
-            credentialId: ''
-        };
+        const newCert = createDefaultCertification();
         setCertifications(prev => [...prev, newCert]);
     };
     
@@ -265,20 +288,16 @@ const CVBuilder: React.FC<CVBuilderProps> = ({ userId, initialTemplateId, onBack
         ));
     };
     
-    // Languages
+    // Languages - ✅ FIXED: Default to ONE item
     const [languages, setLanguages] = useState(() => {
-        if (savedData?.languages && Array.isArray(savedData.languages)) {
+        if (savedData?.languages && Array.isArray(savedData.languages) && savedData.languages.length > 0) {
             return savedData.languages;
         }
-        return [];
+        return [createDefaultLanguage()];
     });
     
     const addLanguage = () => {
-        const newLang = {
-            id: Date.now().toString(),
-            language: '',
-            proficiency: ''
-        };
+        const newLang = createDefaultLanguage();
         setLanguages(prev => [...prev, newLang]);
     };
     
@@ -292,21 +311,16 @@ const CVBuilder: React.FC<CVBuilderProps> = ({ userId, initialTemplateId, onBack
         ));
     };
     
-    // Achievements
+    // Achievements - ✅ FIXED: Default to ONE item
     const [achievements, setAchievements] = useState(() => {
-        if (savedData?.achievements && Array.isArray(savedData.achievements)) {
+        if (savedData?.achievements && Array.isArray(savedData.achievements) && savedData.achievements.length > 0) {
             return savedData.achievements;
         }
-        return [];
+        return [createDefaultAchievement()];
     });
     
     const addAchievement = () => {
-        const newAch = {
-            id: Date.now().toString(),
-            title: '',
-            description: '',
-            date: ''
-        };
+        const newAch = createDefaultAchievement();
         setAchievements(prev => [...prev, newAch]);
     };
     
