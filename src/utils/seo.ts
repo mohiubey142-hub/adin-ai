@@ -1,23 +1,25 @@
 // ============================================
 // seo.ts - Structured Data (JSON-LD) Utilities
-// For: Google, Bing, DuckDuckGo, Brave, Yahoo
-// And AI Crawlers: ChatGPT, Gemini, Claude, Perplexity
+// PRODUCTION READY - All Schemas
 // ============================================
 
 interface OrganizationSchemaProps {
-  name: string;
-  url: string;
+  name?: string;
+  url?: string;
   logo?: string;
   description?: string;
   sameAs?: string[];
   email?: string;
   phone?: string;
+  foundingDate?: string;
+  founder?: string;
+  brandName?: string;
 }
 
 interface WebApplicationSchemaProps {
-  name: string;
-  url: string;
-  description: string;
+  name?: string;
+  url?: string;
+  description?: string;
   applicationCategory?: string;
   operatingSystem?: string;
   browserRequirements?: string;
@@ -28,6 +30,7 @@ interface WebApplicationSchemaProps {
   author?: string;
   datePublished?: string;
   dateModified?: string;
+  image?: string;
 }
 
 interface BreadcrumbSchemaProps {
@@ -43,35 +46,44 @@ interface ArticleSchemaProps {
   description: string;
   url: string;
   image?: string;
-  authorName: string;
+  authorName?: string;
   datePublished: string;
   dateModified?: string;
 }
 
 // ============================================
-// GENERATE ORGANIZATION SCHEMA
+// ✅ ORGANIZATION SCHEMA
 // ============================================
 
 export function generateOrganizationSchema({
   name = "Adin AI",
   url = "https://adin-ai.com/",
   logo = "https://adin-ai.com/logo.png",
-  description = "Free AI-powered CV builder and cover letter maker platform.",
+  description = "Free AI-powered CV builder and cover letter maker platform. Pakistan's leading career assistant for students, freelancers, and professionals.",
   sameAs = [
     "https://twitter.com/adin_ai",
     "https://linkedin.com/company/adin-ai"
   ],
   email = "support@adin-ai.com",
   phone = "",
+  foundingDate = "2025",
+  founder = "Kian Mercer (Ghulam MohiyuDin)",
+  brandName = "Adin AI"
 }: OrganizationSchemaProps = {}) {
   return {
     "@context": "https://schema.org",
     "@type": "Organization",
     name,
+    "alternateName": brandName,
     url,
     logo,
     description,
     sameAs,
+    foundingDate,
+    founder: {
+      "@type": "Person",
+      name: founder
+    },
     ...(email && { email }),
     ...(phone && { telephone: phone }),
     contactPoint: {
@@ -84,7 +96,56 @@ export function generateOrganizationSchema({
 }
 
 // ============================================
-// GENERATE WEB APPLICATION SCHEMA
+// ✅ WEBSITE SCHEMA
+// ============================================
+
+export function generateWebsiteSchema({
+  name = "Adin AI",
+  url = "https://adin-ai.com/",
+  description = "Free AI-powered career platform. Create professional CV, cover letters, and get AI career assistance."
+}: { name?: string; url?: string; description?: string } = {}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name,
+    url,
+    description,
+    potentialAction: {
+      "@type": "SearchAction",
+      target: {
+        "@type": "EntryPoint",
+        urlTemplate: "https://adin-ai.com/search?q={search_term_string}"
+      },
+      "query-input": "required name=search_term_string"
+    }
+  };
+}
+
+// ============================================
+// ✅ BRAND SCHEMA
+// ============================================
+
+export function generateBrandSchema({
+  name = "Adin AI",
+  logo = "https://adin-ai.com/logo.png",
+  description = "Pakistan's leading AI career assistant platform."
+}: { name?: string; logo?: string; description?: string } = {}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Brand",
+    name,
+    logo,
+    description,
+    aggregateRating: {
+      "@type": "AggregateRating",
+      ratingValue: 4.8,
+      ratingCount: 1250
+    }
+  };
+}
+
+// ============================================
+// ✅ WEB APPLICATION SCHEMA
 // ============================================
 
 export function generateWebApplicationSchema({
@@ -100,7 +161,8 @@ export function generateWebApplicationSchema({
   ratingCount = 1250,
   author = "Adin AI",
   datePublished = "2025-01-01",
-  dateModified = "2026-07-17",
+  dateModified = "2026-07-24",
+  image = "https://adin-ai.com/og-image.png"
 }: WebApplicationSchemaProps = {}) {
   return {
     "@context": "https://schema.org",
@@ -108,6 +170,7 @@ export function generateWebApplicationSchema({
     name,
     url,
     description,
+    image,
     applicationCategory,
     operatingSystem,
     browserRequirements,
@@ -133,7 +196,7 @@ export function generateWebApplicationSchema({
 }
 
 // ============================================
-// GENERATE BREADCRUMB SCHEMA
+// ✅ BREADCRUMB SCHEMA
 // ============================================
 
 export function generateBreadcrumbSchema({
@@ -152,7 +215,7 @@ export function generateBreadcrumbSchema({
 }
 
 // ============================================
-// GENERATE FAQ SCHEMA
+// ✅ FAQ SCHEMA
 // ============================================
 
 export function generateFAQSchema({
@@ -173,7 +236,7 @@ export function generateFAQSchema({
 }
 
 // ============================================
-// GENERATE ARTICLE SCHEMA
+// ✅ ARTICLE SCHEMA
 // ============================================
 
 export function generateArticleSchema({
@@ -214,85 +277,7 @@ export function generateArticleSchema({
 }
 
 // ============================================
-// GENERATE DEFAULT SCHEMA (ALL IN ONE)
-// ============================================
-
-export function generateDefaultSchemas() {
-  return [
-    generateOrganizationSchema(),
-    generateWebApplicationSchema(),
-    generateBreadcrumbSchema({
-      items: [
-        { name: "Home", url: "https://adin-ai.com/" },
-        { name: "CV Builder", url: "https://adin-ai.com/cv-builder" },
-        { name: "Cover Letter", url: "https://adin-ai.com/cover-letter" }
-      ]
-    })
-  ];
-}
-
-// ============================================
-// GENERATE CV BUILDER SCHEMA
-// ============================================
-
-export function generateCVBuilderSchema() {
-  return {
-    "@context": "https://schema.org",
-    "@type": "WebPage",
-    name: "Free CV Builder - Create Professional Resume Online",
-    description: "Build your professional CV for free with Adin AI. Choose from multiple templates, add your experience, and download PDF.",
-    url: "https://adin-ai.com/cv-builder",
-    about: {
-      "@type": "Thing",
-      name: "CV Builder"
-    },
-    mainEntity: {
-      "@type": "WebApplication",
-      name: "CV Builder",
-      description: "Free online CV builder with professional templates",
-      applicationCategory: "Career Application",
-      operatingSystem: "All",
-      offers: {
-        "@type": "Offer",
-        price: "0",
-        priceCurrency: "USD"
-      }
-    }
-  };
-}
-
-// ============================================
-// GENERATE COVER LETTER SCHEMA
-// ============================================
-
-export function generateCoverLetterSchema() {
-  return {
-    "@context": "https://schema.org",
-    "@type": "WebPage",
-    name: "Free Cover Letter Maker - Professional Cover Letters",
-    description: "Create professional cover letters for free with Adin AI. AI-powered cover letter generator with multiple templates.",
-    url: "https://adin-ai.com/cover-letter",
-    about: {
-      "@type": "Thing",
-      name: "Cover Letter Maker"
-    },
-    mainEntity: {
-      "@type": "WebApplication",
-      name: "Cover Letter Maker",
-      description: "Free online cover letter generator with professional templates",
-      applicationCategory: "Career Application",
-      operatingSystem: "All",
-      offers: {
-        "@type": "Offer",
-        price: "0",
-        priceCurrency: "USD"
-      }
-    }
-  };
-}
-
-// ============================================
-// ✅ NEW: GENERATE PERSON SCHEMA (FOUNDER)
+// ✅ PERSON SCHEMA (Founder)
 // ============================================
 
 export function generatePersonSchema() {
@@ -301,7 +286,7 @@ export function generatePersonSchema() {
     "@type": "Person",
     "name": "Kian Mercer",
     "alternateName": "Ghulam MohiyuDin",
-    "description": "Founder of Adin AI - AI-Powered Career Platform. 16-year-old AI product builder from Pakistan.",
+    "description": "Founder of Adin AI - Pakistan's AI-Powered Career Platform. 16-year-old AI product builder from Mananwala, Sheikhupura.",
     "url": "https://adin-ai.com/founder",
     "jobTitle": "Founder & CEO",
     "worksFor": {
@@ -344,7 +329,83 @@ export function generatePersonSchema() {
 }
 
 // ============================================
-// HELPER: JSON-LD SCRIPT STRING
+// ✅ DEFAULT SCHEMAS (All in One)
+// ============================================
+
+export function generateDefaultSchemas() {
+  return [
+    generateOrganizationSchema(),
+    generateWebsiteSchema(),
+    generateBrandSchema(),
+    generateWebApplicationSchema(),
+    generateBreadcrumbSchema({
+      items: [
+        { name: "Home", url: "https://adin-ai.com/" },
+        { name: "CV Builder", url: "https://adin-ai.com/cv-builder" },
+        { name: "Cover Letter", url: "https://adin-ai.com/cover-letter" }
+      ]
+    })
+  ];
+}
+
+// ============================================
+// ✅ PAGE SPECIFIC SCHEMAS
+// ============================================
+
+export function generateCVBuilderSchema() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: "Free CV Builder - Create Professional Resume Online",
+    description: "Build your professional CV for free with Adin AI. Choose from multiple templates, add your experience, and download PDF.",
+    url: "https://adin-ai.com/cv-builder",
+    about: {
+      "@type": "Thing",
+      name: "CV Builder"
+    },
+    mainEntity: {
+      "@type": "WebApplication",
+      name: "CV Builder",
+      description: "Free online CV builder with professional templates",
+      applicationCategory: "Career Application",
+      operatingSystem: "All",
+      offers: {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "USD"
+      }
+    }
+  };
+}
+
+export function generateCoverLetterSchema() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: "Free Cover Letter Maker - Professional Cover Letters",
+    description: "Create professional cover letters for free with Adin AI. AI-powered cover letter generator with multiple templates.",
+    url: "https://adin-ai.com/cover-letter",
+    about: {
+      "@type": "Thing",
+      name: "Cover Letter Maker"
+    },
+    mainEntity: {
+      "@type": "WebApplication",
+      name: "Cover Letter Maker",
+      description: "Free online cover letter generator with professional templates",
+      applicationCategory: "Career Application",
+      operatingSystem: "All",
+      offers: {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "USD"
+      }
+    }
+  };
+}
+
+// ============================================
+// ✅ HELPER: Generate JSON-LD Script
 // ============================================
 
 export function generateJSONLDScript(data: any): string {
@@ -352,14 +413,16 @@ export function generateJSONLDScript(data: any): string {
 }
 
 // ============================================
-// HELPER: GENERATE ALL SCHEMAS FOR A PAGE
+// ✅ HELPER: Generate All Schemas for Page
 // ============================================
 
 export function generatePageSchemas(
-  pageType: "home" | "cv-builder" | "cover-letter" | "ai-chat" | "about" | "settings" | "founder"
+  pageType: "home" | "cv-builder" | "cover-letter" | "ai-chat" | "about" | "settings" | "founder" | "templates"
 ) {
   const baseSchemas = [
     generateOrganizationSchema(),
+    generateWebsiteSchema(),
+    generateBrandSchema(),
     generateWebApplicationSchema()
   ];
 

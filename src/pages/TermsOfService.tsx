@@ -1,5 +1,6 @@
 // src/pages/TermsOfService.tsx
 import { SEOHead } from "../components/SEO/SEOHead";
+import { getSEOConfig } from "../utils/seoPages";
 import { ArrowLeft } from "lucide-react";
 
 export default function TermsOfService() {
@@ -9,13 +10,17 @@ export default function TermsOfService() {
     window.location.reload();
   };
 
+  // ✅ Get SEO config
+  const seoConfig = getSEOConfig('terms-of-service');
+
   return (
     <>
       {/* ✅ SEO for Terms of Service Page */}
       <SEOHead
-        title="Terms of Service - Adin AI"
-        description="Read Adin AI's Terms of Service to understand the rules and guidelines for using our AI-powered career platform."
-        canonicalUrl="https://adin-ai.com/terms-of-service"
+        title={seoConfig.title}
+        description={seoConfig.description}
+        keywords={seoConfig.keywords}
+        canonicalUrl={seoConfig.canonicalUrl}
         ogType="website"
       />
 

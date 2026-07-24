@@ -1,6 +1,7 @@
 // src/pages/Founder.tsx - Kian Mercer - Founder of Adin AI
 import { SEOHead } from "../components/SEO/SEOHead";
 import { generatePageSchemas, generateJSONLDScript } from "../utils/seo";
+import { getSEOConfig } from "../utils/seoPages";
 import HeroSection from "../components/founder/HeroSection";
 import AboutSection from "../components/founder/AboutSection";
 import SkillsSection from "../components/founder/SkillsSection";
@@ -17,74 +18,24 @@ export default function Founder() {
     window.location.reload();
   };
 
+  // ✅ Get SEO config for founder page
+  const seoConfig = getSEOConfig('founder');
+
   return (
     <>
       {/* ✅ SEO for Founder Page */}
       <SEOHead
-        title="Kian Mercer - Founder of Adin AI | AI Career Platform"
-        description="Kian Mercer is the 16-year-old founder of Adin AI, an AI-powered career platform helping students and freelancers build resumes, cover letters, and grow their careers."
-        canonicalUrl="https://adin-ai.com/founder"
-        ogType="website"
+        title={seoConfig.title}
+        description={seoConfig.description}
+        keywords={seoConfig.keywords}
+        canonicalUrl={seoConfig.canonicalUrl}
+        ogType={seoConfig.ogType || "website"}
         ogImage="https://adin-ai.com/founder-og.jpg"
       />
 
-      {/* ✅ Person Schema for Google */}
+      {/* ✅ JSON-LD: Person Schema + Page Schemas */}
       <script type="application/ld+json">
-        {generateJSONLDScript({
-          "@context": "https://schema.org",
-          "@type": "Person",
-          "name": "Kian Mercer",
-          "alternateName": "Ghulam MohiyuDin",
-          "description": "Founder of Adin AI - AI-Powered Career Platform",
-          "url": "https://adin-ai.com/founder",
-          "jobTitle": "Founder & CEO",
-          "worksFor": {
-            "@type": "Organization",
-            "name": "Adin AI"
-          },
-          "nationality": "Pakistani",
-          "homeLocation": {
-            "@type": "City",
-            "name": "Mananwala, Sheikhupura, Pakistan"
-          },
-          "alumniOf": {
-            "@type": "EducationalOrganization",
-            "name": "Superior College"
-          },
-          "knowsAbout": [
-            "AI Product Development",
-            "Prompt Engineering",
-            "AI-Assisted Development",
-            "Product Strategy",
-            "Startup Building"
-          ],
-          "sameAs": [
-            "https://adin-ai.com",
-            "https://twitter.com/adin_ai"
-          ]
-        })}
-      </script>
-
-      {/* ✅ Breadcrumb Schema */}
-      <script type="application/ld+json">
-        {generateJSONLDScript({
-          "@context": "https://schema.org",
-          "@type": "BreadcrumbList",
-          "itemListElement": [
-            {
-              "@type": "ListItem",
-              "position": 1,
-              "name": "Home",
-              "item": "https://adin-ai.com/"
-            },
-            {
-              "@type": "ListItem",
-              "position": 2,
-              "name": "Founder",
-              "item": "https://adin-ai.com/founder"
-            }
-          ]
-        })}
+        {generateJSONLDScript(generatePageSchemas('founder'))}
       </script>
 
       {/* ✅ Page Content - overflow-y-auto for scrollbar */}

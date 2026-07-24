@@ -2,201 +2,65 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    
+    <!-- ============================================
+         🔥 GOOGLE SEARCH CONSOLE VERIFICATION
+         ============================================ -->
+    <meta name="google-site-verification" content="v10fnWTLXgPEuzJDTdtXSmYQ1EBM-oCSObPPrSrNat0" />
     
     <!-- ============================================
          ✅ PWA: Web App Manifest
          ============================================ -->
-    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="manifest" href="/site.webmanifest" />
     
     <!-- ============================================
-         ✅ PWA: Apple Touch Icon for iOS devices
+         ✅ PWA: Apple Touch Icon
          ============================================ -->
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     
     <!-- ============================================
-         ✅ PWA: iOS Safari meta tags
+         ✅ FAVICON - All sizes
          ============================================ -->
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/android-chrome-192x192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/android-chrome-512x512.png" />
     
     <!-- ============================================
-         ✅ VIEWPORT: Fixed for ALL devices
+         ✅ VIEWPORT
          ============================================ -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover" />
     
     <!-- ============================================
-         ❌ TITLE REMOVED - SEOHead.tsx handle karega
+         ✅ PWA: iOS Safari (NO DEPRECATED TAGS)
          ============================================ -->
-    <!-- <title>Free CV Builder &amp; Cover Letter Maker | Adin AI - Best Career Assistant 2026</title> -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Adin AI" />
     
     <!-- ============================================
-         ✅ PRIMARY SEO: META DESCRIPTION with Keywords
-         ============================================ -->
-    <meta name="description" content="Create professional CV and cover letter free with Adin AI. Best free CV builder and cover letter maker online. AI-powered resume builder, document management, and career assistant." />
-    
-    <!-- ============================================
-         ✅ SEO: KEYWORDS (for search engines)
-         ============================================ -->
-    <meta name="keywords" content="free cv builder, free cover letter, best cv builder, best cover letter, ai resume builder, professional cv maker, cover letter generator, career assistant, adin ai, free resume builder, cv creator online, cover letter builder" />
-    
-    <!-- ============================================
-         ✅ SEO: ROBOTS (crawl instructions)
-         ============================================ -->
-    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large" />
-    <meta name="googlebot" content="index, follow, max-snippet:-1, max-image-preview:large" />
-    
-    <!-- ============================================
-         ✅ SEO: CANONICAL URL
-         ============================================ -->
-    <link rel="canonical" href="https://adin-ai.com/" />
-    
-    <!-- ============================================
-         ✅ PWA: Theme color for browser
+         ✅ THEME COLOR
          ============================================ -->
     <meta name="theme-color" content="#8b5cf6" />
     
     <!-- ============================================
-         ✅ OPEN GRAPH (Facebook, LinkedIn, etc.)
-         ============================================ -->
-    <meta property="og:title" content="Free CV Builder &amp; Cover Letter Maker | Adin AI - Best Career Assistant" />
-    <meta property="og:description" content="Create professional CV and cover letter free with Adin AI. Best free CV builder and cover letter maker online. AI-powered career assistant." />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://adin-ai.com/" />
-    <meta property="og:image" content="https://adin-ai.com/og-image.png" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta property="og:site_name" content="Adin AI" />
-    <meta property="og:locale" content="en_US" />
-    
-    <!-- ============================================
-         ✅ TWITTER CARDS (Twitter/X preview)
-         ============================================ -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Free CV Builder &amp; Cover Letter Maker | Adin AI" />
-    <meta name="twitter:description" content="Create professional CV and cover letter free with Adin AI. Best free CV builder and cover letter maker online." />
-    <meta name="twitter:image" content="https://adin-ai.com/og-image.png" />
-    <meta name="twitter:site" content="@adin_ai" />
-    <meta name="twitter:creator" content="@adin_ai" />
-    
-    <!-- ============================================
-         ✅ ADDITIONAL META TAGS
-         ============================================ -->
-    <meta name="author" content="Adin AI" />
-    <meta name="application-name" content="Adin AI" />
-    <meta name="generator" content="Adin AI Platform" />
-    <meta name="referrer" content="strict-origin-when-cross-origin" />
-    
-    <!-- ============================================
-         ✅ GEO META TAGS (optional but good for local SEO)
-         ============================================ -->
-    <meta name="geo.region" content="US" />
-    <meta name="geo.placename" content="Global" />
-    
-    <!-- ============================================
-         ✅ MICROSOFT & DUCKDUCKGO FRIENDLY
-         ============================================ -->
-    <meta name="msapplication-TileColor" content="#8b5cf6" />
-    <meta name="msapplication-config" content="/browserconfig.xml" />
-    
-    <!-- ============================================
-         ✅ JSON-LD STRUCTURED DATA (Schema.org)
-         ============================================ -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "WebApplication",
-      "name": "Adin AI",
-      "url": "https://adin-ai.com/",
-      "description": "Free CV Builder and Cover Letter Maker with AI-powered career assistance. Create professional resumes and cover letters online.",
-      "applicationCategory": "Career Application",
-      "operatingSystem": "All",
-      "browserRequirements": "JavaScript enabled",
-      "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "USD"
-      },
-      "aggregateRating": {
-        "@type": "AggregateRating",
-        "ratingValue": "4.8",
-        "ratingCount": "1250"
-      },
-      "author": {
-        "@type": "Organization",
-        "name": "Adin AI"
-      },
-      "potentialAction": {
-        "@type": "Action",
-        "name": "Create CV",
-        "target": "https://adin-ai.com/cv-builder"
-      }
-    }
-    </script>
-    
-    <!-- ============================================
-         ✅ ADDITIONAL JSON-LD: Organization Schema
-         ============================================ -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "Organization",
-      "name": "Adin AI",
-      "url": "https://adin-ai.com/",
-      "logo": "https://adin-ai.com/logo.png",
-      "description": "Free AI-powered CV builder and cover letter maker platform.",
-      "sameAs": [
-        "https://twitter.com/adin_ai",
-        "https://linkedin.com/company/adin-ai"
-      ],
-      "contactPoint": {
-        "@type": "ContactPoint",
-        "contactType": "Support",
-        "email": "support@adin-ai.com"
-      }
-    }
-    </script>
-    
-    <!-- ============================================
-         ✅ JSON-LD: Breadcrumb Schema (for navigation)
-         ============================================ -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "BreadcrumbList",
-      "itemListElement": [
-        {
-          "@type": "ListItem",
-          "position": 1,
-          "name": "Home",
-          "item": "https://adin-ai.com/"
-        },
-        {
-          "@type": "ListItem",
-          "position": 2,
-          "name": "CV Builder",
-          "item": "https://adin-ai.com/cv-builder"
-        },
-        {
-          "@type": "ListItem",
-          "position": 3,
-          "name": "Cover Letter",
-          "item": "https://adin-ai.com/cover-letter"
-        }
-      ]
-    }
-    </script>
-    
-    <!-- ============================================
-         🔥 Puter.js CDN - Required for Image Generator
-         ============================================ -->
-    <script src="https://js.puter.com/v2/"></script>
-    
-    <!-- ============================================
-         ✅ PRE-CONNECT for Performance SEO
+         ✅ PREFETCH / PRECONNECT for Performance
          ============================================ -->
     <link rel="preconnect" href="https://js.puter.com" />
     <link rel="preconnect" href="https://clerk.adin-ai.com" />
+    <link rel="dns-prefetch" href="https://js.puter.com" />
+    
+    <!-- ============================================
+         ❌ ALL META TAGS MOVED TO SEOHead.tsx
+         ============================================ -->
+    <!-- Title, Description, Keywords, OG, Twitter, Canonical, Robots, JSON-LD -->
+    <!-- All handled dynamically by SEOHead component -->
+    
+    <!-- ============================================
+         🔥 Puter.js CDN
+         ============================================ -->
+    <script src="https://js.puter.com/v2/"></script>
     
   </head>
   <body>

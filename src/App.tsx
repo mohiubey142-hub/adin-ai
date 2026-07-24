@@ -18,6 +18,9 @@ import { SEOHead } from "./components/SEO/SEOHead";
 import { generatePageSchemas, generateJSONLDScript } from "./utils/seo";
 import { initializeGA, trackPageView, setUserID } from "./utils/analytics";
 
+// ✅ SEO Page Configs
+import { getSEOConfig } from "./utils/seoPages";
+
 // ✅ LAZY LOADING - SEO friendly code splitting
 const CVBuilder = lazy(() => import("./components/cv-builder/CVBuilder"));
 const CoverLetter = lazy(() => import("./components/cover-letter/CoverLetter"));
@@ -547,6 +550,30 @@ export default function App() {
   const fileUploadRef = useRef<FileUploadRef>(null);
   const loaded = useRef(false);
   const isSendingRef = useRef(false);
+
+  // ✅ SEO Page Key Mapping
+  const getPageKey = (): string => {
+    if (currentPage === 'workspace') return 'home';
+    if (currentPage === 'templates') return 'templates';
+    if (currentPage === 'cover-templates') return 'cover-templates';
+    if (currentPage === 'founder') return 'founder';
+    if (currentPage === 'legal') {
+      if (active === 'Privacy Policy') return 'privacy-policy';
+      if (active === 'Terms of Service') return 'terms-of-service';
+      if (active === 'Contact') return 'contact';
+    }
+    if (currentPage === 'app') {
+      if (active === 'CV Builder') return 'cv-builder';
+      if (active === 'Cover Letter') return 'cover-letter';
+      if (active === 'AI Chat') return 'ai-chat';
+      if (active === 'Web Search') return 'web-search';
+      if (active === 'Library') return 'library';
+      if (active === 'Documents') return 'documents';
+      if (active === 'About Me') return 'about-me';
+      if (active === 'Settings') return 'settings';
+    }
+    return 'home';
+  };
 
   // ✅ Close profile dropdown on outside click
   useEffect(() => {
@@ -1277,19 +1304,24 @@ export default function App() {
     );
   };
 
+  // ✅ Get page key for SEO
+  const pageKey = getPageKey();
+  const seoConfig = getSEOConfig(pageKey);
+
   return (
     <>
-      {/* ✅ SEO: Global Head with Structured Data */}
+      {/* ✅ SEO: Dynamic Head based on current route */}
       <SEOHead
-        title="Free CV Builder & Cover Letter Maker"
-        description="Create professional CV and cover letter free with Adin AI. Best free CV builder and cover letter maker online. AI-powered resume builder, document management, and career assistant."
-        canonicalUrl="https://adin-ai.com/"
-        ogType="website"
+        title={seoConfig.title}
+        description={seoConfig.description}
+        keywords={seoConfig.keywords}
+        canonicalUrl={seoConfig.canonicalUrl}
+        ogType={seoConfig.ogType || "website"}
       />
 
-      {/* ✅ JSON-LD Structured Data for Home Page */}
+      {/* ✅ JSON-LD Structured Data for current page */}
       <script type="application/ld+json">
-        {generateJSONLDScript(generatePageSchemas("home"))}
+        {generateJSONLDScript(generatePageSchemas(pageKey as any))}
       </script>
 
       <Toaster position="top-right" />

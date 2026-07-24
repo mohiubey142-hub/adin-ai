@@ -22,6 +22,11 @@ import { getStrengthStatus } from './utils/atsCalculator';
 // ✅ FIXED: pdfGeneratorText cv-builder/utils/ se import (local)
 import { generateTextPDF } from './utils/pdfGeneratorText';
 
+// ✅ SEO Imports
+import { SEOHead } from '../../components/SEO/SEOHead';
+import { generatePageSchemas, generateJSONLDScript } from '../../utils/seo';
+import { getSEOConfig } from '../../utils/seoPages';
+
 // Hooks
 // ⚠️ useSections REMOVED - replaced with direct useState for localStorage persistence
 import { useAutoSave } from './hooks/useAutoSave';
@@ -710,302 +715,318 @@ const CVBuilder: React.FC<CVBuilderProps> = ({ userId, initialTemplateId, onBack
     // 15. RENDER
     // ============================================
     return (
-        <div ref={containerRef} className="h-full flex flex-col bg-black">
-            {/* Toaster */}
-            <Toaster
-                position="top-center"
-                reverseOrder={false}
-                gutter={8}
-                containerStyle={{
-                    position: 'fixed',
-                    top: '20px',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    zIndex: 999999,
-                    pointerEvents: 'none',
-                }}
-                toastOptions={{
-                    duration: 4000,
-                    style: {
-                        background: '#1a1a2e',
-                        color: '#fff',
-                        border: '1px solid rgba(168, 85, 247, 0.3)',
-                        padding: '16px 24px',
-                        borderRadius: '12px',
-                        boxShadow: '0 20px 60px rgba(0,0,0,0.8)',
-                        backdropFilter: 'blur(10px)',
-                        pointerEvents: 'auto',
-                        maxWidth: '500px',
-                        width: 'auto',
-                    },
-                    success: {
+        <>
+            {/* ✅ SEO: CV Builder Page */}
+            <SEOHead
+                title={getSEOConfig('cv-builder').title}
+                description={getSEOConfig('cv-builder').description}
+                keywords={getSEOConfig('cv-builder').keywords}
+                canonicalUrl={getSEOConfig('cv-builder').canonicalUrl}
+                ogType="website"
+            />
+
+            {/* ✅ JSON-LD: CV Builder Schema */}
+            <script type="application/ld+json">
+                {generateJSONLDScript(generatePageSchemas('cv-builder'))}
+            </script>
+
+            <div ref={containerRef} className="h-full flex flex-col bg-black">
+                {/* Toaster */}
+                <Toaster
+                    position="top-center"
+                    reverseOrder={false}
+                    gutter={8}
+                    containerStyle={{
+                        position: 'fixed',
+                        top: '20px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        zIndex: 999999,
+                        pointerEvents: 'none',
+                    }}
+                    toastOptions={{
+                        duration: 4000,
                         style: {
-                            border: '1px solid rgba(34, 197, 94, 0.3)',
-                        },
-                    },
-                    error: {
-                        style: {
-                            border: '1px solid rgba(239, 68, 68, 0.3)',
-                        },
-                    },
-                    loading: {
-                        style: {
+                            background: '#1a1a2e',
+                            color: '#fff',
                             border: '1px solid rgba(168, 85, 247, 0.3)',
+                            padding: '16px 24px',
+                            borderRadius: '12px',
+                            boxShadow: '0 20px 60px rgba(0,0,0,0.8)',
+                            backdropFilter: 'blur(10px)',
+                            pointerEvents: 'auto',
+                            maxWidth: '500px',
+                            width: 'auto',
                         },
-                    },
-                }}
-            />
-            
-            {/* Scrollbar Styles */}
-            <style>{`
-                ::-webkit-scrollbar {
-                    width: 6px;
-                    height: 6px;
-                }
-                ::-webkit-scrollbar-track {
-                    background: rgba(31, 41, 55, 0.5);
-                    border-radius: 10px;
-                }
-                ::-webkit-scrollbar-thumb {
-                    background: linear-gradient(to bottom, rgba(168, 85, 247, 0.6), rgba(59, 130, 246, 0.6));
-                    border-radius: 10px;
-                    transition: all 0.3s ease;
-                }
-                ::-webkit-scrollbar-thumb:hover {
-                    background: linear-gradient(to bottom, rgba(168, 85, 247, 0.8), rgba(59, 130, 246, 0.8));
-                }
-                * {
-                    scrollbar-width: thin;
-                    scrollbar-color: rgba(168, 85, 247, 0.6) rgba(31, 41, 55, 0.5);
-                }
-                .overflow-auto, .overflow-y-auto, .overflow-x-auto {
-                    scroll-behavior: smooth;
-                }
-            `}</style>
-            
-            {/* Validation Errors Toast */}
-            {validationErrors.length > 0 && step !== 10 && (
-                <div className="fixed top-24 left-1/2 transform -translate-x-1/2 z-[9999] px-6 py-3.5 rounded-xl bg-gradient-to-r from-red-600 to-red-700 backdrop-blur-md border border-red-400/50 shadow-2xl animate-in slide-in-from-top fade-in duration-300">
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-                            <AlertCircle size={18} className="text-white" />
-                        </div>
-                        <div>
-                            <p className="text-sm font-semibold text-white">Validation Error</p>
-                            <p className="text-xs text-white/80">{validationErrors[0]}</p>
-                        </div>
-                        <button 
-                            onClick={clearValidationErrors}
-                            className="ml-2 w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors duration-200 flex-shrink-0"
-                        >
-                            <X size={14} className="text-white" />
-                        </button>
-                    </div>
-                </div>
-            )}
-            
-            {/* ✅ Header - with onBackToTemplates */}
-            <HeaderToolbar
-                onClearAll={clearAllData}
-                onToggleFullscreen={toggleFullscreen}
-                isFullscreen={isFullscreen}
-                saveStatus={saveStatus}
-                onBackToTemplates={onBackToHome}
-            />
-            
-            {/* ✅ FIXED: Stepper ko uper karo - TemplateSelector se pehle */}
-            <Stepper
-                currentStep={step}
-                onStepClick={navigateToStep}
-                getSectionScore={getSectionScore}
-                isSectionComplete={isSectionComplete}
-                hasSectionData={hasSectionData}
-            />
-            
-            {/* ✅ FIXED: Template Selector - Sirf direct Builder flow me show ho */}
-            {!initialTemplateId && (
-                <TemplateSelector
-                    template={template}
-                    onTemplateChange={setTemplate}
+                        success: {
+                            style: {
+                                border: '1px solid rgba(34, 197, 94, 0.3)',
+                            },
+                        },
+                        error: {
+                            style: {
+                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                            },
+                        },
+                        loading: {
+                            style: {
+                                border: '1px solid rgba(168, 85, 247, 0.3)',
+                            },
+                        },
+                    }}
                 />
-            )}
-            
-            {/* ✅ FIXED: Main Content - Mobile height fix for form visibility */}
-            <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-                {/* ✅ Left Panel - Mobile: min-height to ensure form visibility */}
-                <div className="w-full lg:w-1/2 overflow-auto p-3 sm:p-4 md:p-6 lg:p-8 border-r border-gray-800 min-h-[50vh] lg:min-h-0">
-                    {step === 1 && <PersonalSection {...personalSectionProps} />}
-                    {step === 2 && <ExperienceSection {...experienceSectionProps} />}
-                    {step === 3 && (
-                        <EducationSection
-                            educations={educations}
-                            addEducation={addEducation}
-                            removeEducation={removeEducation}
-                            updateEducation={updateEducation}
-                        />
-                    )}
-                    {step === 4 && (
-                        <LanguagesSection
-                            languages={languages}
-                            addLanguage={addLanguage}
-                            removeLanguage={removeLanguage}
-                            updateLanguage={updateLanguage}
-                        />
-                    )}
-                    {step === 5 && <SkillsSection {...skillsSectionProps} />}
-                    {step === 6 && (
-                        <CertificationsSection
-                            certifications={certifications}
-                            addCertification={addCertification}
-                            removeCertification={removeCertification}
-                            updateCertification={updateCertification}
-                        />
-                    )}
-                    {step === 7 && <ProjectsSection {...projectSectionProps} />}
-                    {step === 8 && <AchievementsSection {...achievementSectionProps} />}
-                    {step === 9 && (
-                        <SummarySection
-                            professionalSummary={professionalSummary}
-                            setProfessionalSummary={setProfessionalSummary}
-                            generateSummary={() => generateDescriptionForField('summary')}
-                            generateAISummary={handleAIGenerateSummary}
-                            generating={generating}
-                            aiGenerating={aiGenerating}
-                            personalInfo={personalInfo}
-                            experiences={experiences}
-                            skills={skills}
-                        />
-                    )}
-                    
-                    {step === 10 && (
-                        <div className="text-center py-0 space-y-4 sm:space-y-5">
-                            {/* ATS Dashboard */}
-                            <ATSDashboard
-                                realWeightedAverage={realWeightedAverage}
-                                realCompletionPercentage={realCompletionPercentage}
-                                realBreakdown={realBreakdown}
-                                realQuality={realQuality}
-                                realSuggestions={realSuggestions}
-                                getScoreColor={getScoreColor}
-                                getScoreBg={getScoreBg}
+                
+                {/* Scrollbar Styles */}
+                <style>{`
+                    ::-webkit-scrollbar {
+                        width: 6px;
+                        height: 6px;
+                    }
+                    ::-webkit-scrollbar-track {
+                        background: rgba(31, 41, 55, 0.5);
+                        border-radius: 10px;
+                    }
+                    ::-webkit-scrollbar-thumb {
+                        background: linear-gradient(to bottom, rgba(168, 85, 247, 0.6), rgba(59, 130, 246, 0.6));
+                        border-radius: 10px;
+                        transition: all 0.3s ease;
+                    }
+                    ::-webkit-scrollbar-thumb:hover {
+                        background: linear-gradient(to bottom, rgba(168, 85, 247, 0.8), rgba(59, 130, 246, 0.8));
+                    }
+                    * {
+                        scrollbar-width: thin;
+                        scrollbar-color: rgba(168, 85, 247, 0.6) rgba(31, 41, 55, 0.5);
+                    }
+                    .overflow-auto, .overflow-y-auto, .overflow-x-auto {
+                        scroll-behavior: smooth;
+                    }
+                `}</style>
+                
+                {/* Validation Errors Toast */}
+                {validationErrors.length > 0 && step !== 10 && (
+                    <div className="fixed top-24 left-1/2 transform -translate-x-1/2 z-[9999] px-6 py-3.5 rounded-xl bg-gradient-to-r from-red-600 to-red-700 backdrop-blur-md border border-red-400/50 shadow-2xl animate-in slide-in-from-top fade-in duration-300">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                                <AlertCircle size={18} className="text-white" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-semibold text-white">Validation Error</p>
+                                <p className="text-xs text-white/80">{validationErrors[0]}</p>
+                            </div>
+                            <button 
+                                onClick={clearValidationErrors}
+                                className="ml-2 w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors duration-200 flex-shrink-0"
+                            >
+                                <X size={14} className="text-white" />
+                            </button>
+                        </div>
+                    </div>
+                )}
+                
+                {/* ✅ Header - with onBackToTemplates */}
+                <HeaderToolbar
+                    onClearAll={clearAllData}
+                    onToggleFullscreen={toggleFullscreen}
+                    isFullscreen={isFullscreen}
+                    saveStatus={saveStatus}
+                    onBackToTemplates={onBackToHome}
+                />
+                
+                {/* ✅ FIXED: Stepper ko uper karo - TemplateSelector se pehle */}
+                <Stepper
+                    currentStep={step}
+                    onStepClick={navigateToStep}
+                    getSectionScore={getSectionScore}
+                    isSectionComplete={isSectionComplete}
+                    hasSectionData={hasSectionData}
+                />
+                
+                {/* ✅ FIXED: Template Selector - Sirf direct Builder flow me show ho */}
+                {!initialTemplateId && (
+                    <TemplateSelector
+                        template={template}
+                        onTemplateChange={setTemplate}
+                    />
+                )}
+                
+                {/* ✅ FIXED: Main Content - Mobile height fix for form visibility */}
+                <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+                    {/* ✅ Left Panel - Mobile: min-height to ensure form visibility */}
+                    <div className="w-full lg:w-1/2 overflow-auto p-3 sm:p-4 md:p-6 lg:p-8 border-r border-gray-800 min-h-[50vh] lg:min-h-0">
+                        {step === 1 && <PersonalSection {...personalSectionProps} />}
+                        {step === 2 && <ExperienceSection {...experienceSectionProps} />}
+                        {step === 3 && (
+                            <EducationSection
+                                educations={educations}
+                                addEducation={addEducation}
+                                removeEducation={removeEducation}
+                                updateEducation={updateEducation}
                             />
-                            
-                            {/* Success Card */}
-                            {areRequiredSectionsComplete() && (
-                                <SuccessCard
+                        )}
+                        {step === 4 && (
+                            <LanguagesSection
+                                languages={languages}
+                                addLanguage={addLanguage}
+                                removeLanguage={removeLanguage}
+                                updateLanguage={updateLanguage}
+                            />
+                        )}
+                        {step === 5 && <SkillsSection {...skillsSectionProps} />}
+                        {step === 6 && (
+                            <CertificationsSection
+                                certifications={certifications}
+                                addCertification={addCertification}
+                                removeCertification={removeCertification}
+                                updateCertification={updateCertification}
+                            />
+                        )}
+                        {step === 7 && <ProjectsSection {...projectSectionProps} />}
+                        {step === 8 && <AchievementsSection {...achievementSectionProps} />}
+                        {step === 9 && (
+                            <SummarySection
+                                professionalSummary={professionalSummary}
+                                setProfessionalSummary={setProfessionalSummary}
+                                generateSummary={() => generateDescriptionForField('summary')}
+                                generateAISummary={handleAIGenerateSummary}
+                                generating={generating}
+                                aiGenerating={aiGenerating}
+                                personalInfo={personalInfo}
+                                experiences={experiences}
+                                skills={skills}
+                            />
+                        )}
+                        
+                        {step === 10 && (
+                            <div className="text-center py-0 space-y-4 sm:space-y-5">
+                                {/* ATS Dashboard */}
+                                <ATSDashboard
                                     realWeightedAverage={realWeightedAverage}
                                     realCompletionPercentage={realCompletionPercentage}
+                                    realBreakdown={realBreakdown}
                                     realQuality={realQuality}
+                                    realSuggestions={realSuggestions}
+                                    getScoreColor={getScoreColor}
+                                    getScoreBg={getScoreBg}
                                 />
-                            )}
-                            
-                            {/* AI Enhancer Panel */}
-                            <AIEnhancerPanel
-                                onApplyEnhancement={applyAIEnhancement}
-                                onRestoreOriginal={restoreOriginalSummary}
-                                onGenerateSummary={handleAIGenerateSummary}
-                                onEnhanceExperience={() => {
-                                    if (experiences.length > 0) {
-                                        handleAIGenerateExperience(0, experiences[0]);
-                                    } else {
-                                        toast.error('Add experience first');
-                                    }
-                                }}
-                                onProviderChange={setSelectedProvider}
-                                selectedProvider={selectedProvider}
-                                isLoading={aiGenerating}
-                                isEnhancerLoading={aiEnhancerLoading}
-                                isEnhancerUsed={isEnhancerUsed}
-                                hasOriginalSummary={!!originalSummary}
-                                hasExperiences={experiences.length > 0}
-                                hasJobTitle={!!personalInfo.title?.trim()}
-                            />
-                            
-                            {/* ✅ Download Buttons - WITH FEEDBACK TRIGGER */}
-                            <DownloadButtons
-                                onCopy={handleCopyCV}
-                                onDownloadPDF={handleDownloadPDF}
-                                onDownloadTXT={handleDownloadTXT}
-                                onClear={clearAllData}
-                            />
-                        </div>
-                    )}
-                    
-                    {/* Navigation Buttons - Mobile optimized */}
-                    {step < 10 && (
-                        <div className="flex justify-between pt-6 sm:pt-8 lg:pt-10 mt-4 sm:mt-6 border-t border-gray-800">
-                            {step > 1 && (
+                                
+                                {/* Success Card */}
+                                {areRequiredSectionsComplete() && (
+                                    <SuccessCard
+                                        realWeightedAverage={realWeightedAverage}
+                                        realCompletionPercentage={realCompletionPercentage}
+                                        realQuality={realQuality}
+                                    />
+                                )}
+                                
+                                {/* AI Enhancer Panel */}
+                                <AIEnhancerPanel
+                                    onApplyEnhancement={applyAIEnhancement}
+                                    onRestoreOriginal={restoreOriginalSummary}
+                                    onGenerateSummary={handleAIGenerateSummary}
+                                    onEnhanceExperience={() => {
+                                        if (experiences.length > 0) {
+                                            handleAIGenerateExperience(0, experiences[0]);
+                                        } else {
+                                            toast.error('Add experience first');
+                                        }
+                                    }}
+                                    onProviderChange={setSelectedProvider}
+                                    selectedProvider={selectedProvider}
+                                    isLoading={aiGenerating}
+                                    isEnhancerLoading={aiEnhancerLoading}
+                                    isEnhancerUsed={isEnhancerUsed}
+                                    hasOriginalSummary={!!originalSummary}
+                                    hasExperiences={experiences.length > 0}
+                                    hasJobTitle={!!personalInfo.title?.trim()}
+                                />
+                                
+                                {/* ✅ Download Buttons - WITH FEEDBACK TRIGGER */}
+                                <DownloadButtons
+                                    onCopy={handleCopyCV}
+                                    onDownloadPDF={handleDownloadPDF}
+                                    onDownloadTXT={handleDownloadTXT}
+                                    onClear={clearAllData}
+                                />
+                            </div>
+                        )}
+                        
+                        {/* Navigation Buttons - Mobile optimized */}
+                        {step < 10 && (
+                            <div className="flex justify-between pt-6 sm:pt-8 lg:pt-10 mt-4 sm:mt-6 border-t border-gray-800">
+                                {step > 1 && (
+                                    <button
+                                        onClick={prevStep}
+                                        className="px-4 sm:px-5 lg:px-7 py-2.5 rounded-xl bg-gray-800/80 hover:bg-gray-700 transition-all duration-300 hover:scale-105 text-sm sm:text-base flex items-center gap-2 font-medium"
+                                    >
+                                        <ChevronLeft size={16} className="flex-shrink-0" /> Back
+                                    </button>
+                                )}
+                                <button
+                                    onClick={nextStep}
+                                    className={`px-4 sm:px-5 lg:px-7 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-blue-500 hover:opacity-90 text-white font-medium transition-all duration-300 hover:scale-105 shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 text-sm sm:text-base flex items-center gap-2 ${step > 1 ? '' : 'w-full justify-center'}`}
+                                >
+                                    Next <ChevronRight size={16} className="flex-shrink-0" />
+                                </button>
+                            </div>
+                        )}
+                        {step === 10 && (
+                            <div className="flex justify-center pt-6 sm:pt-8 lg:pt-10 mt-4 sm:mt-6 border-t border-gray-800">
                                 <button
                                     onClick={prevStep}
                                     className="px-4 sm:px-5 lg:px-7 py-2.5 rounded-xl bg-gray-800/80 hover:bg-gray-700 transition-all duration-300 hover:scale-105 text-sm sm:text-base flex items-center gap-2 font-medium"
                                 >
-                                    <ChevronLeft size={16} className="flex-shrink-0" /> Back
+                                    <ChevronLeft size={16} className="flex-shrink-0" /> Back to Edit
                                 </button>
-                            )}
-                            <button
-                                onClick={nextStep}
-                                className={`px-4 sm:px-5 lg:px-7 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-blue-500 hover:opacity-90 text-white font-medium transition-all duration-300 hover:scale-105 shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 text-sm sm:text-base flex items-center gap-2 ${step > 1 ? '' : 'w-full justify-center'}`}
-                            >
-                                Next <ChevronRight size={16} className="flex-shrink-0" />
-                            </button>
-                        </div>
-                    )}
-                    {step === 10 && (
-                        <div className="flex justify-center pt-6 sm:pt-8 lg:pt-10 mt-4 sm:mt-6 border-t border-gray-800">
-                            <button
-                                onClick={prevStep}
-                                className="px-4 sm:px-5 lg:px-7 py-2.5 rounded-xl bg-gray-800/80 hover:bg-gray-700 transition-all duration-300 hover:scale-105 text-sm sm:text-base flex items-center gap-2 font-medium"
-                            >
-                                <ChevronLeft size={16} className="flex-shrink-0" /> Back to Edit
-                            </button>
-                        </div>
-                    )}
+                            </div>
+                        )}
+                    </div>
+                    
+                    {/* ✅ Right Panel - Preview - Mobile: top margin for breathing space */}
+                    <div ref={previewRef} className="w-full lg:w-1/2 overflow-auto mt-8 lg:mt-0">
+                        <CVPreview
+                            personalInfo={personalInfo}
+                            phoneNumber={phoneNumber}
+                            selectedCountryCode={selectedCountryCode}
+                            professionalSummary={professionalSummary}
+                            experiences={experiences}
+                            educations={educations}
+                            projects={projects}
+                            certifications={certifications}
+                            languages={languages}
+                            achievements={achievements}
+                            skills={skills}
+                            profilePhoto={profilePhoto}
+                            template={template}
+                            atsScore={realWeightedAverage}
+                            strength={getStrengthStatus(realWeightedAverage)}
+                            completionPercentage={realCompletionPercentage}
+                            sectionStatuses={sectionStatuses}
+                        />
+                    </div>
                 </div>
-                
-                {/* ✅ Right Panel - Preview - Mobile: top margin for breathing space */}
-                <div ref={previewRef} className="w-full lg:w-1/2 overflow-auto mt-8 lg:mt-0">
-                    <CVPreview
-                        personalInfo={personalInfo}
-                        phoneNumber={phoneNumber}
-                        selectedCountryCode={selectedCountryCode}
-                        professionalSummary={professionalSummary}
-                        experiences={experiences}
-                        educations={educations}
-                        projects={projects}
-                        certifications={certifications}
-                        languages={languages}
-                        achievements={achievements}
-                        skills={skills}
-                        profilePhoto={profilePhoto}
-                        template={template}
-                        atsScore={realWeightedAverage}
-                        strength={getStrengthStatus(realWeightedAverage)}
-                        completionPercentage={realCompletionPercentage}
-                        sectionStatuses={sectionStatuses}
-                    />
-                </div>
+
+                {/* ✅ Feedback Modal - Feature-Specific with onMinimize */}
+                <FeedbackModal
+                    isOpen={showFeedbackModal}
+                    onClose={() => {
+                        setShowFeedbackModal(false);
+                        markFeedbackShown('cv-builder');
+                    }}
+                    onMinimize={handleMinimize}
+                    source="cv-builder"
+                    sourceKey="cv-builder"
+                />
+
+                {/* ✅ NEW: Feedback Widget */}
+                <FeedbackWidget
+                    isVisible={showWidget}
+                    onOpen={handleOpenFromWidget}
+                    onClose={handleCloseWidget}
+                    source="cv-builder"
+                />
             </div>
-
-            {/* ✅ Feedback Modal - Feature-Specific with onMinimize */}
-            <FeedbackModal
-                isOpen={showFeedbackModal}
-                onClose={() => {
-                    setShowFeedbackModal(false);
-                    markFeedbackShown('cv-builder');
-                }}
-                onMinimize={handleMinimize}
-                source="cv-builder"
-                sourceKey="cv-builder"
-            />
-
-            {/* ✅ NEW: Feedback Widget */}
-            <FeedbackWidget
-                isVisible={showWidget}
-                onOpen={handleOpenFromWidget}
-                onClose={handleCloseWidget}
-                source="cv-builder"
-            />
-        </div>
+        </>
     );
 };
 

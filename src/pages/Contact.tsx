@@ -1,6 +1,7 @@
 // src/pages/Contact.tsx
 import { useState } from "react";
 import { SEOHead } from "../components/SEO/SEOHead";
+import { getSEOConfig } from "../utils/seoPages";
 import { ArrowLeft, Mail, MapPin, MessageSquare, Send, User } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -15,6 +16,9 @@ export default function Contact() {
     window.location.hash = '';
     window.location.reload();
   };
+
+  // ✅ Get SEO config
+  const seoConfig = getSEOConfig('contact');
 
   // ✅ Handle form submission
   const handleSubmit = (e: React.FormEvent) => {
@@ -41,9 +45,10 @@ export default function Contact() {
     <>
       {/* ✅ SEO for Contact Page */}
       <SEOHead
-        title="Contact Us - Adin AI"
-        description="Get in touch with Adin AI. Have questions about our AI-powered career platform? Contact us for support, feedback, or partnership inquiries."
-        canonicalUrl="https://adin-ai.com/contact"
+        title={seoConfig.title}
+        description={seoConfig.description}
+        keywords={seoConfig.keywords}
+        canonicalUrl={seoConfig.canonicalUrl}
         ogType="website"
       />
 

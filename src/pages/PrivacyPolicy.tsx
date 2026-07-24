@@ -1,5 +1,6 @@
 // src/pages/PrivacyPolicy.tsx
 import { SEOHead } from "../components/SEO/SEOHead";
+import { getSEOConfig } from "../utils/seoPages";
 import { ArrowLeft } from "lucide-react";
 
 export default function PrivacyPolicy() {
@@ -9,13 +10,17 @@ export default function PrivacyPolicy() {
     window.location.reload();
   };
 
+  // ✅ Get SEO config
+  const seoConfig = getSEOConfig('privacy-policy');
+
   return (
     <>
       {/* ✅ SEO for Privacy Policy Page */}
       <SEOHead
-        title="Privacy Policy - Adin AI"
-        description="Read Adin AI's privacy policy to understand how we collect, use, and protect your personal data. Your privacy matters to us."
-        canonicalUrl="https://adin-ai.com/privacy-policy"
+        title={seoConfig.title}
+        description={seoConfig.description}
+        keywords={seoConfig.keywords}
+        canonicalUrl={seoConfig.canonicalUrl}
         ogType="website"
       />
 
