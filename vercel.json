@@ -3,18 +3,12 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "cleanUrls": true,
-
   "rewrites": [
     {
       "source": "/api/(.*)",
       "destination": "/api/$1"
-    },
-    {
-      "source": "/((?!robots\\.txt|sitemap\\.xml|browserconfig\\.xml|manifest\\.webmanifest|site\\.webmanifest|favicon\\.ico|favicon\\.svg|apple-touch-icon\\.png|icon-192x192\\.png|icon-1024x1024\\.png).*)",
-      "destination": "/index.html"
     }
   ],
-
   "env": {
     "AI_PROVIDER": "groq"
   }
