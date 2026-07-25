@@ -10,7 +10,7 @@
       "destination": "/api/$1"
     },
     {
-      "source": "/((?!api|robots\\.txt|sitemap\\.xml|browserconfig\\.xml|site\\.webmanifest|manifest\\.webmanifest|favicon\\.ico|apple-touch-icon\\.png|icon-192x192\\.png|icon-512x512\\.png|kian-mercer-profile\\.png|Templates/images/.*|.*\\.(ico|png|svg|jpg|jpeg|webp|json|xml|txt|webmanifest)).*)",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ],
