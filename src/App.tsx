@@ -510,9 +510,29 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState<'workspace' | 'app' | 'templates' | 'cover-templates' | 'founder' | 'legal'>('workspace');
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [selectedCoverTemplateId, setSelectedCoverTemplateId] = useState<string | null>(null);
+  
+  // ✅ FIXED: Check pathname first - Static files should NOT trigger hash navigation
   const [active, setActive] = useState(() => {
     const savedTab = localStorage.getItem("adin-active-tab");
     const hash = window.location.hash.slice(1);
+    const pathname = window.location.pathname;
+    
+    // 🔥 CRITICAL FIX: If pathname is a static file, DO NOT set hash-based active
+    const isStaticFile = /\.(xml|txt|ico|json|png|svg|webmanifest|ico)$/.test(pathname) ||
+                         pathname === '/robots.txt' ||
+                         pathname === '/sitemap.xml' ||
+                         pathname === '/browserconfig.xml' ||
+                         pathname === '/site.webmanifest' ||
+                         pathname === '/manifest.webmanifest' ||
+                         pathname === '/favicon.ico' ||
+                         pathname === '/favicon.svg' ||
+                         pathname === '/apple-touch-icon.png';
+    
+    if (isStaticFile) {
+      console.log('🔍 Static file detected, skipping hash navigation:', pathname);
+      return savedTab || "AI Chat";
+    }
+    
     if (hash === "cv-builder") return "CV Builder";
     if (hash === "cover-letter") return "Cover Letter";
     if (hash === "cover-templates") return "Cover Templates";
@@ -792,10 +812,27 @@ export default function App() {
     window.location.hash = hash;
   };
 
-  // ✅ Hash change listener
+  // ✅ Hash change listener - ONLY for SPA routes, NOT static files
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1);
+      const pathname = window.location.pathname;
+      
+      // 🔥 CRITICAL FIX: Static files should NEVER trigger hash navigation
+      const isStaticFile = /\.(xml|txt|ico|json|png|svg|webmanifest|ico)$/.test(pathname) ||
+                           pathname === '/robots.txt' ||
+                           pathname === '/sitemap.xml' ||
+                           pathname === '/browserconfig.xml' ||
+                           pathname === '/site.webmanifest' ||
+                           pathname === '/manifest.webmanifest' ||
+                           pathname === '/favicon.ico' ||
+                           pathname === '/favicon.svg' ||
+                           pathname === '/apple-touch-icon.png';
+      
+      if (isStaticFile) {
+        console.log('🔍 Static file hash change ignored:', pathname, hash);
+        return;
+      }
 
       if (hash === "templates") {
         setCurrentPage('templates');
