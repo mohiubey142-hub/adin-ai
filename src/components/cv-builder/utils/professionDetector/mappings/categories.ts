@@ -1,6 +1,6 @@
 // utils/professionDetector/mappings/categories.ts
 // ============================================
-// PROFESSION CATEGORIES
+// PROFESSION CATEGORIES - 80+ Professions
 // ============================================
 
 import { Profession } from '../types';
@@ -18,6 +18,17 @@ export const PROFESSION_CATEGORIES: Record<Profession, string> = {
     'psychiatrist': 'Medical',
     'medical-technologist': 'Medical',
     'physical-therapist': 'Medical',
+    
+    // ===== NEW HEALTHCARE (9) =====
+    'physiotherapist': 'Medical',
+    'nutritionist': 'Medical',
+    'medical-lab-technologist': 'Medical',
+    'radiology-technologist': 'Medical',
+    'occupational-therapist': 'Medical',
+    'speech-therapist': 'Medical',
+    'optometrist': 'Medical',
+    'veterinary-doctor': 'Medical',
+    'healthcare-administrator': 'Medical',
     
     // Education
     'teacher': 'Education',
@@ -58,6 +69,13 @@ export const PROFESSION_CATEGORIES: Record<Profession, string> = {
     'network-engineer': 'IT',
     'software-architect': 'IT',
     
+    // ===== NEW IT (5) =====
+    'software-engineer': 'IT',
+    'ai-research-engineer': 'IT',
+    'embedded-systems-engineer': 'IT',
+    'database-administrator': 'IT',
+    'mechatronics-engineer': 'Engineering',  // Mechatronics is Engineering
+    
     // Business
     'business': 'Business',
     'project-manager': 'Business',
@@ -67,6 +85,14 @@ export const PROFESSION_CATEGORIES: Record<Profession, string> = {
     'business-analyst': 'Business',
     'supply-chain': 'Business',
     'consultant': 'Business',
+    
+    // ===== NEW BUSINESS (6) =====
+    'finance-analyst': 'Finance',
+    'financial-advisor': 'Finance',
+    'supply-chain-manager': 'Business',
+    'procurement-officer': 'Business',
+    'logistics-manager': 'Business',
+    'business-development-executive': 'Business',
     
     // Engineering
     'engineering': 'Engineering',
@@ -81,6 +107,10 @@ export const PROFESSION_CATEGORIES: Record<Profession, string> = {
     'environmental-engineer': 'Engineering',
     'biomedical-engineer': 'Engineering',
     'robotics-engineer': 'Engineering',
+    
+    // ===== NEW ENGINEERING (2) =====
+    'automobile-engineer': 'Engineering',
+    'mining-engineer': 'Engineering',
     
     // Commerce
     'accountant': 'Finance',
@@ -104,6 +134,9 @@ export const PROFESSION_CATEGORIES: Record<Profession, string> = {
     'copywriter': 'Marketing',
     'journalist': 'Media',
     'pr-specialist': 'Media',
+    
+    // ===== NEW SALES & MARKETING (1) =====
+    'customer-support-specialist': 'Sales',
     
     // Creative
     'graphic-designer': 'Design',

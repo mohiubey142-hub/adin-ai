@@ -19,6 +19,17 @@ export const PROFESSION_LABELS: Record<Profession, string> = {
     'medical-technologist': 'Medical Technologist',
     'physical-therapist': 'Physical Therapist',
     
+    // ===== HEALTHCARE ALLIED - NEW (9) =====
+    'physiotherapist': 'Physiotherapist',
+    'nutritionist': 'Nutritionist',
+    'medical-lab-technologist': 'Medical Lab Technologist',
+    'radiology-technologist': 'Radiology Technologist',
+    'occupational-therapist': 'Occupational Therapist',
+    'speech-therapist': 'Speech Therapist',
+    'optometrist': 'Optometrist',
+    'veterinary-doctor': 'Veterinary Doctor',
+    'healthcare-administrator': 'Healthcare Administrator',
+    
     // Education
     'teacher': 'Teacher',
     'professor': 'Professor',
@@ -58,6 +69,13 @@ export const PROFESSION_LABELS: Record<Profession, string> = {
     'network-engineer': 'Network Engineer',
     'software-architect': 'Software Architect',
     
+    // ===== IT - NEW (5) =====
+    'software-engineer': 'Software Engineer',
+    'ai-research-engineer': 'AI Research Engineer',
+    'embedded-systems-engineer': 'Embedded Systems Engineer',
+    'database-administrator': 'Database Administrator',
+    'mechatronics-engineer': 'Mechatronics Engineer',
+    
     // Business
     'business': 'Business Professional',
     'project-manager': 'Project Manager',
@@ -67,6 +85,14 @@ export const PROFESSION_LABELS: Record<Profession, string> = {
     'business-analyst': 'Business Analyst',
     'supply-chain': 'Supply Chain Manager',
     'consultant': 'Consultant',
+    
+    // ===== BUSINESS - NEW (6) =====
+    'finance-analyst': 'Finance Analyst',
+    'financial-advisor': 'Financial Advisor',
+    'supply-chain-manager': 'Supply Chain Manager',
+    'procurement-officer': 'Procurement Officer',
+    'logistics-manager': 'Logistics Manager',
+    'business-development-executive': 'Business Development Executive',
     
     // Engineering
     'engineering': 'Engineer',
@@ -81,6 +107,10 @@ export const PROFESSION_LABELS: Record<Profession, string> = {
     'environmental-engineer': 'Environmental Engineer',
     'biomedical-engineer': 'Biomedical Engineer',
     'robotics-engineer': 'Robotics Engineer',
+    
+    // ===== ENGINEERING - NEW (2) =====
+    'automobile-engineer': 'Automobile Engineer',
+    'mining-engineer': 'Mining Engineer',
     
     // Commerce
     'accountant': 'Accountant',
@@ -104,6 +134,9 @@ export const PROFESSION_LABELS: Record<Profession, string> = {
     'copywriter': 'Copywriter',
     'journalist': 'Journalist',
     'pr-specialist': 'PR Specialist',
+    
+    // ===== SALES & MARKETING - NEW (1) =====
+    'customer-support-specialist': 'Customer Support Specialist',
     
     // Creative
     'graphic-designer': 'Graphic Designer',

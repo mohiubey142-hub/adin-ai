@@ -17,6 +17,17 @@ export type Profession =
     | 'medical-technologist'
     | 'physical-therapist'
     
+    // ===== HEALTHCARE ALLIED - NEW (9) =====
+    | 'physiotherapist'
+    | 'nutritionist'
+    | 'medical-lab-technologist'
+    | 'radiology-technologist'
+    | 'occupational-therapist'
+    | 'speech-therapist'
+    | 'optometrist'
+    | 'veterinary-doctor'
+    | 'healthcare-administrator'
+    
     // ===== EDUCATION & TEACHING =====
     | 'teacher'
     | 'professor'
@@ -56,6 +67,13 @@ export type Profession =
     | 'network-engineer'
     | 'software-architect'
     
+    // ===== IT - NEW (5) =====
+    | 'software-engineer'
+    | 'ai-research-engineer'
+    | 'embedded-systems-engineer'
+    | 'database-administrator'
+    | 'mechatronics-engineer'
+    
     // ===== BUSINESS & MANAGEMENT =====
     | 'business'
     | 'project-manager'
@@ -65,6 +83,14 @@ export type Profession =
     | 'business-analyst'
     | 'supply-chain'
     | 'consultant'
+    
+    // ===== BUSINESS - NEW (6) =====
+    | 'finance-analyst'
+    | 'financial-advisor'
+    | 'supply-chain-manager'
+    | 'procurement-officer'
+    | 'logistics-manager'
+    | 'business-development-executive'
     
     // ===== ENGINEERING =====
     | 'engineering'
@@ -79,6 +105,10 @@ export type Profession =
     | 'environmental-engineer'
     | 'biomedical-engineer'
     | 'robotics-engineer'
+    
+    // ===== ENGINEERING - NEW (2) =====
+    | 'automobile-engineer'
+    | 'mining-engineer'
     
     // ===== COMMERCE & FINANCE =====
     | 'accountant'
@@ -102,6 +132,9 @@ export type Profession =
     | 'copywriter'
     | 'journalist'
     | 'pr-specialist'
+    
+    // ===== SALES & MARKETING - NEW (1) =====
+    | 'customer-support-specialist'
     
     // ===== CREATIVE & DESIGN =====
     | 'graphic-designer'

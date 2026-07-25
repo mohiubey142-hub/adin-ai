@@ -1,6 +1,6 @@
 // utils/profession/bullets.ts
 // ============================================
-// PROFESSION BULLETS - 60+ Professions
+// PROFESSION BULLETS - 80+ Professions
 // ============================================
 
 import { getDoctorBullets } from '../pools/doctorPool';
@@ -62,6 +62,40 @@ import { getComputerTeacherBullets } from '../pools/computerTeacherPool';
 import { getIslamicStudiesTeacherBullets } from '../pools/islamicStudiesTeacherPool';
 import { getPakistanStudiesTeacherBullets } from '../pools/pakistanStudiesTeacherPool';
 import { getHistoryTeacherBullets } from '../pools/historyTeacherPool';
+
+// ===== NEW POOL IMPORTS (23) =====
+// Healthcare (9)
+import { getPhysiotherapistBullets } from '../pools/physiotherapistPool';
+import { getNutritionistBullets } from '../pools/nutritionistPool';
+import { getMedicalLabTechnologistBullets } from '../pools/medicalLabTechnologistPool';
+import { getRadiologyTechnologistBullets } from '../pools/radiologyTechnologistPool';
+import { getOccupationalTherapistBullets } from '../pools/occupationalTherapistPool';
+import { getSpeechTherapistBullets } from '../pools/speechTherapistPool';
+import { getOptometristBullets } from '../pools/optometristPool';
+import { getVeterinaryDoctorBullets } from '../pools/veterinaryDoctorPool';
+import { getHealthcareAdministratorBullets } from '../pools/healthcareAdministratorPool';
+
+// IT (5)
+import { getSoftwareEngineerBullets } from '../pools/softwareEngineerPool';
+import { getAiResearchEngineerBullets } from '../pools/aiResearchEngineerPool';
+import { getEmbeddedSystemsEngineerBullets } from '../pools/embeddedSystemsEngineerPool';
+import { getDatabaseAdministratorBullets } from '../pools/databaseAdministratorPool';
+import { getMechatronicsEngineerBullets } from '../pools/mechatronicsEngineerPool';
+
+// Business (6)
+import { getFinanceAnalystBullets } from '../pools/financeAnalystPool';
+import { getFinancialAdvisorBullets } from '../pools/financialAdvisorPool';
+import { getSupplyChainManagerBullets } from '../pools/supplyChainManagerPool';
+import { getProcurementOfficerBullets } from '../pools/procurementOfficerPool';
+import { getLogisticsManagerBullets } from '../pools/logisticsManagerPool';
+import { getBusinessDevelopmentExecutiveBullets } from '../pools/businessDevelopmentExecutivePool';
+
+// Engineering (2)
+import { getAutomobileEngineerBullets } from '../pools/automobileEngineerPool';
+import { getMiningEngineerBullets } from '../pools/miningEngineerPool';
+
+// Sales & Marketing (1)
+import { getCustomerSupportSpecialistBullets } from '../pools/customerSupportSpecialistPool';
 
 export const getBulletsByProfession = (profession: string, level: string, company: string): string[] => {
     const levelKey = level === 'director' || level === 'manager' ? 'senior' : level;
@@ -126,6 +160,41 @@ export const getBulletsByProfession = (profession: string, level: string, compan
         case 'islamic-studies-teacher': return getIslamicStudiesTeacherBullets(levelKey, company);
         case 'pakistan-studies-teacher': return getPakistanStudiesTeacherBullets(levelKey, company);
         case 'history-teacher': return getHistoryTeacherBullets(levelKey, company);
+        
+        // ===== NEW PROFESSION CASES (23) =====
+        // Healthcare (9)
+        case 'physiotherapist': return getPhysiotherapistBullets(levelKey, company);
+        case 'nutritionist': return getNutritionistBullets(levelKey, company);
+        case 'medical-lab-technologist': return getMedicalLabTechnologistBullets(levelKey, company);
+        case 'radiology-technologist': return getRadiologyTechnologistBullets(levelKey, company);
+        case 'occupational-therapist': return getOccupationalTherapistBullets(levelKey, company);
+        case 'speech-therapist': return getSpeechTherapistBullets(levelKey, company);
+        case 'optometrist': return getOptometristBullets(levelKey, company);
+        case 'veterinary-doctor': return getVeterinaryDoctorBullets(levelKey, company);
+        case 'healthcare-administrator': return getHealthcareAdministratorBullets(levelKey, company);
+        
+        // IT (5)
+        case 'software-engineer': return getSoftwareEngineerBullets(levelKey, company);
+        case 'ai-research-engineer': return getAiResearchEngineerBullets(levelKey, company);
+        case 'embedded-systems-engineer': return getEmbeddedSystemsEngineerBullets(levelKey, company);
+        case 'database-administrator': return getDatabaseAdministratorBullets(levelKey, company);
+        case 'mechatronics-engineer': return getMechatronicsEngineerBullets(levelKey, company);
+        
+        // Business (6)
+        case 'finance-analyst': return getFinanceAnalystBullets(levelKey, company);
+        case 'financial-advisor': return getFinancialAdvisorBullets(levelKey, company);
+        case 'supply-chain-manager': return getSupplyChainManagerBullets(levelKey, company);
+        case 'procurement-officer': return getProcurementOfficerBullets(levelKey, company);
+        case 'logistics-manager': return getLogisticsManagerBullets(levelKey, company);
+        case 'business-development-executive': return getBusinessDevelopmentExecutiveBullets(levelKey, company);
+        
+        // Engineering (2)
+        case 'automobile-engineer': return getAutomobileEngineerBullets(levelKey, company);
+        case 'mining-engineer': return getMiningEngineerBullets(levelKey, company);
+        
+        // Sales & Marketing (1)
+        case 'customer-support-specialist': return getCustomerSupportSpecialistBullets(levelKey, company);
+        
         default: return getGeneralBullets(levelKey, company);
     }
 };

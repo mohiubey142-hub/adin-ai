@@ -212,7 +212,7 @@ const categorizeSkill = (skill: string): 'technical' | 'soft' | 'tools' | 'other
 };
 
 // ============================================
-// ✅ PROFESSION-SPECIFIC SKILL SUGGESTIONS (60+)
+// ✅ PROFESSION-SPECIFIC SKILL SUGGESTIONS (80+)
 // ============================================
 const professionSkills: Record<string, string[]> = {
     // ===== MEDICAL =====
@@ -220,6 +220,17 @@ const professionSkills: Record<string, string[]> = {
     'nurse': ['Patient Care', 'Vital Signs Monitoring', 'Medication Administration', 'EMR Systems', 'Patient Education', 'Emergency Response', 'Clinical Assessment', 'Team Collaboration'],
     'dentist': ['Dental Surgery', 'Patient Care', 'Radiology', 'Oral Health Education', 'Treatment Planning', 'Anesthesia Administration', 'Precision', 'Communication'],
     'pharmacist': ['Medication Management', 'Patient Counseling', 'Pharmacy Software', 'Drug Interaction Knowledge', 'Inventory Management', 'Clinical Pharmacy', 'Attention to Detail'],
+    
+    // ===== NEW HEALTHCARE (9) =====
+    'physiotherapist': ['Manual Therapy', 'Exercise Prescription', 'Patient Rehabilitation', 'Neurological Assessment', 'Orthopedic Assessment', 'Pain Management', 'Patient Education', 'Treatment Planning', 'Clinical Documentation'],
+    'nutritionist': ['Nutritional Assessment', 'Diet Planning', 'Clinical Nutrition', 'Health Education', 'Weight Management', 'Public Health', 'Food Science', 'Patient Counseling', 'Research'],
+    'medical-lab-technologist': ['Laboratory Testing', 'Hematology', 'Microbiology', 'Clinical Chemistry', 'Quality Control', 'Medical Equipment', 'Sample Analysis', 'Documentation', 'Safety Compliance'],
+    'radiology-technologist': ['Radiographic Imaging', 'CT Scanning', 'MRI Procedures', 'Radiation Safety', 'Patient Positioning', 'Image Quality Assurance', 'Equipment Maintenance', 'Anatomy Knowledge', 'Patient Care'],
+    'occupational-therapist': ['Functional Assessment', 'Rehabilitation', 'Therapeutic Activities', 'Patient Education', 'Home Modifications', 'Assistive Technology', 'Occupational Health', 'Mental Health', 'Pediatric Therapy'],
+    'speech-therapist': ['Speech Assessment', 'Language Therapy', 'Articulation Disorders', 'Voice Disorders', 'Fluency Therapy', 'Neurogenic Disorders', 'Pediatric Speech Therapy', 'Swallowing Disorders', 'Patient Education'],
+    'optometrist': ['Eye Examinations', 'Refraction', 'Ocular Disease Management', 'Contact Lens Fitting', 'Low Vision Assessment', 'Optical Prescriptions', 'Patient Education', 'Diagnostic Equipment', 'Binocular Vision'],
+    'veterinary-doctor': ['Animal Health', 'Surgery', 'Diagnostic Imaging', 'Pharmacology', 'Emergency Medicine', 'Preventive Care', 'Client Education', 'Surgical Procedures', 'Animal Welfare'],
+    'healthcare-administrator': ['Healthcare Operations', 'Medical Records', 'Compliance', 'Strategic Planning', 'Budget Management', 'Healthcare Regulations', 'Staff Management', 'Quality Improvement', 'Healthcare Technology'],
     
     // ===== IT & TECHNOLOGY =====
     'developer': ['JavaScript', 'TypeScript', 'React.js', 'Node.js', 'Python', 'Git', 'REST APIs', 'Docker', 'AWS', 'SQL', 'Problem Solving', 'Team Collaboration', 'Agile Methodologies'],
@@ -237,6 +248,13 @@ const professionSkills: Record<string, string[]> = {
     'blockchain': ['Solidity', 'Web3.js', 'Ethereum', 'Blockchain Architecture', 'Smart Contracts', 'Cryptography', 'Node.js', 'Distributed Systems'],
     'qa': ['Selenium', 'JUnit', 'TestNG', 'Cypress', 'Postman', 'API Testing', 'Automation', 'Manual Testing', 'JIRA', 'SQL', 'Bug Tracking'],
     
+    // ===== NEW IT (5) =====
+    'software-engineer': ['Java', 'Python', 'C++', 'Data Structures', 'Algorithms', 'System Design', 'Agile', 'Git', 'CI/CD', 'Cloud Computing', 'Microservices', 'Problem Solving'],
+    'ai-research-engineer': ['Python', 'TensorFlow', 'PyTorch', 'Deep Learning', 'NLP', 'Computer Vision', 'Reinforcement Learning', 'Mathematical Modeling', 'Research Methodology', 'Data Science', 'MLOps'],
+    'embedded-systems-engineer': ['C', 'C++', 'Python', 'RTOS', 'Microcontrollers', 'Device Drivers', 'IoT', 'ARM Architecture', 'Firmware Development', 'Hardware-Software Integration', 'Debugging'],
+    'database-administrator': ['SQL Server', 'Oracle', 'PostgreSQL', 'MySQL', 'MongoDB', 'Database Design', 'Performance Tuning', 'Backup & Recovery', 'High Availability', 'Security', 'Data Migration'],
+    'mechatronics-engineer': ['C++', 'Python', 'PLC', 'Arduino', 'Raspberry Pi', 'ROS', 'Control Systems', 'Sensors', 'Actuators', 'Circuit Design', 'Mechanical Design', 'System Integration'],
+    
     // ===== BUSINESS & MANAGEMENT =====
     'business': ['Strategic Planning', 'Business Development', 'Market Analysis', 'Financial Management', 'Leadership', 'Communication', 'Project Management', 'CRM', 'Negotiation'],
     'project-manager': ['Agile Methodologies', 'Scrum', 'Jira', 'Project Management', 'Stakeholder Management', 'Risk Management', 'Budgeting', 'Leadership', 'Communication', 'Kanban'],
@@ -245,12 +263,24 @@ const professionSkills: Record<string, string[]> = {
     'entrepreneur': ['Business Planning', 'Fundraising', 'Investor Relations', 'Product Development', 'Marketing Strategy', 'Leadership', 'Sales', 'Networking', 'Resilience'],
     'business-analyst': ['SQL', 'Data Analysis', 'Tableau', 'Business Intelligence', 'Project Management', 'Agile', 'Documentation', 'Communication', 'Problem Solving'],
     
+    // ===== NEW BUSINESS (6) =====
+    'finance-analyst': ['Advanced Excel', 'Financial Modeling', 'Data Analysis', 'Power BI', 'Financial Reporting', 'Valuation', 'Investment Analysis', 'Budgeting', 'Forecasting', 'Risk Analysis'],
+    'financial-advisor': ['Wealth Management', 'Investment Strategy', 'Retirement Planning', 'Estate Planning', 'Tax Planning', 'Risk Assessment', 'Client Relationship', 'Portfolio Management', 'Insurance', 'Estate Planning'],
+    'supply-chain-manager': ['Supply Chain Strategy', 'Procurement', 'Inventory Management', 'Logistics', 'Warehousing', 'Vendor Management', 'ERP Systems', 'Process Improvement', 'Data Analysis'],
+    'procurement-officer': ['Strategic Sourcing', 'Vendor Management', 'Contract Negotiation', 'Purchasing', 'Inventory Control', 'Supplier Evaluation', 'Cost Reduction', 'Supply Chain', 'Compliance', 'ERP Systems'],
+    'logistics-manager': ['Transportation Management', 'Warehousing', 'Distribution', 'Fleet Management', 'Supply Chain', 'Route Optimization', 'Warehouse Management Systems', 'Inventory Management', 'Customer Service'],
+    'business-development-executive': ['Business Development', 'Sales Strategy', 'Market Research', 'Lead Generation', 'Client Acquisition', 'Relationship Management', 'Negotiation', 'Strategic Planning', 'CRM', 'Proposal Writing'],
+    
     // ===== ENGINEERING =====
     'engineering': ['AutoCAD', 'MATLAB', 'Project Management', 'Technical Analysis', 'Problem Solving', 'Communication', 'Documentation', 'Quality Control', 'Team Collaboration'],
     'civil-engineer': ['AutoCAD', 'SAP2000', 'ETABS', 'Project Management', 'Structural Analysis', 'Site Management', 'Quality Control', 'Communication', 'Problem Solving'],
     'electrical-engineer': ['AutoCAD', 'MATLAB', 'PLC Programming', 'Electrical Design', 'Power Systems', 'Circuit Design', 'Project Management', 'Problem Solving'],
     'mechanical-engineer': ['SolidWorks', 'AutoCAD', 'MATLAB', 'CFD', 'Thermal Analysis', 'Project Management', 'Mechanical Design', 'Problem Solving'],
     'architect': ['AutoCAD', 'Revit', '3ds Max', 'Architectural Design', 'SketchUp', 'Building Codes', 'Construction Management', 'Project Management', 'Creativity'],
+    
+    // ===== NEW ENGINEERING (2) =====
+    'automobile-engineer': ['AutoCAD', 'CATIA', 'SolidWorks', 'Vehicle Dynamics', 'Powertrain', 'Vehicle Safety', 'Engine Design', 'Electric Vehicles', 'Automotive Electronics', 'Project Management', 'MATLAB'],
+    'mining-engineer': ['Mine Planning', 'Geology', 'Rock Mechanics', 'Mine Operations', 'Safety Management', 'Ventilation', 'Explosives Engineering', 'Resource Estimation', 'Environmental Management', 'Mining Software'],
     
     // ===== COMMERCE & FINANCE =====
     'accountant': ['QuickBooks', 'Advanced Excel', 'Financial Analysis', 'Auditing', 'Tax Preparation', 'GAAP', 'Financial Reporting', 'Accounting Software', 'Attention to Detail'],
@@ -264,6 +294,9 @@ const professionSkills: Record<string, string[]> = {
     'seo': ['SEO', 'Google Analytics', 'Search Console', 'Keyword Research', 'Link Building', 'Content Strategy', 'Technical SEO', 'SEMrush', 'Data Analysis'],
     'content-creator': ['Content Writing', 'Editing', 'Storytelling', 'SEO', 'Social Media', 'Content Strategy', 'WordPress', 'Creativity', 'Research'],
     'copywriter': ['Copywriting', 'Persuasive Writing', 'SEO', 'Content Strategy', 'Brand Voice', 'Email Marketing', 'Creativity', 'Editing'],
+    
+    // ===== NEW SALES & MARKETING (1) =====
+    'customer-support-specialist': ['Customer Service', 'Problem Solving', 'Communication', 'CRM', 'Technical Support', 'Ticket Management', 'Team Collaboration', 'Active Listening', 'Negotiation', 'Empathy'],
     
     // ===== CREATIVE & DESIGN =====
     'designer': ['Figma', 'Adobe Creative Suite', 'Design Thinking', 'UI/UX', 'Creativity', 'Communication', 'Problem Solving', 'Typography', 'Color Theory'],

@@ -1,6 +1,6 @@
 // ============================================
 // 🚀 PROFESSION POOLS - INDEX
-// All 60+ Profession Pools Export
+// All 80+ Profession Pools Export
 // ============================================
 
 // ============================================
@@ -17,6 +17,19 @@ export { getGynecologistBullets } from './gynecologistPool';
 export { getPsychiatristBullets } from './psychiatristPool';
 export { getMedicalTechnologistBullets } from './medicalTechnologistPool';
 export { getPhysicalTherapistBullets } from './physicalTherapistPool';
+
+// ============================================
+// HEALTHCARE - NEW POOLS (9)
+// ============================================
+export { getPhysiotherapistBullets } from './physiotherapistPool';
+export { getNutritionistBullets } from './nutritionistPool';
+export { getMedicalLabTechnologistBullets } from './medicalLabTechnologistPool';
+export { getRadiologyTechnologistBullets } from './radiologyTechnologistPool';
+export { getOccupationalTherapistBullets } from './occupationalTherapistPool';
+export { getSpeechTherapistBullets } from './speechTherapistPool';
+export { getOptometristBullets } from './optometristPool';
+export { getVeterinaryDoctorBullets } from './veterinaryDoctorPool';
+export { getHealthcareAdministratorBullets } from './healthcareAdministratorPool';
 
 // ============================================
 // EDUCATION & TEACHING
@@ -65,6 +78,15 @@ export { getNetworkEngineerBullets } from './networkEngineerPool';
 export { getSoftwareArchitectBullets } from './softwareArchitectPool';
 
 // ============================================
+// IT & TECHNOLOGY - NEW POOLS (5)
+// ============================================
+export { getSoftwareEngineerBullets } from './softwareEngineerPool';
+export { getAiResearchEngineerBullets } from './aiResearchEngineerPool';
+export { getEmbeddedSystemsEngineerBullets } from './embeddedSystemsEngineerPool';
+export { getDatabaseAdministratorBullets } from './databaseAdministratorPool';
+export { getMechatronicsEngineerBullets } from './mechatronicsEngineerPool';
+
+// ============================================
 // BUSINESS & MANAGEMENT
 // ============================================
 export { getBusinessBullets } from './businessPool';
@@ -75,6 +97,16 @@ export { getEntrepreneurBullets } from './entrepreneurPool';
 export { getBusinessAnalystBullets } from './businessAnalystPool';
 export { getSupplyChainBullets } from './supplyChainPool';
 export { getConsultantBullets } from './consultantPool';
+
+// ============================================
+// BUSINESS & MANAGEMENT - NEW POOLS (6)
+// ============================================
+export { getFinanceAnalystBullets } from './financeAnalystPool';
+export { getFinancialAdvisorBullets } from './financialAdvisorPool';
+export { getSupplyChainManagerBullets } from './supplyChainManagerPool';
+export { getProcurementOfficerBullets } from './procurementOfficerPool';
+export { getLogisticsManagerBullets } from './logisticsManagerPool';
+export { getBusinessDevelopmentExecutiveBullets } from './businessDevelopmentExecutivePool';
 
 // ============================================
 // ENGINEERING
@@ -91,6 +123,12 @@ export { getStructuralEngineerBullets } from './structuralEngineerPool';
 export { getEnvironmentalEngineerBullets } from './environmentalEngineerPool';
 export { getBiomedicalEngineerBullets } from './biomedicalEngineerPool';
 export { getRoboticsEngineerBullets } from './roboticsEngineerPool';
+
+// ============================================
+// ENGINEERING - NEW POOLS (3)
+// ============================================
+export { getAutomobileEngineerBullets } from './automobileEngineerPool';
+export { getMiningEngineerBullets } from './miningEngineerPool';
 
 // ============================================
 // COMMERCE, ACCOUNTING & FINANCE
@@ -118,6 +156,11 @@ export { getContentCreatorBullets } from './contentCreatorPool';
 export { getCopywriterBullets } from './copywriterPool';
 export { getJournalistBullets } from './journalistPool';
 export { getPrSpecialistBullets } from './prSpecialistPool';
+
+// ============================================
+// SALES & MARKETING - NEW POOLS (1)
+// ============================================
+export { getCustomerSupportSpecialistBullets } from './customerSupportSpecialistPool';
 
 // ============================================
 // CREATIVE & DESIGN
@@ -265,6 +308,17 @@ export const professionPoolMap: Record<string, (level: string, company: string) 
     'medical-technologist': getMedicalTechnologistBullets,
     'physical-therapist': getPhysicalTherapistBullets,
 
+    // Healthcare - NEW (9)
+    'physiotherapist': getPhysiotherapistBullets,
+    'nutritionist': getNutritionistBullets,
+    'medical-lab-technologist': getMedicalLabTechnologistBullets,
+    'radiology-technologist': getRadiologyTechnologistBullets,
+    'occupational-therapist': getOccupationalTherapistBullets,
+    'speech-therapist': getSpeechTherapistBullets,
+    'optometrist': getOptometristBullets,
+    'veterinary-doctor': getVeterinaryDoctorBullets,
+    'healthcare-administrator': getHealthcareAdministratorBullets,
+
     // Education
     'teacher': getTeacherBullets,
     'professor': getProfessorBullets,
@@ -303,6 +357,13 @@ export const professionPoolMap: Record<string, (level: string, company: string) 
     'network-engineer': getNetworkEngineerBullets,
     'software-architect': getSoftwareArchitectBullets,
 
+    // IT - NEW (5)
+    'software-engineer': getSoftwareEngineerBullets,
+    'ai-research-engineer': getAiResearchEngineerBullets,
+    'embedded-systems-engineer': getEmbeddedSystemsEngineerBullets,
+    'database-administrator': getDatabaseAdministratorBullets,
+    'mechatronics-engineer': getMechatronicsEngineerBullets,
+
     // Business
     'business': getBusinessBullets,
     'project-manager': getProjectManagerBullets,
@@ -312,6 +373,14 @@ export const professionPoolMap: Record<string, (level: string, company: string) 
     'business-analyst': getBusinessAnalystBullets,
     'supply-chain': getSupplyChainBullets,
     'consultant': getConsultantBullets,
+
+    // Business - NEW (6)
+    'finance-analyst': getFinanceAnalystBullets,
+    'financial-advisor': getFinancialAdvisorBullets,
+    'supply-chain-manager': getSupplyChainManagerBullets,
+    'procurement-officer': getProcurementOfficerBullets,
+    'logistics-manager': getLogisticsManagerBullets,
+    'business-development-executive': getBusinessDevelopmentExecutiveBullets,
 
     // Engineering
     'engineering': getEngineeringBullets,
@@ -326,6 +395,10 @@ export const professionPoolMap: Record<string, (level: string, company: string) 
     'environmental-engineer': getEnvironmentalEngineerBullets,
     'biomedical-engineer': getBiomedicalEngineerBullets,
     'robotics-engineer': getRoboticsEngineerBullets,
+
+    // Engineering - NEW (2)
+    'automobile-engineer': getAutomobileEngineerBullets,
+    'mining-engineer': getMiningEngineerBullets,
 
     // Finance
     'accountant': getAccountantBullets,
@@ -349,6 +422,9 @@ export const professionPoolMap: Record<string, (level: string, company: string) 
     'copywriter': getCopywriterBullets,
     'journalist': getJournalistBullets,
     'pr-specialist': getPrSpecialistBullets,
+
+    // Sales & Marketing - NEW (1)
+    'customer-support-specialist': getCustomerSupportSpecialistBullets,
 
     // Design
     'designer': getDesignerBullets,
@@ -465,6 +541,7 @@ export const allProfessions = Object.keys(professionPoolMap);
 // ============================================
 export const getProfessionName = (profession: string): string => {
     const names: Record<string, string> = {
+        // Medical
         'doctor': 'Doctor',
         'nurse': 'Nurse',
         'dentist': 'Dentist',
@@ -476,6 +553,19 @@ export const getProfessionName = (profession: string): string => {
         'psychiatrist': 'Psychiatrist',
         'medical-technologist': 'Medical Technologist',
         'physical-therapist': 'Physical Therapist',
+
+        // Healthcare - NEW (9)
+        'physiotherapist': 'Physiotherapist',
+        'nutritionist': 'Nutritionist',
+        'medical-lab-technologist': 'Medical Lab Technologist',
+        'radiology-technologist': 'Radiology Technologist',
+        'occupational-therapist': 'Occupational Therapist',
+        'speech-therapist': 'Speech Therapist',
+        'optometrist': 'Optometrist',
+        'veterinary-doctor': 'Veterinary Doctor',
+        'healthcare-administrator': 'Healthcare Administrator',
+
+        // Education
         'teacher': 'Teacher',
         'professor': 'Professor',
         'lecturer': 'Lecturer',
@@ -490,6 +580,8 @@ export const getProfessionName = (profession: string): string => {
         'islamic-studies-teacher': 'Islamic Studies Teacher',
         'pakistan-studies-teacher': 'Pakistan Studies Teacher',
         'history-teacher': 'History Teacher',
+
+        // IT
         'developer': 'Developer',
         'frontend': 'Frontend Developer',
         'backend': 'Backend Developer',
@@ -510,6 +602,15 @@ export const getProfessionName = (profession: string): string => {
         'system-administrator': 'System Administrator',
         'network-engineer': 'Network Engineer',
         'software-architect': 'Software Architect',
+
+        // IT - NEW (5)
+        'software-engineer': 'Software Engineer',
+        'ai-research-engineer': 'AI Research Engineer',
+        'embedded-systems-engineer': 'Embedded Systems Engineer',
+        'database-administrator': 'Database Administrator',
+        'mechatronics-engineer': 'Mechatronics Engineer',
+
+        // Business
         'business': 'Business Professional',
         'project-manager': 'Project Manager',
         'product-manager': 'Product Manager',
@@ -518,6 +619,16 @@ export const getProfessionName = (profession: string): string => {
         'business-analyst': 'Business Analyst',
         'supply-chain': 'Supply Chain Manager',
         'consultant': 'Consultant',
+
+        // Business - NEW (6)
+        'finance-analyst': 'Finance Analyst',
+        'financial-advisor': 'Financial Advisor',
+        'supply-chain-manager': 'Supply Chain Manager',
+        'procurement-officer': 'Procurement Officer',
+        'logistics-manager': 'Logistics Manager',
+        'business-development-executive': 'Business Development Executive',
+
+        // Engineering
         'engineering': 'Engineer',
         'civil-engineer': 'Civil Engineer',
         'electrical-engineer': 'Electrical Engineer',
@@ -530,6 +641,12 @@ export const getProfessionName = (profession: string): string => {
         'environmental-engineer': 'Environmental Engineer',
         'biomedical-engineer': 'Biomedical Engineer',
         'robotics-engineer': 'Robotics Engineer',
+
+        // Engineering - NEW (2)
+        'automobile-engineer': 'Automobile Engineer',
+        'mining-engineer': 'Mining Engineer',
+
+        // Finance
         'accountant': 'Accountant',
         'banker': 'Banker',
         'investment-banker': 'Investment Banker',
@@ -540,6 +657,8 @@ export const getProfessionName = (profession: string): string => {
         'treasury-manager': 'Treasury Manager',
         'fintech': 'FinTech Specialist',
         'risk-manager': 'Risk Manager',
+
+        // Sales & Marketing
         'sales': 'Sales Professional',
         'marketing': 'Marketing Specialist',
         'digital-marketing': 'Digital Marketer',
@@ -549,6 +668,11 @@ export const getProfessionName = (profession: string): string => {
         'copywriter': 'Copywriter',
         'journalist': 'Journalist',
         'pr-specialist': 'PR Specialist',
+
+        // Sales & Marketing - NEW (1)
+        'customer-support-specialist': 'Customer Support Specialist',
+
+        // Design
         'designer': 'Designer',
         'graphic-designer': 'Graphic Designer',
         'ui-ux': 'UI/UX Designer',
@@ -558,6 +682,8 @@ export const getProfessionName = (profession: string): string => {
         'photographer': 'Photographer',
         'motion-designer': 'Motion Designer',
         '3d-artist': '3D Artist',
+
+        // Legal
         'law': 'Legal Professional',
         'lawyer': 'Lawyer',
         'advocate': 'Advocate',
@@ -565,12 +691,16 @@ export const getProfessionName = (profession: string): string => {
         'barrister': 'Barrister',
         'legal-advisor': 'Legal Advisor',
         'judge': 'Judge',
+
+        // Social Sciences
         'social-sciences': 'Social Sciences',
         'psychologist': 'Psychologist',
         'sociologist': 'Sociologist',
         'economist': 'Economist',
         'social-worker': 'Social Worker',
         'political-scientist': 'Political Scientist',
+
+        // Natural Sciences
         'natural-sciences': 'Natural Sciences',
         'physicist': 'Physicist',
         'chemist': 'Chemist',
@@ -578,12 +708,16 @@ export const getProfessionName = (profession: string): string => {
         'microbiologist': 'Microbiologist',
         'zoologist': 'Zoologist',
         'botanist': 'Botanist',
+
+        // Arts
         'arts': 'Arts & Humanities',
         'historian': 'Historian',
         'philosopher': 'Philosopher',
         'linguist': 'Linguist',
         'literature': 'Literature',
         'journalism': 'Journalism',
+
+        // Aviation & Defense
         'pilot': 'Pilot',
         'air-traffic-controller': 'Air Traffic Controller',
         'army-officer': 'Army Officer',
@@ -591,6 +725,8 @@ export const getProfessionName = (profession: string): string => {
         'air-force-officer': 'Air Force Officer',
         'police-officer': 'Police Officer',
         'firefighter': 'Firefighter',
+
+        // Vocational
         'electrician': 'Electrician',
         'plumber': 'Plumber',
         'carpenter': 'Carpenter',
@@ -599,17 +735,29 @@ export const getProfessionName = (profession: string): string => {
         'construction-worker': 'Construction Worker',
         'cnc-operator': 'CNC Operator',
         'machine-operator': 'Machine Operator',
+
+        // Renewable Energy
         'renewable': 'Renewable Energy',
         'solar': 'Solar Installer',
         'wind': 'Wind Turbine Technician',
         'energy-engineer': 'Energy Engineer',
+
+        // Hospitality
         'chef': 'Chef',
         'hotel-manager': 'Hotel Manager',
         'event-planner': 'Event Planner',
+
+        // Real Estate
         'real-estate-agent': 'Real Estate Agent',
         'insurance-agent': 'Insurance Agent',
+
+        // Freelancer
         'freelancer': 'Freelancer',
+
+        // HR
         'hr': 'HR Professional',
+
+        // General
         'general': 'General Professional'
     };
     return names[profession] || profession;
