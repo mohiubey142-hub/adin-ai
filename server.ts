@@ -12,7 +12,7 @@ const PORT = 3000;
 // Parse JSON request bodies
 app.use(express.json({ limit: '20mb' }));
 
-// Lazy initializer for GoogleGenAI SDK to prevent startup crashes if key is omitted
+// Lazy initializer for GoogleGenAI SDK
 let aiClient: GoogleGenAI | null = null;
 function getAiClient(): GoogleGenAI {
   if (!aiClient) {
@@ -47,18 +47,13 @@ app.post("/api/chat", async (req, res) => {
     }
 
     const client = getAiClient();
-    
-    // Choose model
-    // As per guidelines, gemini-3.5-flash is ideal for standard/basic tasks
     const modelName = "gemini-3.5-flash";
 
-    // Map roles to Google GenAI format (user and model)
     const contents = messages.map((msg: any) => ({
       role: msg.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: msg.text || msg.content || "" }]
     }));
 
-    // Choose system instructions based on Adin AI mode
     let systemInstruction = "You are Adin AI, an elite, highly premium generative AI assistant. Solve the user's queries with intellectual elegance, premium prose, clear markdown formatting, and insightful guidance. Keep answers extremely polished and polite. Avoid computer-jargon/infra details like process ports, etc.";
     let enableSearch = false;
 
@@ -73,7 +68,6 @@ app.post("/api/chat", async (req, res) => {
       systemInstruction = "You are Adin's Executive Document Intelligence Analyst. Analyze the text provided by the user. First, generate a highly scannable, premium brief summarizing the key takeaways. Then, create a detailed structured breakdown of key topics, analyses, and metrics mentioned. Keep explanations clean and executive-level.";
     }
 
-    // Configure tools
     const config: any = {
       systemInstruction,
       temperature: typeof temperature === 'number' ? temperature : 0.7,
@@ -83,7 +77,6 @@ app.post("/api/chat", async (req, res) => {
       config.tools = [{ googleSearch: {} }];
     }
 
-    // Call Gemini
     const response = await client.models.generateContent({
       model: modelName,
       contents,
@@ -92,7 +85,6 @@ app.post("/api/chat", async (req, res) => {
 
     const textResult = response.text || "No response text generated.";
     
-    // Extract grounding metadata if present (Google Search urls)
     let citations: any[] = [];
     const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
     if (chunks && Array.isArray(chunks)) {
@@ -126,8 +118,6 @@ app.post("/api/tts", async (req, res) => {
     }
 
     const client = getAiClient();
-    
-    // Shorten text if it's too long for TTS limit, taking the first 400 characters for high quality narration
     const cleanText = text.replace(/[*#`_\-\[\]]/g, "").substring(0, 480);
     
     const response = await client.models.generateContent({
@@ -159,12 +149,12 @@ app.post("/api/tts", async (req, res) => {
   }
 });
 
-// Set up static files and Vite middleware
+// ✅ FIXED: Vite setup without appType: "spa" to allow static files
 async function setupVite() {
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
-      appType: "spa",
+      // ✅ REMOVED: appType: "spa" - Static files ko serve karne dega
     });
     app.use(vite.middlewares);
     console.log("Vite dev middleware mounted successfully.");
