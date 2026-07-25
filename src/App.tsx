@@ -1,16 +1,9 @@
 // App.tsx - Complete updated file with SEO & Lazy Loading + Founder Profile + Legal Pages (No 404)
-import { useState, useEffect, useRef, lazy, Suspense, useMemo } from "react";
+import { useState, useEffect, useRef, lazy, Suspense, useMemo, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 // ❌ Clerk removed - Guest Mode only
 import Login from "./Login";
-import Signup from "./Signup";
 import { Onboarding } from "./components/Onboarding";
-import Settings from "./components/Settings";
-import Search from "./components/Search";
-import Library from "./components/Library";
-import Documents from "./components/Documents";
-import WebSearch from "./components/WebSearch";
-import AboutMe from "./components/AboutMe";
 import VoiceMic from "./components/VoiceMic";
 import SpeakButton from "./components/SpeakButton";
 import FileUpload, { FileUploadRef } from "./components/FileUpload";
@@ -48,19 +41,32 @@ import { LoadingScreen } from "./components/LoadingScreen";
 
 // Premium Programming Languages - Colors matching your interface (Purple/Violet/Blue theme)
 const programmingLanguages = [
-  { id: "javascript", name: "JavaScript", icon: <Braces size={22} />, gradient: "from-amber-500 to-yellow-500", desc: "Web Development" },
-  { id: "python", name: "Python", icon: <Terminal size={22} />, gradient: "from-blue-500 to-indigo-500", desc: "AI/ML, Backend" },
-  { id: "react", name: "React", icon: <Code2 size={22} />, gradient: "from-cyan-500 to-blue-500", desc: "Frontend Framework" },
-  { id: "typescript", name: "TypeScript", icon: <Braces size={22} />, gradient: "from-blue-600 to-indigo-600", desc: "Type-safe JS" },
-  { id: "nodejs", name: "Node.js", icon: <Server size={22} />, gradient: "from-green-600 to-emerald-600", desc: "Backend Runtime" },
-  { id: "html-css", name: "HTML/CSS", icon: <Layout size={22} />, gradient: "from-orange-500 to-red-500", desc: "Web Fundamentals" },
-  { id: "database", name: "Databases", icon: <Database size={22} />, gradient: "from-purple-500 to-pink-500", desc: "SQL & NoSQL" },
-  { id: "devops", name: "DevOps", icon: <Cloud size={22} />, gradient: "from-slate-500 to-gray-500", desc: "Cloud & Infra" },
-  { id: "security", name: "Security", icon: <Shield size={22} />, gradient: "from-rose-500 to-red-500", desc: "Cybersecurity" },
-  { id: "git", name: "Git/GitHub", icon: <GitBranch size={22} />, gradient: "from-orange-600 to-amber-600", desc: "Version Control" },
-  { id: "ai-ml", name: "AI/ML", icon: <Cpu size={22} />, gradient: "from-violet-500 to-purple-500", desc: "Artificial Intel" },
-  { id: "system-design", name: "System Design", icon: <Server size={22} />, gradient: "from-indigo-500 to-purple-500", desc: "Architecture" },
+  { id: "javascript", name: "JavaScript", icon: "braces", gradient: "from-amber-500 to-yellow-500", desc: "Web Development" },
+  { id: "python", name: "Python", icon: "terminal", gradient: "from-blue-500 to-indigo-500", desc: "AI/ML, Backend" },
+  { id: "react", name: "React", icon: "code2", gradient: "from-cyan-500 to-blue-500", desc: "Frontend Framework" },
+  { id: "typescript", name: "TypeScript", icon: "braces", gradient: "from-blue-600 to-indigo-600", desc: "Type-safe JS" },
+  { id: "nodejs", name: "Node.js", icon: "server", gradient: "from-green-600 to-emerald-600", desc: "Backend Runtime" },
+  { id: "html-css", name: "HTML/CSS", icon: "layout", gradient: "from-orange-500 to-red-500", desc: "Web Fundamentals" },
+  { id: "database", name: "Databases", icon: "database", gradient: "from-purple-500 to-pink-500", desc: "SQL & NoSQL" },
+  { id: "devops", name: "DevOps", icon: "cloud", gradient: "from-slate-500 to-gray-500", desc: "Cloud & Infra" },
+  { id: "security", name: "Security", icon: "shield", gradient: "from-rose-500 to-red-500", desc: "Cybersecurity" },
+  { id: "git", name: "Git/GitHub", icon: "gitbranch", gradient: "from-orange-600 to-amber-600", desc: "Version Control" },
+  { id: "ai-ml", name: "AI/ML", icon: "cpu", gradient: "from-violet-500 to-purple-500", desc: "Artificial Intel" },
+  { id: "system-design", name: "System Design", icon: "server", gradient: "from-indigo-500 to-purple-500", desc: "Architecture" },
 ];
+
+const iconMap: Record<string, any> = {
+  braces: Braces,
+  terminal: Terminal,
+  code2: Code2,
+  server: Server,
+  layout: Layout,
+  database: Database,
+  cloud: Cloud,
+  shield: Shield,
+  gitbranch: GitBranch,
+  cpu: Cpu,
+};
 
 function CodingExpert({ userId, onBack }: { userId: string; onBack?: () => void }) {
   const [userLevel, setUserLevel] = useState<string | null>(null);
@@ -72,8 +78,12 @@ function CodingExpert({ userId, onBack }: { userId: string; onBack?: () => void 
   const [activeTool, setActiveTool] = useState("dashboard");
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isInitialized = useRef(false);
 
   useEffect(() => {
+    if (isInitialized.current) return;
+    isInitialized.current = true;
+
     const savedLevel = localStorage.getItem(`user_level_${userId}`);
     const savedLang = localStorage.getItem(`user_language_${userId}`);
     if (savedLevel) setUserLevel(savedLevel);
@@ -163,12 +173,12 @@ function CodingExpert({ userId, onBack }: { userId: string; onBack?: () => void 
   ];
 
   const tools = [
-    { id: "dashboard", name: "Dashboard", icon: <Sparkles size={14} /> },
-    { id: "learn", name: "Learn", icon: <BookOpen size={14} /> },
-    { id: "code", name: "Code", icon: <Code2 size={14} /> },
-    { id: "debug", name: "Debug", icon: <Bug size={14} /> },
-    { id: "project", name: "Projects", icon: <Rocket size={14} /> },
-    { id: "interview", name: "Interview", icon: <Target size={14} /> },
+    { id: "dashboard", name: "Dashboard", icon: Sparkles },
+    { id: "learn", name: "Learn", icon: BookOpen },
+    { id: "code", name: "Code", icon: Code2 },
+    { id: "debug", name: "Debug", icon: Bug },
+    { id: "project", name: "Projects", icon: Rocket },
+    { id: "interview", name: "Interview", icon: Target },
   ];
 
   const handleQuickAction = (prompt: string) => {
@@ -186,6 +196,11 @@ function CodingExpert({ userId, onBack }: { userId: string; onBack?: () => void 
     setMessages([]);
     setShowResetConfirm(false);
     toast.success("Reset complete!");
+  };
+
+  const getIcon = (iconName: string) => {
+    const IconComponent = iconMap[iconName];
+    return IconComponent ? <IconComponent size={22} /> : null;
   };
 
   // Level Selection UI
@@ -282,7 +297,7 @@ function CodingExpert({ userId, onBack }: { userId: string; onBack?: () => void 
                 className="group p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-purple-500/30 transition-all duration-300 text-left"
               >
                 <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${lang.gradient} flex items-center justify-center mb-3 shadow-lg group-hover:scale-110 transition-transform`}>
-                  <div className="text-white">{lang.icon}</div>
+                  <div className="text-white">{getIcon(lang.icon)}</div>
                 </div>
                 <h3 className="font-semibold text-white text-sm">{lang.name}</h3>
                 <p className="text-gray-500 text-xs mt-1">{lang.desc}</p>
@@ -309,7 +324,7 @@ function CodingExpert({ userId, onBack }: { userId: string; onBack?: () => void 
 
         <div className="flex items-center gap-2">
           <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${currentLang?.gradient} flex items-center justify-center shadow-lg`}>
-            <div className="text-white text-sm">{currentLang?.icon}</div>
+            <div className="text-white text-sm">{getIcon(currentLang?.icon || "")}</div>
           </div>
           <span className="text-sm font-semibold text-white">{currentLang?.name} Expert</span>
           <span className="text-xs text-gray-500 ml-1">{userLevel}</span>
@@ -338,20 +353,23 @@ function CodingExpert({ userId, onBack }: { userId: string; onBack?: () => void 
           <div className="p-3">
             <div className="text-xs font-medium text-gray-500 mb-2 px-2">Tools</div>
             <div className="space-y-1">
-              {tools.map(tool => (
-                <button
-                  key={tool.id}
-                  onClick={() => setActiveTool(tool.id)}
-                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${
-                    activeTool === tool.id
-                      ? "bg-gradient-to-r from-purple-600/20 to-blue-600/20 text-white border-l-2 border-purple-500"
-                      : "text-gray-400 hover:bg-zinc-900"
-                  }`}
-                >
-                  {tool.icon}
-                  <span>{tool.name}</span>
-                </button>
-              ))}
+              {tools.map(tool => {
+                const IconComponent = tool.icon;
+                return (
+                  <button
+                    key={tool.id}
+                    onClick={() => setActiveTool(tool.id)}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${
+                      activeTool === tool.id
+                        ? "bg-gradient-to-r from-purple-600/20 to-blue-600/20 text-white border-l-2 border-purple-500"
+                        : "text-gray-400 hover:bg-zinc-900"
+                    }`}
+                  >
+                    <IconComponent size={14} />
+                    <span>{tool.name}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -447,18 +465,6 @@ function CodingExpert({ userId, onBack }: { userId: string; onBack?: () => void 
   );
 }
 
-// ✅ MENU ITEMS - Keep for Phase 2+
-const menuItems = [
-  { name: "AI Chat", icon: <MessageSquare size={18} /> },
-  { name: "CV Builder", icon: <FileText size={18} /> },
-  { name: "Cover Letter", icon: <Mail size={18} /> },
-  { name: "Web Search", icon: <Globe size={18} /> },
-  { name: "Library", icon: <LibraryIcon size={18} /> },
-  { name: "Documents", icon: <FileText size={18} /> },
-  { name: "About Me", icon: <User size={18} /> },
-  { name: "Settings", icon: <SettingsIcon size={18} /> },
-];
-
 type MessageType = { role: string; text: string; files?: { name: string; content: string }[] };
 type MemoryType = { id: number; text: string };
 type ChatType = { id: number; title: string; pinned?: boolean; createdAt: number };
@@ -552,7 +558,7 @@ export default function App() {
   const isSendingRef = useRef(false);
 
   // ✅ SEO Page Key Mapping
-  const getPageKey = (): string => {
+  const getPageKey = useCallback((): string => {
     if (currentPage === 'workspace') return 'home';
     if (currentPage === 'templates') return 'templates';
     if (currentPage === 'cover-templates') return 'cover-templates';
@@ -573,7 +579,7 @@ export default function App() {
       if (active === 'Settings') return 'settings';
     }
     return 'home';
-  };
+  }, [active, currentPage]);
 
   // ✅ Close profile dropdown on outside click
   useEffect(() => {
@@ -587,19 +593,19 @@ export default function App() {
   }, []);
 
   // ✅ Get user name from localStorage (no "Guest" wording)
-  const getUserName = (): string => {
+  const getUserName = useCallback((): string => {
     const savedName = localStorage.getItem("adin_user_name");
     return savedName || "User";
-  };
+  }, []);
 
   // ✅ Get avatar letter (first letter of name, capital)
-  const getAvatarLetter = (name: string): string => {
+  const getAvatarLetter = useCallback((name: string): string => {
     if (!name || name === "User") return "U";
     return name.trim().charAt(0).toUpperCase();
-  };
+  }, []);
 
   // ✅ Get avatar color based on name
-  const getAvatarColor = (name: string): string => {
+  const getAvatarColor = useCallback((name: string): string => {
     const colors = [
       "from-purple-500 to-blue-500",
       "from-pink-500 to-rose-500",
@@ -615,7 +621,7 @@ export default function App() {
       hash = name.charCodeAt(i) + ((hash << 5) - hash);
     }
     return colors[Math.abs(hash) % colors.length];
-  };
+  }, []);
 
   // ✅ Check guest session on mount
   useEffect(() => {
@@ -696,7 +702,7 @@ export default function App() {
   }, [active, currentPage]);
 
   // ✅ Navigation handler for workspace - Direct navigation to builders or galleries
-  const handleWorkspaceNavigate = (page: string) => {
+  const handleWorkspaceNavigate = useCallback((page: string) => {
     if (page === 'cv-builder') {
       setCurrentPage('templates');
       setActive('CV Templates');
@@ -713,10 +719,10 @@ export default function App() {
       window.location.hash = 'founder';
       localStorage.setItem("adin-current-page", "founder");
     }
-  };
+  }, []);
 
   // ✅ Handler for CV template selection
-  const handleTemplateSelect = (templateId: string) => {
+  const handleTemplateSelect = useCallback((templateId: string) => {
     setSelectedTemplateId(templateId);
     setCurrentPage('app');
     setActive('CV Builder');
@@ -724,10 +730,10 @@ export default function App() {
     localStorage.setItem("adin-selected-template", templateId);
     localStorage.setItem("adin-current-page", "app");
     window.location.hash = "cv-builder";
-  };
+  }, []);
 
   // ✅ Handler for Cover Letter template selection
-  const handleCoverTemplateSelect = (templateId: string) => {
+  const handleCoverTemplateSelect = useCallback((templateId: string) => {
     setSelectedCoverTemplateId(templateId);
     setCurrentPage('app');
     setActive('Cover Letter');
@@ -735,113 +741,36 @@ export default function App() {
     localStorage.setItem("adin-selected-cover-template", templateId);
     localStorage.setItem("adin-current-page", "app");
     window.location.hash = "cover-letter";
-  };
+  }, []);
 
   // ✅ Navigate back to workspace from templates
-  const navigateToWorkspace = () => {
+  const navigateToWorkspace = useCallback(() => {
     setCurrentPage('workspace');
     window.location.hash = '';
     localStorage.setItem("adin-active-tab", "AI Chat");
     localStorage.setItem("adin-current-page", "workspace");
-  };
+  }, []);
 
   // ✅ Navigate back to CV templates from CV builder
-  const navigateToTemplates = () => {
+  const navigateToTemplates = useCallback(() => {
     setCurrentPage('templates');
     setActive('CV Templates');
     window.location.hash = 'templates';
     localStorage.setItem("adin-current-page", "templates");
-  };
+  }, []);
 
   // ✅ Navigate back to Cover Letter templates
-  const navigateToCoverTemplates = () => {
+  const navigateToCoverTemplates = useCallback(() => {
     setCurrentPage('cover-templates');
     setActive('Cover Templates');
     window.location.hash = 'cover-templates';
     localStorage.setItem("adin-current-page", "cover-templates");
-  };
-
-  // ✅ Navigate back to workspace from any page
-  const navigateToWorkspaceFromApp = () => {
-    setCurrentPage('workspace');
-    window.location.hash = '';
-    localStorage.setItem("adin-active-tab", "AI Chat");
-    localStorage.setItem("adin-current-page", "workspace");
-  };
-
-  const setActiveTab = (tabName: string) => {
-    setActive(tabName);
-    localStorage.setItem("adin-active-tab", tabName);
-
-    let hash = "";
-    if (tabName === "CV Builder") hash = "cv-builder";
-    else if (tabName === "Cover Letter") hash = "cover-letter";
-    else if (tabName === "CV Templates") hash = "templates";
-    else if (tabName === "Cover Templates") hash = "cover-templates";
-    else if (tabName === "AI Chat") hash = "ai-chat";
-    else if (tabName === "Web Search") hash = "web-search";
-    else if (tabName === "Library") hash = "library";
-    else if (tabName === "Documents") hash = "documents";
-    else if (tabName === "About Me") hash = "about-me";
-    else if (tabName === "Settings") hash = "settings";
-    else if (tabName === "Founder") hash = "founder";
-    else if (tabName === "Privacy Policy") hash = "privacy-policy";
-    else if (tabName === "Terms of Service") hash = "terms-of-service";
-    else if (tabName === "Contact") hash = "contact";
-
-    window.location.hash = hash;
-  };
-
-  // ✅ Hash change listener
-  useEffect(() => {
-    const handleHashChange = () => {
-      const hash = window.location.hash.slice(1);
-
-      if (hash === "templates") {
-        setCurrentPage('templates');
-        setActive("CV Templates");
-        localStorage.setItem("adin-active-tab", "CV Templates");
-        localStorage.setItem("adin-current-page", "templates");
-      } else if (hash === "cover-templates") {
-        setCurrentPage('cover-templates');
-        setActive("Cover Templates");
-        localStorage.setItem("adin-active-tab", "Cover Templates");
-        localStorage.setItem("adin-current-page", "cover-templates");
-      } else if (hash === "cv-builder") {
-        setCurrentPage('app');
-        setActive("CV Builder");
-        localStorage.setItem("adin-active-tab", "CV Builder");
-        localStorage.setItem("adin-current-page", "app");
-      } else if (hash === "cover-letter") {
-        setCurrentPage('app');
-        setActive("Cover Letter");
-        localStorage.setItem("adin-active-tab", "Cover Letter");
-        localStorage.setItem("adin-current-page", "app");
-      } else if (hash === "founder") {
-        setCurrentPage('founder');
-        setActive("Founder");
-        localStorage.setItem("adin-active-tab", "Founder");
-        localStorage.setItem("adin-current-page", "founder");
-      } else if (hash === "privacy-policy" || hash === "terms-of-service" || hash === "contact") {
-        setCurrentPage('legal');
-        const pageName = hash === "privacy-policy" ? "Privacy Policy" : hash === "terms-of-service" ? "Terms of Service" : "Contact";
-        setActive(pageName);
-        localStorage.setItem("adin-active-tab", pageName);
-        localStorage.setItem("adin-current-page", "legal");
-      } else if (hash === "" || hash === "workspace") {
-        setCurrentPage('workspace');
-        localStorage.setItem("adin-current-page", "workspace");
-      }
-    };
-
-    window.addEventListener("hashchange", handleHashChange);
-    return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
 
-  const sortChats = (chats: ChatType[]) => [...chats].sort((a,b) => {
+  const sortChats = useCallback((chats: ChatType[]) => [...chats].sort((a,b) => {
     if (a.pinned === b.pinned) return b.id - a.id;
     return a.pinned ? -1 : 1;
-  });
+  }), []);
 
   useEffect(() => {
     localStorage.setItem("adin-active-tab", active);
@@ -859,8 +788,9 @@ export default function App() {
     if (isGuest) {
       setUserID(userId);
     }
-  }, [isGuest]);
+  }, [isGuest, userId]);
 
+  // ✅ Load persisted data on mount
   useEffect(() => {
     if (loaded.current) return;
     loaded.current = true;
@@ -926,7 +856,7 @@ export default function App() {
       if (currentData && messagesData[currentData]) setMessages(messagesData[currentData]);
       else setMessages([]);
     } catch (err) { console.log(err); }
-  }, []);
+  }, [sortChats]);
 
   useEffect(() => {
     if (messagesEndRef.current) {
@@ -934,6 +864,7 @@ export default function App() {
     }
   }, [messages]);
 
+  // ✅ Persist data to localStorage
   useEffect(() => { localStorage.setItem("adin-likes", JSON.stringify(likedMessages)); }, [likedMessages]);
   useEffect(() => { localStorage.setItem("adin-dislikes", JSON.stringify(dislikedMessages)); }, [dislikedMessages]);
   useEffect(() => { localStorage.setItem("adin-history", JSON.stringify(chatHistory)); }, [chatHistory]);
@@ -942,29 +873,29 @@ export default function App() {
   useEffect(() => { localStorage.setItem("adin-web-enabled", JSON.stringify(webEnabled)); }, [webEnabled]);
   useEffect(() => { saveMemory(aiMemory); }, [aiMemory]);
 
-  const copyMessage = (text: string, i: number) => {
+  const copyMessage = useCallback((text: string, i: number) => {
     navigator.clipboard.writeText(text);
     setCopiedIndex(i);
     toast.success("Copied");
     setTimeout(() => setCopiedIndex(null), 2000);
-  };
+  }, []);
 
-  const handleVoiceTranscript = (text: string, language: string) => {
+  const handleVoiceTranscript = useCallback((text: string, language: string) => {
     if (!text.trim()) return;
     setInput(text);
     setDetectedLanguage(language);
-  };
+  }, []);
 
-  const handleFileUpload = (fileName: string, fileContent: string) => {
+  const handleFileUpload = useCallback((fileName: string, fileContent: string) => {
     setPendingFiles([{ name: fileName, content: fileContent }]);
-  };
+  }, []);
 
-  const removePendingFile = () => {
+  const removePendingFile = useCallback(() => {
     setPendingFiles([]);
     fileUploadRef.current?.clearFile();
-  };
+  }, []);
 
-  const toggleLike = (i: number, text: string, role: string) => {
+  const toggleLike = useCallback((i: number, text: string, role: string) => {
     const currentChat = chatHistory.find(chat => chat.id === currentChatId);
     const chatTitle = currentChat?.title || "Chat";
 
@@ -984,18 +915,18 @@ export default function App() {
 
     setLikedMessages(prev => prev.includes(i) ? prev.filter(x=>x!==i) : [...prev, i]);
     setDislikedMessages(prev => prev.filter(x=>x!==i));
-  };
+  }, [chatHistory, currentChatId]);
 
-  const toggleDislike = (i: number, text: string) => {
+  const toggleDislike = useCallback((i: number, text: string) => {
     const old = JSON.parse(localStorage.getItem("adin-feedback") || "[]");
     old.push({ type: "dislike", text, createdAt: new Date().toISOString() });
     localStorage.setItem("adin-feedback", JSON.stringify(old));
     setDislikedMessages(prev => prev.includes(i) ? prev.filter(x=>x!==i) : [...prev, i]);
     setLikedMessages(prev => prev.filter(x=>x!==i));
     toast.success("Feedback saved");
-  };
+  }, []);
 
-  const deleteChat = (id: number) => {
+  const deleteChat = useCallback((id: number) => {
     const newHistory = chatHistory.filter(c=>c.id!==id);
     const newMsgs = {...chatMessages};
     delete newMsgs[id];
@@ -1006,27 +937,32 @@ export default function App() {
       setMessages([]);
     }
     toast.success("Chat deleted");
-  };
+  }, [chatHistory, chatMessages, currentChatId, sortChats]);
 
-  const pinChat = (id: number) => {
+  const pinChat = useCallback((id: number) => {
     const updated = chatHistory.map(c=>c.id===id?{...c, pinned:!c.pinned}:c);
-    setChatHistory(sortChats(updated));
-    localStorage.setItem("adin-history", JSON.stringify(sortChats(updated)));
-  };
+    const sorted = sortChats(updated);
+    setChatHistory(sorted);
+    localStorage.setItem("adin-history", JSON.stringify(sorted));
+  }, [chatHistory, sortChats]);
 
-  const saveRename = (id: number) => {
+  const saveRename = useCallback((id: number) => {
     if(!renameValue.trim()) return;
     const updated = chatHistory.map(c=>c.id===id?{...c, title:renameValue}:c);
-    setChatHistory(sortChats(updated));
+    const sorted = sortChats(updated);
+    setChatHistory(sorted);
     setEditingChatId(null);
     setRenameValue("");
     toast.success("Renamed");
-  };
+  }, [chatHistory, renameValue, sortChats]);
 
-  const saveEditedMessage = async (idx: number) => {
-    const updated = [...messages]; updated[idx].text = editText;
+  const saveEditedMessage = useCallback(async (idx: number) => {
+    const updated = [...messages]; 
+    updated[idx].text = editText;
     const sliced = updated.slice(0, idx+1);
-    setMessages(sliced); setEditingMessage(null); setLoading(true);
+    setMessages(sliced); 
+    setEditingMessage(null); 
+    setLoading(true);
     try {
       const res = await sendToAI(sliced, aiMemory, webEnabled, userId);
       const data = await res.json();
@@ -1034,10 +970,15 @@ export default function App() {
       const final = [...sliced, { role: "ai", text: aiText }];
       setMessages(final);
       setChatMessages(prev => ({ ...prev, [currentChatId!]: final }));
-    } catch (err) { console.log(err); toast.error("Error"); } finally { setLoading(false); }
-  };
+    } catch (err) { 
+      console.log(err); 
+      toast.error("Error"); 
+    } finally { 
+      setLoading(false); 
+    }
+  }, [messages, editText, aiMemory, webEnabled, userId, currentChatId]);
 
-  const sendMessage = async (retry?: string) => {
+  const sendMessage = useCallback(async (retry?: string) => {
     if (isSendingRef.current) return;
 
     const finalInput = retry || input;
@@ -1047,11 +988,13 @@ export default function App() {
     isSendingRef.current = true;
 
     localStorage.removeItem("adin-draft-input");
+    
+    // Use a fresh copy of chatHistory for the new chat
     let activeId = currentChatId;
     if(!activeId){
       activeId = Date.now();
-      const first = { id: activeId, title: finalInput.slice(0,25) || "New Chat", createdAt: Date.now() };
-      setChatHistory(sortChats([first, ...chatHistory]));
+      const newChat = { id: activeId, title: finalInput.slice(0,25) || "New Chat", createdAt: Date.now() };
+      setChatHistory(prevHistory => sortChats([newChat, ...prevHistory]));
       setCurrentChatId(activeId);
     }
 
@@ -1086,7 +1029,13 @@ export default function App() {
       const final = [...updated, { role: "ai", text: aiText }];
       setMessages(final);
       setChatMessages(prev => ({ ...prev, [activeId!]: final }));
-      if(userId !== "anonymous" && aiText) await saveMemoryFromResponse(userId, finalInput, aiText);
+      if(userId !== "anonymous" && aiText) {
+        try {
+          await saveMemoryFromResponse(userId, finalInput, aiText);
+        } catch (memoryErr) {
+          console.error("Failed to save memory:", memoryErr);
+        }
+      }
     } catch(err) {
       console.log(err);
       toast.error("Connection Error");
@@ -1094,18 +1043,18 @@ export default function App() {
       setLoading(false);
       isSendingRef.current = false;
     }
-  };
+  }, [input, pendingFiles, currentChatId, messages, aiMemory, webEnabled, userId, sortChats]);
 
-  const newChat = () => {
+  const newChat = useCallback(() => {
     setCurrentChatId(null);
     setMessages([]);
     setInput("");
     setPendingFiles([]);
     fileUploadRef.current?.clearFile();
     localStorage.removeItem("adin-draft-input");
-  };
+  }, []);
 
-  const renderAIChat = () => {
+  const renderAIChat = useCallback(() => {
     return (
       <>
         <div className="flex-1 overflow-auto p-4">
@@ -1245,9 +1194,7 @@ export default function App() {
         </div>
       </>
     );
-  };
-
-  const recentChats = chatHistory.filter(chat => !chat.pinned);
+  }, [messages, editingMessage, editText, copiedIndex, likedMessages, dislikedMessages, pendingFiles, loading, input, detectedLanguage, copyMessage, toggleLike, toggleDislike, sendMessage, saveEditedMessage, removePendingFile, handleFileUpload, handleVoiceTranscript]);
 
   // ✅ Show Onboarding if not completed
   if (!isOnboardingComplete) {
@@ -1260,7 +1207,7 @@ export default function App() {
   }
 
   // ✅ Premium Avatar Component - Only Avatar, Click to Open Dropdown
-  const PremiumAvatar = () => {
+  const PremiumAvatar = useCallback(() => {
     const displayName = userName || "User";
     const avatarLetter = getAvatarLetter(displayName);
     const avatarColor = getAvatarColor(displayName);
@@ -1302,7 +1249,7 @@ export default function App() {
         )}
       </div>
     );
-  };
+  }, [userName, isProfileOpen, getAvatarLetter, getAvatarColor, handleGuestLogout]);
 
   // ✅ Get page key for SEO
   const pageKey = getPageKey();
