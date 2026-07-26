@@ -39,6 +39,18 @@ export default defineConfig(() => {
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,ttf}'],
+          // ✅ FIX: Prevent service worker from hijacking SEO/static files
+          // Without this, the SPA navigateFallback (index.html) intercepts
+          // requests to robots.txt, sitemap.xml, etc. and serves the app
+          // shell instead of the real file — this was the root cause of
+          // "homepage loads instead of robots.txt/sitemap.xml" for returning visitors.
+          navigateFallbackDenylist: [
+            /^\/robots\.txt$/,
+            /^\/sitemap\.xml$/,
+            /^\/manifest\.webmanifest$/,
+            /^\/browserconfig\.xml$/,
+            /^\/favicon\.ico$/,
+          ],
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/js\.puter\.com\/.*/i,
