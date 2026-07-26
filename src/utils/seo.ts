@@ -57,8 +57,8 @@ interface ArticleSchemaProps {
 
 export function generateOrganizationSchema({
   name = "Adin AI",
-  url = "https://adin-ai.com/",
-  logo = "https://adin-ai.com/logo.png",
+  url = "https://adin-ai-gray.vercel.app/",
+  logo = "https://adin-ai-gray.vercel.app/logo.png",
   description = "Free AI-powered CV builder and cover letter maker platform. Pakistan's leading career assistant for students, freelancers, and professionals.",
   sameAs = [
     "https://twitter.com/adin_ai",
@@ -101,7 +101,7 @@ export function generateOrganizationSchema({
 
 export function generateWebsiteSchema({
   name = "Adin AI",
-  url = "https://adin-ai.com/",
+  url = "https://adin-ai-gray.vercel.app/",
   description = "Free AI-powered career platform. Create professional CV, cover letters, and get AI career assistance."
 }: { name?: string; url?: string; description?: string } = {}) {
   return {
@@ -114,7 +114,7 @@ export function generateWebsiteSchema({
       "@type": "SearchAction",
       target: {
         "@type": "EntryPoint",
-        urlTemplate: "https://adin-ai.com/search?q={search_term_string}"
+        urlTemplate: "https://adin-ai-gray.vercel.app/search?q={search_term_string}"
       },
       "query-input": "required name=search_term_string"
     }
@@ -127,7 +127,7 @@ export function generateWebsiteSchema({
 
 export function generateBrandSchema({
   name = "Adin AI",
-  logo = "https://adin-ai.com/logo.png",
+  logo = "https://adin-ai-gray.vercel.app/logo.png",
   description = "Pakistan's leading AI career assistant platform."
 }: { name?: string; logo?: string; description?: string } = {}) {
   return {
@@ -150,7 +150,7 @@ export function generateBrandSchema({
 
 export function generateWebApplicationSchema({
   name = "Adin AI",
-  url = "https://adin-ai.com/",
+  url = "https://adin-ai-gray.vercel.app/",
   description = "Free CV Builder and Cover Letter Maker with AI-powered career assistance. Create professional resumes and cover letters online.",
   applicationCategory = "Career Application",
   operatingSystem = "All",
@@ -162,7 +162,7 @@ export function generateWebApplicationSchema({
   author = "Adin AI",
   datePublished = "2025-01-01",
   dateModified = "2026-07-24",
-  image = "https://adin-ai.com/og-image.png"
+  image = "https://adin-ai-gray.vercel.app/og-image.png"
 }: WebApplicationSchemaProps = {}) {
   return {
     "@context": "https://schema.org",
@@ -243,7 +243,7 @@ export function generateArticleSchema({
   title,
   description,
   url,
-  image = "https://adin-ai.com/og-image.png",
+  image = "https://adin-ai-gray.vercel.app/og-image.png",
   authorName = "Adin AI",
   datePublished,
   dateModified,
@@ -264,7 +264,7 @@ export function generateArticleSchema({
       name: "Adin AI",
       logo: {
         "@type": "ImageObject",
-        url: "https://adin-ai.com/logo.png"
+        url: "https://adin-ai-gray.vercel.app/logo.png"
       }
     },
     datePublished,
@@ -287,7 +287,7 @@ export function generatePersonSchema() {
     "name": "Kian Mercer",
     "alternateName": "Ghulam MohiyuDin",
     "description": "Founder of Adin AI - Pakistan's AI-Powered Career Platform. 16-year-old AI product builder from Mananwala, Sheikhupura.",
-    "url": "https://adin-ai.com/founder",
+    "url": "https://adin-ai-gray.vercel.app/founder",
     "jobTitle": "Founder & CEO",
     "worksFor": {
       "@type": "Organization",
@@ -317,7 +317,7 @@ export function generatePersonSchema() {
       "Career Platform Design"
     ],
     "sameAs": [
-      "https://adin-ai.com",
+      "https://adin-ai-gray.vercel.app",
       "https://twitter.com/adin_ai"
     ],
     "age": "16",
@@ -340,9 +340,9 @@ export function generateDefaultSchemas() {
     generateWebApplicationSchema(),
     generateBreadcrumbSchema({
       items: [
-        { name: "Home", url: "https://adin-ai.com/" },
-        { name: "CV Builder", url: "https://adin-ai.com/cv-builder" },
-        { name: "Cover Letter", url: "https://adin-ai.com/cover-letter" }
+        { name: "Home", url: "https://adin-ai-gray.vercel.app/" },
+        { name: "CV Builder", url: "https://adin-ai-gray.vercel.app/cv-builder" },
+        { name: "Cover Letter", url: "https://adin-ai-gray.vercel.app/cover-letter" }
       ]
     })
   ];
@@ -358,7 +358,7 @@ export function generateCVBuilderSchema() {
     "@type": "WebPage",
     name: "Free CV Builder - Create Professional Resume Online",
     description: "Build your professional CV for free with Adin AI. Choose from multiple templates, add your experience, and download PDF.",
-    url: "https://adin-ai.com/cv-builder",
+    url: "https://adin-ai-gray.vercel.app/cv-builder",
     about: {
       "@type": "Thing",
       name: "CV Builder"
@@ -384,7 +384,7 @@ export function generateCoverLetterSchema() {
     "@type": "WebPage",
     name: "Free Cover Letter Maker - Professional Cover Letters",
     description: "Create professional cover letters for free with Adin AI. AI-powered cover letter generator with multiple templates.",
-    url: "https://adin-ai.com/cover-letter",
+    url: "https://adin-ai-gray.vercel.app/cover-letter",
     about: {
       "@type": "Thing",
       name: "Cover Letter Maker"
@@ -432,7 +432,7 @@ export function generatePageSchemas(
         ...baseSchemas,
         generateBreadcrumbSchema({
           items: [
-            { name: "Home", url: "https://adin-ai.com/" }
+            { name: "Home", url: "https://adin-ai-gray.vercel.app/" }
           ]
         })
       ];
@@ -442,8 +442,8 @@ export function generatePageSchemas(
         generateCVBuilderSchema(),
         generateBreadcrumbSchema({
           items: [
-            { name: "Home", url: "https://adin-ai.com/" },
-            { name: "CV Builder", url: "https://adin-ai.com/cv-builder" }
+            { name: "Home", url: "https://adin-ai-gray.vercel.app/" },
+            { name: "CV Builder", url: "https://adin-ai-gray.vercel.app/cv-builder" }
           ]
         })
       ];
@@ -453,8 +453,8 @@ export function generatePageSchemas(
         generateCoverLetterSchema(),
         generateBreadcrumbSchema({
           items: [
-            { name: "Home", url: "https://adin-ai.com/" },
-            { name: "Cover Letter", url: "https://adin-ai.com/cover-letter" }
+            { name: "Home", url: "https://adin-ai-gray.vercel.app/" },
+            { name: "Cover Letter", url: "https://adin-ai-gray.vercel.app/cover-letter" }
           ]
         })
       ];
@@ -464,8 +464,8 @@ export function generatePageSchemas(
         generatePersonSchema(),
         generateBreadcrumbSchema({
           items: [
-            { name: "Home", url: "https://adin-ai.com/" },
-            { name: "Founder", url: "https://adin-ai.com/founder" }
+            { name: "Home", url: "https://adin-ai-gray.vercel.app/" },
+            { name: "Founder", url: "https://adin-ai-gray.vercel.app/founder" }
           ]
         })
       ];
