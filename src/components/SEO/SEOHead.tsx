@@ -29,8 +29,8 @@ export function SEOHead({
   title,
   description,
   keywords = "free cv builder, free cover letter, best cv builder, best cover letter, ai resume builder, professional cv maker, cover letter generator, career assistant, adin ai, adin ai Pakistan, Pakistan CV builder, ATS resume builder, resume builder Pakistan, career AI, interview preparation, skill roadmap",
-  canonicalUrl = "https://adin-ai.com/",
-  ogImage = "https://adin-ai.com/og-image.png",
+  canonicalUrl = "https://adin-ai-gray.vercel.app/",
+  ogImage = "https://adin-ai-gray.vercel.app/og-image.png",
   ogType = "website",
   twitterCard = "summary_large_image",
   noIndex = false,
@@ -56,8 +56,8 @@ export function SEOHead({
   else if (noIndex) robotsContent = "noindex, follow";
   else if (noFollow) robotsContent = "index, nofollow";
   
-  const url = canonicalUrl || "https://adin-ai.com/";
-  const imageUrl = ogImage || "https://adin-ai.com/og-image.png";
+  const url = canonicalUrl || "https://adin-ai-gray.vercel.app/";
+  const imageUrl = ogImage || "https://adin-ai-gray.vercel.app/og-image.png";
   
   return (
     <Helmet>

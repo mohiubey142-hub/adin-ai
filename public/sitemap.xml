@@ -8,7 +8,7 @@
        HOME PAGE - Highest Priority
   ========================================== -->
   <url>
-    <loc>https://adin-ai.com/</loc>
+    <loc>https://adin-ai-gray.vercel.app/</loc>
     <lastmod>2026-07-24</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
@@ -18,7 +18,7 @@
        CV BUILDER - Core Feature
   ========================================== -->
   <url>
-    <loc>https://adin-ai.com/cv-builder</loc>
+    <loc>https://adin-ai-gray.vercel.app/cv-builder</loc>
     <lastmod>2026-07-24</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.95</priority>
@@ -28,7 +28,7 @@
        COVER LETTER - Core Feature
   ========================================== -->
   <url>
-    <loc>https://adin-ai.com/cover-letter</loc>
+    <loc>https://adin-ai-gray.vercel.app/cover-letter</loc>
     <lastmod>2026-07-24</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.95</priority>
@@ -38,7 +38,7 @@
        CV TEMPLATES GALLERY
   ========================================== -->
   <url>
-    <loc>https://adin-ai.com/templates</loc>
+    <loc>https://adin-ai-gray.vercel.app/templates</loc>
     <lastmod>2026-07-24</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
@@ -48,7 +48,7 @@
        COVER TEMPLATES GALLERY
   ========================================== -->
   <url>
-    <loc>https://adin-ai.com/cover-templates</loc>
+    <loc>https://adin-ai-gray.vercel.app/cover-templates</loc>
     <lastmod>2026-07-24</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
@@ -58,7 +58,7 @@
        FOUNDER PAGE - Brand Story
   ========================================== -->
   <url>
-    <loc>https://adin-ai.com/founder</loc>
+    <loc>https://adin-ai-gray.vercel.app/founder</loc>
     <lastmod>2026-07-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.75</priority>
@@ -68,7 +68,7 @@
        AI CHAT - Assistant
   ========================================== -->
   <url>
-    <loc>https://adin-ai.com/ai-chat</loc>
+    <loc>https://adin-ai-gray.vercel.app/ai-chat</loc>
     <lastmod>2026-07-24</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
@@ -78,7 +78,7 @@
        WEB SEARCH
   ========================================== -->
   <url>
-    <loc>https://adin-ai.com/web-search</loc>
+    <loc>https://adin-ai-gray.vercel.app/web-search</loc>
     <lastmod>2026-07-24</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
@@ -88,7 +88,7 @@
        LIBRARY
   ========================================== -->
   <url>
-    <loc>https://adin-ai.com/library</loc>
+    <loc>https://adin-ai-gray.vercel.app/library</loc>
     <lastmod>2026-07-24</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
@@ -98,7 +98,7 @@
        DOCUMENTS
   ========================================== -->
   <url>
-    <loc>https://adin-ai.com/documents</loc>
+    <loc>https://adin-ai-gray.vercel.app/documents</loc>
     <lastmod>2026-07-24</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
@@ -108,7 +108,7 @@
        ABOUT ME
   ========================================== -->
   <url>
-    <loc>https://adin-ai.com/about-me</loc>
+    <loc>https://adin-ai-gray.vercel.app/about-me</loc>
     <lastmod>2026-07-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
@@ -118,7 +118,7 @@
        SETTINGS
   ========================================== -->
   <url>
-    <loc>https://adin-ai.com/settings</loc>
+    <loc>https://adin-ai-gray.vercel.app/settings</loc>
     <lastmod>2026-07-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
@@ -128,21 +128,21 @@
        LEGAL PAGES
   ========================================== -->
   <url>
-    <loc>https://adin-ai.com/privacy-policy</loc>
+    <loc>https://adin-ai-gray.vercel.app/privacy-policy</loc>
     <lastmod>2026-07-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
   </url>
 
   <url>
-    <loc>https://adin-ai.com/terms-of-service</loc>
+    <loc>https://adin-ai-gray.vercel.app/terms-of-service</loc>
     <lastmod>2026-07-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
   </url>
 
   <url>
-    <loc>https://adin-ai.com/contact</loc>
+    <loc>https://adin-ai-gray.vercel.app/contact</loc>
     <lastmod>2026-07-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
