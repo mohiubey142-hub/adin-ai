@@ -20,7 +20,7 @@ export const SEO_PAGES: Record<string, PageSEOConfig> = {
   // HOME
   // ==========================================
   home: {
-    title: "Adin AI - Pakistan's #1 AI Career Assistant",
+    title: "Adin AI - Free CV Builder, Cover Letter & AI Career Assistant",
     description: "Free CV builder, cover letter maker, and AI career assistant for Pakistani students, freelancers, and professionals. Create professional resumes and cover letters online.",
     keywords: "adin ai, adin ai Pakistan, Pakistan AI, ai career assistant, free cv builder, Pakistan cv builder, best free resume builder, ATS resume builder, resume builder Pakistan, cover letter generator, career AI, Pakistan students career AI, interview preparation AI, skill roadmap AI, freelancer cv builder, professional resume builder",
     canonicalUrl: "https://adin-ai-gray.vercel.app/",
