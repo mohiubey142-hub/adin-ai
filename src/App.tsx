@@ -1344,19 +1344,52 @@ export default function App() {
     );
   }, [userName, isProfileOpen, getAvatarLetter, getAvatarColor, handleGuestLogout]);
 
-  // ✅ Show Onboarding if not completed
-  if (!isOnboardingComplete) {
-    return <Onboarding onComplete={handleOnboardingComplete} />;
-  }
-
-  // ✅ Show loading screen while checking guest session
-  if (!isGuest) {
-    return <Login />;
-  }
-
-  // ✅ Get page key for SEO
+  // ✅ SEO FIX: Get page key/config here — BEFORE the onboarding/guest
+  // gates below — so real title/description/canonical/JSON-LD render
+  // even on the very first load (before onboarding is completed).
+  // Without this, Googlebot's first crawl only ever sees the
+  // Onboarding screen with no SEO tags at all, since those tags used
+  // to be defined after these early returns and were unreachable.
   const pageKey = getPageKey();
   const seoConfig = getSEOConfig(pageKey);
+
+  // ✅ Show Onboarding if not completed (SEO tags now render underneath it too)
+  if (!isOnboardingComplete) {
+    return (
+      <>
+        <SEOHead
+          title={seoConfig.title}
+          description={seoConfig.description}
+          keywords={seoConfig.keywords}
+          canonicalUrl={seoConfig.canonicalUrl}
+          ogType={seoConfig.ogType || "website"}
+        />
+        <script type="application/ld+json">
+          {generateJSONLDScript(generatePageSchemas(pageKey as any))}
+        </script>
+        <Onboarding onComplete={handleOnboardingComplete} />
+      </>
+    );
+  }
+
+  // ✅ Show loading screen while checking guest session (SEO tags now render underneath it too)
+  if (!isGuest) {
+    return (
+      <>
+        <SEOHead
+          title={seoConfig.title}
+          description={seoConfig.description}
+          keywords={seoConfig.keywords}
+          canonicalUrl={seoConfig.canonicalUrl}
+          ogType={seoConfig.ogType || "website"}
+        />
+        <script type="application/ld+json">
+          {generateJSONLDScript(generatePageSchemas(pageKey as any))}
+        </script>
+        <Login />
+      </>
+    );
+  }
 
   return (
     <>
