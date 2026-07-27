@@ -25,8 +25,6 @@ interface WebApplicationSchemaProps {
   browserRequirements?: string;
   price?: string;
   priceCurrency?: string;
-  ratingValue?: number;
-  ratingCount?: number;
   author?: string;
   datePublished?: string;
   dateModified?: string;
@@ -124,6 +122,12 @@ export function generateWebsiteSchema({
 // ============================================
 // ✅ BRAND SCHEMA
 // ============================================
+// ✅ FIX: Removed hardcoded/fake aggregateRating (4.8 / 1250 reviews).
+// There is no real review system generating these numbers, and Google
+// flags unverifiable rating data as "invalid" structured data — this
+// was the cause of the "Review snippets: some are invalid" warning
+// in Search Console. Add a real aggregateRating back only once there
+// is an actual review collection mechanism on the site.
 
 export function generateBrandSchema({
   name = "Adin AI",
@@ -135,18 +139,15 @@ export function generateBrandSchema({
     "@type": "Brand",
     name,
     logo,
-    description,
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: 4.8,
-      ratingCount: 1250
-    }
+    description
   };
 }
 
 // ============================================
 // ✅ WEB APPLICATION SCHEMA
 // ============================================
+// ✅ FIX: Removed hardcoded/fake ratingValue/ratingCount for the same
+// reason as generateBrandSchema above.
 
 export function generateWebApplicationSchema({
   name = "Adin AI",
@@ -157,8 +158,6 @@ export function generateWebApplicationSchema({
   browserRequirements = "JavaScript enabled",
   price = "0",
   priceCurrency = "USD",
-  ratingValue = 4.8,
-  ratingCount = 1250,
   author = "Adin AI",
   datePublished = "2025-01-01",
   dateModified = "2026-07-24",
@@ -179,13 +178,6 @@ export function generateWebApplicationSchema({
       price,
       priceCurrency
     },
-    ...(ratingValue && ratingCount && {
-      aggregateRating: {
-        "@type": "AggregateRating",
-        ratingValue,
-        ratingCount
-      }
-    }),
     author: {
       "@type": "Organization",
       name: author
