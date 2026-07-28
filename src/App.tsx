@@ -1,4 +1,4 @@
-// App.tsx - Complete updated file with SEO & Lazy Loading + Founder Profile + Legal Pages (No 404)
+// App.tsx - Complete updated file with SEO & Lazy Loading + Founder Profile + Legal Pages + Landing Page
 import { useState, useEffect, useRef, lazy, Suspense, useMemo, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 // ❌ Clerk removed - Guest Mode only
@@ -20,6 +20,9 @@ import { initializeGA, trackPageView, setUserID } from "./utils/analytics";
 
 // ✅ SEO Page Configs
 import { getSEOConfig } from "./utils/seoPages";
+
+// ✅ Landing Page Import
+import { LandingPage } from './components/Landing';
 
 // ✅ LAZY LOADING - SEO friendly code splitting
 const CVBuilder = lazy(() => import("./components/cv-builder/CVBuilder"));
@@ -501,6 +504,28 @@ export default function App() {
   const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false);
   const profileRef = useRef<HTMLDivElement>(null);
 
+  // ✅ Landing page state - FIXED: Check existing app state
+  const [showLanding, setShowLanding] = useState(() => {
+    // Check if user has already entered the app
+    const hasSeenLanding = localStorage.getItem('adin-has-seen-landing');
+    const guestSession = localStorage.getItem('adin-guest-session');
+    const onboardingCompleted = localStorage.getItem('adin-onboarding-completed');
+    const userName = localStorage.getItem('adin_user_name');
+    
+    // If user has completed onboarding or has guest session or has user name, skip landing
+    if (onboardingCompleted === 'true' || guestSession || userName) {
+      return false;
+    }
+    
+    // If user has seen landing before but somehow doesn't have session, show landing again
+    if (hasSeenLanding) {
+      return false;
+    }
+    
+    // First visit - show landing
+    return true;
+  });
+
   // ✅ CRITICAL FIX: Stable userId that persists across page refreshes
   // This solves the localStorage data loss bug
   const userId = useMemo(() => {
@@ -704,19 +729,31 @@ export default function App() {
     setUserName(name);
   };
 
-  // ✅ Guest Logout handler - Clears ALL guest data
+  // ✅ Guest Logout handler - Clears ALL guest data and shows Landing Page
   const handleGuestLogout = () => {
+    // Clear all localStorage data
     localStorage.removeItem("adin-guest-session");
     localStorage.removeItem("adin_user_name");
     localStorage.removeItem("adin-onboarding-completed");
     localStorage.removeItem("adin-guest-user-id");
+    localStorage.removeItem('adin-has-seen-landing');
+    
+    // Reset all states
     setIsGuest(false);
     setIsOnboardingComplete(false);
     setUserName("User");
     setIsProfileOpen(false);
+    
+    // ✅ CRITICAL: Set showLanding to true to show landing page
+    setShowLanding(true);
+    
     toast.success("Logged out successfully");
-    // ✅ Redirect to login page
-    window.location.href = "/login";
+  };
+
+  // ✅ NEW: Handle Landing Page Complete
+  const handleLandingComplete = () => {
+    localStorage.setItem('adin-has-seen-landing', 'true');
+    setShowLanding(false);
   };
 
   // ✅ GA: Track page views on page/route change
@@ -1352,6 +1389,11 @@ export default function App() {
   // to be defined after these early returns and were unreachable.
   const pageKey = getPageKey();
   const seoConfig = getSEOConfig(pageKey);
+
+  // ✅ NEW: Show Landing Page if not seen (Sab se pehle)
+  if (showLanding) {
+    return <LandingPage onGetStarted={handleLandingComplete} />;
+  }
 
   // ✅ Show Onboarding if not completed (SEO tags now render underneath it too)
   if (!isOnboardingComplete) {

@@ -234,12 +234,30 @@ const DAYS = Array.from({ length: 31 }, (_, i) => {
 });
 
 export const Onboarding = ({ onComplete }: OnboardingProps) => {
-  const [name, setName] = useState("");
-  const [gender, setGender] = useState("");
-  const [country, setCountry] = useState("");
-  const [month, setMonth] = useState("");
-  const [day, setDay] = useState("");
-  const [year, setYear] = useState("");
+  const [name, setName] = useState(() => {
+    const saved = localStorage.getItem("adin_onboarding_name");
+    return saved || "";
+  });
+  const [gender, setGender] = useState(() => {
+    const saved = localStorage.getItem("adin_onboarding_gender");
+    return saved || "";
+  });
+  const [country, setCountry] = useState(() => {
+    const saved = localStorage.getItem("adin_onboarding_country");
+    return saved || "";
+  });
+  const [month, setMonth] = useState(() => {
+    const saved = localStorage.getItem("adin_onboarding_month");
+    return saved || "";
+  });
+  const [day, setDay] = useState(() => {
+    const saved = localStorage.getItem("adin_onboarding_day");
+    return saved || "";
+  });
+  const [year, setYear] = useState(() => {
+    const saved = localStorage.getItem("adin_onboarding_year");
+    return saved || "";
+  });
   const [isGenderOpen, setIsGenderOpen] = useState(false);
   const [isCountryOpen, setIsCountryOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -250,6 +268,31 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
   const genderRef = useRef<HTMLDivElement>(null);
   const countryRef = useRef<HTMLDivElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
+
+  // ✅ Save form data to localStorage on change
+  useEffect(() => {
+    localStorage.setItem("adin_onboarding_name", name);
+  }, [name]);
+
+  useEffect(() => {
+    localStorage.setItem("adin_onboarding_gender", gender);
+  }, [gender]);
+
+  useEffect(() => {
+    localStorage.setItem("adin_onboarding_country", country);
+  }, [country]);
+
+  useEffect(() => {
+    localStorage.setItem("adin_onboarding_month", month);
+  }, [month]);
+
+  useEffect(() => {
+    localStorage.setItem("adin_onboarding_day", day);
+  }, [day]);
+
+  useEffect(() => {
+    localStorage.setItem("adin_onboarding_year", year);
+  }, [year]);
 
   // ✅ Auto-focus on name input
   useEffect(() => {
@@ -314,6 +357,13 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
     setTimeout(() => {
       setIsLoading(false);
       setShowEnterAnimation(false);
+      // ✅ Clear onboarding data from localStorage after completion
+      localStorage.removeItem("adin_onboarding_name");
+      localStorage.removeItem("adin_onboarding_gender");
+      localStorage.removeItem("adin_onboarding_country");
+      localStorage.removeItem("adin_onboarding_month");
+      localStorage.removeItem("adin_onboarding_day");
+      localStorage.removeItem("adin_onboarding_year");
       onComplete(name.trim());
     }, 3500);
   };
@@ -381,15 +431,24 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
   // RENDER: User Information Form
   // ============================================
   return (
-    <div className="w-screen h-screen flex items-center justify-center relative overflow-hidden bg-black">
+    <div className="w-screen h-screen flex items-center justify-center relative overflow-hidden bg-[#000000]">
       
       {/* ✅ Full Black Background */}
-      <div className="absolute inset-0 bg-black" />
+      <div className="absolute inset-0 bg-[#000000]" />
+      
+      {/* ✅ Subtle glow behind logo */}
+      <div
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full"
+        style={{
+          background: 'radial-gradient(circle, rgba(139, 92, 246, 0.03) 0%, transparent 70%)',
+          filter: 'blur(80px)',
+        }}
+      />
       
       {/* ✅ Content */}
       <div className="relative z-10 w-full max-w-md mx-auto p-6 animate-fade-in">
         {/* ✅ Adin AI Icon from public folder */}
-        <div className="flex justify-center mb-6">
+        <div className="flex justify-center mb-8">
           <img 
             src="/icon-1024x1024.png" 
             alt="Adin AI" 
@@ -398,17 +457,17 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
         </div>
 
         {/* Heading */}
-        <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold text-white tracking-tight">
-            Tell us about yourself
+        <div className="text-center mb-4">
+          <h2 className="text-3xl font-bold text-white tracking-tight">
+            Welcome to Adin AI
           </h2>
-          <p className="text-[#a1a1aa] text-sm mt-1">
-            We'll personalize your experience
+          <p className="text-[#71717a] text-sm mt-3">
+            No login • No sign up • Start in seconds • 100% Free
           </p>
         </div>
 
         {/* Form */}
-        <div className="space-y-5">
+        <div className="space-y-4">
           {/* Full Name */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1.5">
@@ -424,9 +483,23 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Enter your full name"
-                className="w-full h-12 pl-10 pr-4 rounded-lg bg-black border border-zinc-800/50 text-white placeholder-zinc-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all duration-300"
+                className={`w-full h-12 pl-10 pr-4 rounded-xl bg-[#050505] border ${
+                  !name.trim() && name.length > 0 ? 'border-red-500/50 focus:border-red-500' : 
+                  name.trim() ? 'border-emerald-500/30 focus:border-emerald-500' : 
+                  'border-white/10 focus:border-purple-500'
+                } text-white placeholder-zinc-500 focus:ring-2 ${
+                  !name.trim() && name.length > 0 ? 'focus:ring-red-500/20' : 
+                  name.trim() ? 'focus:ring-emerald-500/20' : 
+                  'focus:ring-purple-500/20'
+                } outline-none transition-all duration-300`}
               />
             </div>
+            {!name.trim() && name.length > 0 && (
+              <p className="text-red-400 text-xs mt-1.5 flex items-center gap-1 animate-fade-in">
+                <AlertCircle size={12} />
+                Please enter your full name.
+              </p>
+            )}
           </div>
 
           {/* Gender - Premium Dropdown */}
@@ -438,7 +511,11 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
               <button
                 type="button"
                 onClick={() => setIsGenderOpen(!isGenderOpen)}
-                className="w-full h-12 px-4 rounded-lg bg-black border border-zinc-800/50 text-white flex items-center justify-between transition-all duration-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none"
+                className={`w-full h-12 px-4 rounded-xl bg-[#050505] border ${
+                  !gender ? 'border-red-500/50 focus:border-red-500' : 'border-emerald-500/30 focus:border-emerald-500'
+                } text-white flex items-center justify-between transition-all duration-300 focus:ring-2 ${
+                  !gender ? 'focus:ring-red-500/20' : 'focus:ring-emerald-500/20'
+                } outline-none`}
               >
                 <span className={gender ? "text-white" : "text-zinc-500"}>
                   {gender ? GENDER_OPTIONS.find(g => g.value === gender)?.label || "Select gender" : "Select gender"}
@@ -448,7 +525,7 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
 
               {/* Dropdown Options */}
               {isGenderOpen && (
-                <div className="absolute top-full left-0 right-0 mt-1.5 rounded-lg bg-black border border-zinc-800/50 overflow-hidden z-20 animate-slide-down max-h-48 overflow-y-auto custom-scrollbar">
+                <div className="absolute top-full left-0 right-0 mt-1.5 rounded-xl bg-[#050505] border border-white/10 overflow-hidden z-20 animate-slide-down max-h-48 overflow-y-auto custom-scrollbar">
                   {GENDER_OPTIONS.map((option) => (
                     <button
                       key={option.value}
@@ -466,6 +543,12 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
                 </div>
               )}
             </div>
+            {!gender && (
+              <p className="text-red-400 text-xs mt-1.5 flex items-center gap-1 animate-fade-in">
+                <AlertCircle size={12} />
+                Please select your gender.
+              </p>
+            )}
           </div>
 
           {/* Country - Dropdown with Flag */}
@@ -477,7 +560,11 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
               <button
                 type="button"
                 onClick={() => setIsCountryOpen(!isCountryOpen)}
-                className="w-full h-12 px-4 rounded-lg bg-black border border-zinc-800/50 text-white flex items-center justify-between transition-all duration-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none"
+                className={`w-full h-12 px-4 rounded-xl bg-[#050505] border ${
+                  !country ? 'border-red-500/50 focus:border-red-500' : 'border-emerald-500/30 focus:border-emerald-500'
+                } text-white flex items-center justify-between transition-all duration-300 focus:ring-2 ${
+                  !country ? 'focus:ring-red-500/20' : 'focus:ring-emerald-500/20'
+                } outline-none`}
               >
                 <span className={country ? "text-white flex items-center gap-2" : "text-zinc-500"}>
                   {country ? (
@@ -494,7 +581,7 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
 
               {/* Country Dropdown Options */}
               {isCountryOpen && (
-                <div className="absolute top-full left-0 right-0 mt-1.5 rounded-lg bg-black border border-zinc-800/50 overflow-hidden z-20 animate-slide-down max-h-48 overflow-y-auto custom-scrollbar">
+                <div className="absolute top-full left-0 right-0 mt-1.5 rounded-xl bg-[#050505] border border-white/10 overflow-hidden z-20 animate-slide-down max-h-48 overflow-y-auto custom-scrollbar">
                   {COUNTRIES.map((countryItem) => (
                     <button
                       key={countryItem.code}
@@ -515,6 +602,12 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
                 </div>
               )}
             </div>
+            {!country && (
+              <p className="text-red-400 text-xs mt-1.5 flex items-center gap-1 animate-fade-in">
+                <AlertCircle size={12} />
+                Please select your country.
+              </p>
+            )}
           </div>
 
           {/* Date of Birth - Month/Date/Year Dropdowns */}
@@ -528,7 +621,11 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
                 <select
                   value={month}
                   onChange={(e) => setMonth(e.target.value)}
-                  className="w-full h-12 px-3 rounded-lg bg-black border border-zinc-800/50 text-white appearance-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all duration-300 cursor-pointer"
+                  className={`w-full h-12 px-3 rounded-xl bg-[#050505] border ${
+                    !month ? 'border-red-500/50 focus:border-red-500' : 'border-emerald-500/30 focus:border-emerald-500'
+                  } text-white appearance-none focus:ring-2 ${
+                    !month ? 'focus:ring-red-500/20' : 'focus:ring-emerald-500/20'
+                  } outline-none transition-all duration-300 cursor-pointer`}
                 >
                   <option value="">Month</option>
                   {MONTHS.map((m) => (
@@ -543,7 +640,11 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
                 <select
                   value={day}
                   onChange={(e) => setDay(e.target.value)}
-                  className="w-full h-12 px-3 rounded-lg bg-black border border-zinc-800/50 text-white appearance-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all duration-300 cursor-pointer"
+                  className={`w-full h-12 px-3 rounded-xl bg-[#050505] border ${
+                    !day ? 'border-red-500/50 focus:border-red-500' : 'border-emerald-500/30 focus:border-emerald-500'
+                  } text-white appearance-none focus:ring-2 ${
+                    !day ? 'focus:ring-red-500/20' : 'focus:ring-emerald-500/20'
+                  } outline-none transition-all duration-300 cursor-pointer`}
                 >
                   <option value="">Day</option>
                   {DAYS.map((d) => (
@@ -558,7 +659,11 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
                 <select
                   value={year}
                   onChange={(e) => setYear(e.target.value)}
-                  className="w-full h-12 px-3 rounded-lg bg-black border border-zinc-800/50 text-white appearance-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all duration-300 cursor-pointer"
+                  className={`w-full h-12 px-3 rounded-xl bg-[#050505] border ${
+                    !year ? 'border-red-500/50 focus:border-red-500' : 'border-emerald-500/30 focus:border-emerald-500'
+                  } text-white appearance-none focus:ring-2 ${
+                    !year ? 'focus:ring-red-500/20' : 'focus:ring-emerald-500/20'
+                  } outline-none transition-all duration-300 cursor-pointer`}
                 >
                   <option value="">Year</option>
                   {YEARS.map((y) => (
@@ -571,12 +676,18 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
             
             {/* Age Display */}
             {age !== null && age >= 18 && (
-              <p className="text-xs text-emerald-400 mt-1.5 flex items-center gap-1.5">
+              <p className="text-xs text-emerald-400 mt-1.5 flex items-center gap-1.5 animate-fade-in">
                 <Check size={14} /> Age: {age} years
               </p>
             )}
+            {(!month || !day || !year) && (
+              <p className="text-red-400 text-xs mt-1.5 flex items-center gap-1 animate-fade-in">
+                <AlertCircle size={12} />
+                Please select your date of birth.
+              </p>
+            )}
             {age !== null && age < 18 && age > 0 && (
-              <p className="text-xs text-red-400 mt-1.5 flex items-center gap-1.5">
+              <p className="text-xs text-red-400 mt-1.5 flex items-center gap-1.5 animate-fade-in">
                 <AlertCircle size={14} /> Age: {age} years - Must be 18+
               </p>
             )}
@@ -584,7 +695,7 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
 
           {/* Error Message */}
           {error && (
-            <div className="p-3 rounded-lg bg-red-400/10 border border-red-400/20 text-red-400 text-sm flex items-start gap-2.5">
+            <div className="p-3 rounded-xl bg-red-400/10 border border-red-400/20 text-red-400 text-sm flex items-start gap-2.5 animate-fade-in">
               <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
@@ -607,13 +718,21 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
                 </>
               ) : (
                 <>
-                  Enter in Adin AI
+                  Start Your Journey
                   <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                 </>
               )}
             </span>
             <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-blue-500 to-purple-600 bg-[length:200%_100%] opacity-0 group-hover:opacity-100 transition-opacity duration-500 group-hover:animate-shimmer" />
           </button>
+
+          {/* ✅ Bottom Trust Section */}
+          <div className="text-center mt-4">
+            <p className="text-[#52525b] text-xs flex items-center justify-center gap-1.5">
+              <span>🔒</span>
+              <span>One-time setup • You won't see this page again</span>
+            </p>
+          </div>
         </div>
 
         <style>{`
@@ -625,7 +744,7 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
             animation: shimmer 2s linear infinite;
           }
           @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
+            from { opacity: 0; transform: translateY(-4px); }
             to { opacity: 1; transform: translateY(0); }
           }
           @keyframes slideDown {
@@ -633,7 +752,7 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
             to { opacity: 1; transform: translateY(0); }
           }
           .animate-fade-in {
-            animation: fadeIn 0.5s ease-out forwards;
+            animation: fadeIn 0.2s ease-out forwards;
           }
           .animate-slide-down {
             animation: slideDown 0.2s ease-out forwards;
