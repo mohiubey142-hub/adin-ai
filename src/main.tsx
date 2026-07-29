@@ -4,8 +4,13 @@ import { HelmetProvider } from 'react-helmet-async'
 import App from './App'
 import './index.css'
 
+// ❌ Clerk removed - Guest Mode only
+// No ClerkProvider needed
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <HelmetProvider>
-    <App />
-  </HelmetProvider>
+  <React.StrictMode>
+    <HelmetProvider>
+      <App />
+    </HelmetProvider>
+  </React.StrictMode>,
 )
