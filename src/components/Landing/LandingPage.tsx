@@ -1,13 +1,57 @@
 import { FileText, Mail, Zap, CheckCircle, Layout, ArrowRight } from 'lucide-react';
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 
 interface LandingPageProps {
   onGetStarted: () => void;
 }
 
+interface Star {
+  id: number;
+  top: string;
+  left: string;
+  size: number;
+  opacity: number;
+  duration: number;
+  delay: number;
+  xDistance: number;
+  yDistance: number;
+}
+
 export default function LandingPage({ onGetStarted }: LandingPageProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [stars, setStars] = useState<Star[]>([]);
+
+  // Generate stars only once on mount
+  useEffect(() => {
+    const generatedStars: Star[] = [];
+    const count = 45;
+    
+    for (let i = 0; i < count; i++) {
+      const top = Math.random() * 95;
+      const left = Math.random() * 95;
+      const size = 1.5 + Math.random() * 0.7;
+      const opacity = 0.4 + Math.random() * 0.35;
+      // Shorter durations for more noticeable movement
+      const duration = 5 + Math.random() * 5; // 5-10 seconds
+      const delay = Math.random() * 2;
+      const xDistance = (Math.random() - 0.5) * 35; // -17.5 to 17.5px
+      const yDistance = (Math.random() - 0.5) * 35;
+      
+      generatedStars.push({
+        id: i,
+        top: `${top}%`,
+        left: `${left}%`,
+        size,
+        opacity,
+        duration,
+        delay,
+        xDistance,
+        yDistance,
+      });
+    }
+    setStars(generatedStars);
+  }, []);
 
   // ✨ Subtle parallax effect
   const getParallaxStyle = useCallback((factor: number = 0.015) => {
@@ -35,9 +79,9 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
   }, []);
 
   return (
-    <div ref={containerRef} className="relative w-screen h-screen overflow-hidden bg-[#000000] select-none">
+    <div ref={containerRef} className="relative min-h-screen w-full overflow-y-auto overflow-x-hidden bg-[#000000] select-none">
       {/* ✨ Premium Background - Pure Black */}
-      <div className="absolute inset-0" style={{ zIndex: 0 }}>
+      <div className="fixed inset-0" style={{ zIndex: 0 }}>
         {/* Pure Black Base - No gradient, no blue tint */}
         <div className="absolute inset-0 bg-[#000000]" />
 
@@ -51,527 +95,24 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
         />
 
         {/* ✨ Floating Stars Layer - Continuous Motion */}
-        <div className="absolute inset-0 overflow-hidden">
-          {/* Star 1 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '1.8px',
-              height: '1.8px',
-              top: '5%',
-              left: '10%',
-              opacity: 0.6,
-              animationDuration: '7.2s',
-              animationDelay: '0s',
-            }}
-          />
-          {/* Star 2 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '2px',
-              height: '2px',
-              top: '8%',
-              right: '15%',
-              opacity: 0.5,
-              animationDuration: '8.5s',
-              animationDelay: '0.3s',
-            }}
-          />
-          {/* Star 3 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '1.5px',
-              height: '1.5px',
-              top: '18%',
-              left: '25%',
-              opacity: 0.7,
-              animationDuration: '6.8s',
-              animationDelay: '0.7s',
-            }}
-          />
-          {/* Star 4 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '2.2px',
-              height: '2.2px',
-              top: '25%',
-              right: '28%',
-              opacity: 0.45,
-              animationDuration: '9.3s',
-              animationDelay: '0.1s',
-            }}
-          />
-          {/* Star 5 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '1.5px',
-              height: '1.5px',
-              top: '38%',
-              left: '4%',
-              opacity: 0.55,
-              animationDuration: '7.8s',
-              animationDelay: '0.5s',
-            }}
-          />
-          {/* Star 6 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '2px',
-              height: '2px',
-              top: '45%',
-              right: '8%',
-              opacity: 0.5,
-              animationDuration: '8.2s',
-              animationDelay: '0.9s',
-            }}
-          />
-          {/* Star 7 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '1.5px',
-              height: '1.5px',
-              top: '58%',
-              left: '40%',
-              opacity: 0.65,
-              animationDuration: '6.5s',
-              animationDelay: '0.2s',
-            }}
-          />
-          {/* Star 8 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '2.2px',
-              height: '2.2px',
-              top: '65%',
-              right: '20%',
-              opacity: 0.4,
-              animationDuration: '9.7s',
-              animationDelay: '0.6s',
-            }}
-          />
-          {/* Star 9 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '1.5px',
-              height: '1.5px',
-              top: '78%',
-              left: '15%',
-              opacity: 0.5,
-              animationDuration: '7.4s',
-              animationDelay: '0.15s',
-            }}
-          />
-          {/* Star 10 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '2px',
-              height: '2px',
-              top: '85%',
-              right: '35%',
-              opacity: 0.45,
-              animationDuration: '8.0s',
-              animationDelay: '0.55s',
-            }}
-          />
-          {/* Star 11 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '1.5px',
-              height: '1.5px',
-              top: '3%',
-              left: '50%',
-              opacity: 0.5,
-              animationDuration: '6.2s',
-              animationDelay: '0.95s',
-            }}
-          />
-          {/* Star 12 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '2px',
-              height: '2px',
-              top: '12%',
-              left: '65%',
-              opacity: 0.55,
-              animationDuration: '7.6s',
-              animationDelay: '0.05s',
-            }}
-          />
-          {/* Star 13 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '1.5px',
-              height: '1.5px',
-              top: '30%',
-              left: '48%',
-              opacity: 0.6,
-              animationDuration: '8.8s',
-              animationDelay: '0.35s',
-            }}
-          />
-          {/* Star 14 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '2.2px',
-              height: '2.2px',
-              top: '50%',
-              left: '30%',
-              opacity: 0.5,
-              animationDuration: '6.9s',
-              animationDelay: '0.75s',
-            }}
-          />
-          {/* Star 15 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '1.5px',
-              height: '1.5px',
-              top: '72%',
-              left: '55%',
-              opacity: 0.55,
-              animationDuration: '8.1s',
-              animationDelay: '0.12s',
-            }}
-          />
-          {/* Star 16 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '2px',
-              height: '2px',
-              top: '88%',
-              left: '6%',
-              opacity: 0.45,
-              animationDuration: '8.4s',
-              animationDelay: '0.42s',
-            }}
-          />
-          {/* Star 17 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '1.5px',
-              height: '1.5px',
-              top: '1%',
-              left: '82%',
-              opacity: 0.4,
-              animationDuration: '6.6s',
-              animationDelay: '0.88s',
-            }}
-          />
-          {/* Star 18 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '2.2px',
-              height: '2.2px',
-              top: '15%',
-              left: '2%',
-              opacity: 0.5,
-              animationDuration: '9.5s',
-              animationDelay: '0.08s',
-            }}
-          />
-          {/* Star 19 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '1.5px',
-              height: '1.5px',
-              top: '35%',
-              left: '75%',
-              opacity: 0.6,
-              animationDuration: '6.3s',
-              animationDelay: '0.28s',
-            }}
-          />
-          {/* Star 20 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '2px',
-              height: '2px',
-              top: '48%',
-              left: '85%',
-              opacity: 0.45,
-              animationDuration: '8.2s',
-              animationDelay: '0.82s',
-            }}
-          />
-          {/* Star 21 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '1.5px',
-              height: '1.5px',
-              top: '62%',
-              left: '70%',
-              opacity: 0.55,
-              animationDuration: '7.5s',
-              animationDelay: '0.18s',
-            }}
-          />
-          {/* Star 22 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '2.2px',
-              height: '2.2px',
-              top: '76%',
-              left: '78%',
-              opacity: 0.4,
-              animationDuration: '8.9s',
-              animationDelay: '0.38s',
-            }}
-          />
-          {/* Star 23 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '1.5px',
-              height: '1.5px',
-              top: '10%',
-              left: '38%',
-              opacity: 0.5,
-              animationDuration: '7.0s',
-              animationDelay: '0.92s',
-            }}
-          />
-          {/* Star 24 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '2px',
-              height: '2px',
-              top: '28%',
-              left: '35%',
-              opacity: 0.6,
-              animationDuration: '8.7s',
-              animationDelay: '0.22s',
-            }}
-          />
-          {/* Star 25 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '1.5px',
-              height: '1.5px',
-              top: '42%',
-              left: '45%',
-              opacity: 0.55,
-              animationDuration: '6.7s',
-              animationDelay: '0.48s',
-            }}
-          />
-          {/* Star 26 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '2.2px',
-              height: '2.2px',
-              top: '55%',
-              left: '55%',
-              opacity: 0.5,
-              animationDuration: '8.3s',
-              animationDelay: '0.65s',
-            }}
-          />
-          {/* Star 27 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '1.5px',
-              height: '1.5px',
-              top: '70%',
-              left: '35%',
-              opacity: 0.6,
-              animationDuration: '6.4s',
-              animationDelay: '0.15s',
-            }}
-          />
-          {/* Star 28 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '2px',
-              height: '2px',
-              top: '82%',
-              left: '45%',
-              opacity: 0.45,
-              animationDuration: '9.2s',
-              animationDelay: '0.72s',
-            }}
-          />
-          {/* Star 29 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '1.5px',
-              height: '1.5px',
-              top: '6%',
-              left: '70%',
-              opacity: 0.5,
-              animationDuration: '7.3s',
-              animationDelay: '0.45s',
-            }}
-          />
-          {/* Star 30 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '2.2px',
-              height: '2.2px',
-              top: '22%',
-              left: '90%',
-              opacity: 0.4,
-              animationDuration: '6.8s',
-              animationDelay: '0.02s',
-            }}
-          />
-          {/* Star 31 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '1.5px',
-              height: '1.5px',
-              top: '40%',
-              left: '16%',
-              opacity: 0.6,
-              animationDuration: '8.6s',
-              animationDelay: '0.32s',
-            }}
-          />
-          {/* Star 32 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '2px',
-              height: '2px',
-              top: '54%',
-              left: '68%',
-              opacity: 0.5,
-              animationDuration: '6.5s',
-              animationDelay: '0.12s',
-            }}
-          />
-          {/* Star 33 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '1.5px',
-              height: '1.5px',
-              top: '68%',
-              left: '48%',
-              opacity: 0.55,
-              animationDuration: '8.0s',
-              animationDelay: '0.58s',
-            }}
-          />
-          {/* Star 34 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '2.2px',
-              height: '2.2px',
-              top: '80%',
-              left: '65%',
-              opacity: 0.4,
-              animationDuration: '8.5s',
-              animationDelay: '0.25s',
-            }}
-          />
-          {/* Star 35 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '1.5px',
-              height: '1.5px',
-              top: '92%',
-              left: '20%',
-              opacity: 0.5,
-              animationDuration: '6.1s',
-              animationDelay: '0.62s',
-            }}
-          />
-          {/* Star 36 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '2px',
-              height: '2px',
-              top: '14%',
-              left: '58%',
-              opacity: 0.6,
-              animationDuration: '7.7s',
-              animationDelay: '0.85s',
-            }}
-          />
-          {/* Star 37 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '1.5px',
-              height: '1.5px',
-              top: '32%',
-              left: '60%',
-              opacity: 0.55,
-              animationDuration: '8.9s',
-              animationDelay: '0.08s',
-            }}
-          />
-          {/* Star 38 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '2.2px',
-              height: '2.2px',
-              top: '48%',
-              left: '12%',
-              opacity: 0.5,
-              animationDuration: '6.9s',
-              animationDelay: '0.52s',
-            }}
-          />
-          {/* Star 39 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '1.5px',
-              height: '1.5px',
-              top: '64%',
-              left: '82%',
-              opacity: 0.6,
-              animationDuration: '8.1s',
-              animationDelay: '0.04s',
-            }}
-          />
-          {/* Star 40 */}
-          <div
-            className="absolute rounded-full bg-white floating-star"
-            style={{
-              width: '2px',
-              height: '2px',
-              top: '74%',
-              left: '25%',
-              opacity: 0.45,
-              animationDuration: '6.6s',
-              animationDelay: '0.42s',
-            }}
-          />
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {stars.map((star) => (
+            <div
+              key={star.id}
+              className="absolute rounded-full bg-white floating-star"
+              style={{
+                width: `${star.size}px`,
+                height: `${star.size}px`,
+                top: star.top,
+                left: star.left,
+                opacity: star.opacity,
+                animationDuration: `${star.duration}s`,
+                animationDelay: `${star.delay}s`,
+                '--x-distance': `${star.xDistance}px`,
+                '--y-distance': `${star.yDistance}px`,
+              } as React.CSSProperties}
+            />
+          ))}
         </div>
 
         {/* Subtle Vignette - Very light */}
@@ -584,8 +125,8 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
       </div>
 
       {/* ✨ Main Content */}
-      <div className="relative z-10 w-full h-full flex items-center justify-center px-4 sm:px-6">
-        <div className="w-full max-w-4xl flex flex-col items-center gap-5 md:gap-7 lg:gap-9">
+      <div className="relative z-10 w-full min-h-screen flex items-center justify-center px-4 sm:px-6 py-8 sm:py-12">
+        <div className="w-full max-w-4xl flex flex-col items-center gap-5 md:gap-7 lg:gap-9 py-4">
           {/* ✨ Logo - Premium Glass Card */}
           <div
             className="relative group animate-fade-up"
@@ -882,27 +423,27 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
 
       {/* ✨ Custom Animations */}
       <style>{`
-        /* Floating Stars Animation - Fixed: Smooth continuous motion */
+        /* Floating Stars Animation - Fixed: Smooth continuous motion with CSS variables */
         @keyframes floatStar {
           0% {
             transform: translate3d(0, 0, 0) scale(1);
-            opacity: 0.3;
+            opacity: 0.4;
           }
           25% {
-            transform: translate3d(15px, -12px, 0) scale(1.1);
+            transform: translate3d(var(--x-distance, 15px), calc(var(--y-distance, -12px) * -1), 0) scale(1.1);
             opacity: 0.9;
           }
           50% {
-            transform: translate3d(-10px, 14px, 0) scale(0.9);
+            transform: translate3d(calc(var(--x-distance, -10px) * -1), var(--y-distance, 14px), 0) scale(0.9);
             opacity: 0.5;
           }
           75% {
-            transform: translate3d(12px, 10px, 0) scale(1.15);
+            transform: translate3d(var(--x-distance, 12px), var(--y-distance, 10px), 0) scale(1.15);
             opacity: 0.85;
           }
           100% {
             transform: translate3d(0, 0, 0) scale(1);
-            opacity: 0.3;
+            opacity: 0.4;
           }
         }
 
@@ -912,6 +453,11 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
           backface-visibility: hidden;
           -webkit-backface-visibility: hidden;
           transform: translate3d(0, 0, 0);
+          -webkit-transform: translate3d(0, 0, 0);
+          transform-style: preserve-3d;
+          -webkit-transform-style: preserve-3d;
+          pointer-events: none;
+          position: absolute;
         }
 
         @keyframes glowPulse {
@@ -938,6 +484,45 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
 
         .animate-fade-up {
           animation: fadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        /* Premium Scrollbar - Always visible with premium colors */
+        ::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+          background: #0a0a0a;
+          border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+          background: linear-gradient(180deg, rgba(139, 92, 246, 0.5), rgba(99, 102, 241, 0.5), rgba(59, 130, 246, 0.5));
+          border-radius: 10px;
+          transition: background 0.3s ease;
+          border: 1px solid rgba(139, 92, 246, 0.1);
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+          background: linear-gradient(180deg, rgba(139, 92, 246, 0.8), rgba(99, 102, 241, 0.8), rgba(59, 130, 246, 0.8));
+          border: 1px solid rgba(139, 92, 246, 0.2);
+          box-shadow: 0 0 20px rgba(139, 92, 246, 0.15);
+        }
+
+        ::-webkit-scrollbar-thumb:active {
+          background: linear-gradient(180deg, rgba(139, 92, 246, 0.9), rgba(99, 102, 241, 0.9), rgba(59, 130, 246, 0.9));
+        }
+
+        /* Firefox Scrollbar - Always visible with premium colors */
+        * {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(139, 92, 246, 0.5) #0a0a0a;
+        }
+
+        /* For Firefox hover state */
+        *:hover {
+          scrollbar-color: rgba(139, 92, 246, 0.8) #0a0a0a;
         }
 
         /* Reduced motion preference */

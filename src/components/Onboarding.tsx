@@ -264,6 +264,14 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
   const [error, setError] = useState("");
   const [age, setAge] = useState<number | null>(null);
   const [showEnterAnimation, setShowEnterAnimation] = useState(false);
+  
+  // Validation error states - specific to each field
+  const [validationErrors, setValidationErrors] = useState({
+    name: "",
+    gender: "",
+    country: "",
+    dob: "",
+  });
 
   const genderRef = useRef<HTMLDivElement>(null);
   const countryRef = useRef<HTMLDivElement>(null);
@@ -326,15 +334,8 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
         calculatedAge--;
       }
       setAge(calculatedAge);
-      
-      if (calculatedAge < 18) {
-        setError("You must be at least 18 years old to continue.");
-      } else {
-        setError("");
-      }
     } else {
       setAge(null);
-      setError("");
     }
   }, [month, day, year]);
 
@@ -343,9 +344,57 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
     return name.trim().length > 0 && gender && country && month && day && year && age !== null && age >= 18;
   };
 
+  // ✅ Validate specific fields on button click
+  const validateForm = () => {
+    const errors = {
+      name: "",
+      gender: "",
+      country: "",
+      dob: "",
+    };
+    let hasError = false;
+
+    if (!name.trim()) {
+      errors.name = "Please enter your full name.";
+      hasError = true;
+    }
+
+    if (!gender) {
+      errors.gender = "Please select your gender.";
+      hasError = true;
+    }
+
+    if (!country) {
+      errors.country = "Please select your country.";
+      hasError = true;
+    }
+
+    if (!month || !day || !year) {
+      errors.dob = "Please select your date of birth.";
+      hasError = true;
+    } else if (age !== null && age < 18) {
+      errors.dob = "You must be at least 18 years old to continue.";
+      hasError = true;
+    }
+
+    setValidationErrors(errors);
+    return !hasError;
+  };
+
+  // ✅ Clear specific field error on input change
+  const clearFieldError = (field: keyof typeof validationErrors) => {
+    setValidationErrors((prev) => ({
+      ...prev,
+      [field]: "",
+    }));
+  };
+
   // ✅ Handle Continue with Enter Animation
   const handleContinue = () => {
-    if (!isFormValid()) return;
+    // Validate form first
+    if (!validateForm()) {
+      return;
+    }
     
     setIsLoading(true);
     setError("");
@@ -431,14 +480,14 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
   // RENDER: User Information Form
   // ============================================
   return (
-    <div className="w-screen h-screen flex items-center justify-center relative overflow-hidden bg-[#000000]">
+    <div className="relative min-h-screen w-full overflow-y-auto overflow-x-hidden bg-[#000000]">
       
       {/* ✅ Full Black Background */}
-      <div className="absolute inset-0 bg-[#000000]" />
+      <div className="fixed inset-0 bg-[#000000]" />
       
       {/* ✅ Subtle glow behind logo */}
       <div
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full"
+        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full"
         style={{
           background: 'radial-gradient(circle, rgba(139, 92, 246, 0.03) 0%, transparent 70%)',
           filter: 'blur(80px)',
@@ -446,339 +495,412 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
       />
       
       {/* ✅ Content */}
-      <div className="relative z-10 w-full max-w-md mx-auto p-6 animate-fade-in">
-        {/* ✅ Adin AI Icon from public folder */}
-        <div className="flex justify-center mb-8">
-          <img 
-            src="/icon-1024x1024.png" 
-            alt="Adin AI" 
-            className="w-20 h-20 rounded-2xl shadow-lg shadow-purple-500/20"
-          />
-        </div>
-
-        {/* Heading */}
-        <div className="text-center mb-4">
-          <h2 className="text-3xl font-bold text-white tracking-tight">
-            Welcome to Adin AI
-          </h2>
-          <p className="text-[#71717a] text-sm mt-3">
-            No login • No sign up • Start in seconds • 100% Free
-          </p>
-        </div>
-
-        {/* Form */}
-        <div className="space-y-4">
-          {/* Full Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">
-              Full Name <span className="text-red-400">*</span>
-            </label>
-            <div className="relative">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#52525b]">
-                <User size={18} />
-              </div>
-              <input
-                ref={nameInputRef}
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Enter your full name"
-                className={`w-full h-12 pl-10 pr-4 rounded-xl bg-[#050505] border ${
-                  !name.trim() && name.length > 0 ? 'border-red-500/50 focus:border-red-500' : 
-                  name.trim() ? 'border-emerald-500/30 focus:border-emerald-500' : 
-                  'border-white/10 focus:border-purple-500'
-                } text-white placeholder-zinc-500 focus:ring-2 ${
-                  !name.trim() && name.length > 0 ? 'focus:ring-red-500/20' : 
-                  name.trim() ? 'focus:ring-emerald-500/20' : 
-                  'focus:ring-purple-500/20'
-                } outline-none transition-all duration-300`}
-              />
-            </div>
-            {!name.trim() && name.length > 0 && (
-              <p className="text-red-400 text-xs mt-1.5 flex items-center gap-1 animate-fade-in">
-                <AlertCircle size={12} />
-                Please enter your full name.
-              </p>
-            )}
+      <div className="relative z-10 w-full min-h-screen flex items-center justify-center px-4 py-8 sm:py-12">
+        <div className="w-full max-w-md mx-auto p-6 animate-fade-in">
+          {/* ✅ Adin AI Icon from public folder */}
+          <div className="flex justify-center mb-8">
+            <img 
+              src="/icon-1024x1024.png" 
+              alt="Adin AI" 
+              className="w-20 h-20 rounded-2xl shadow-lg shadow-purple-500/20"
+            />
           </div>
 
-          {/* Gender - Premium Dropdown */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">
-              Gender <span className="text-red-400">*</span>
-            </label>
-            <div className="relative" ref={genderRef}>
-              <button
-                type="button"
-                onClick={() => setIsGenderOpen(!isGenderOpen)}
-                className={`w-full h-12 px-4 rounded-xl bg-[#050505] border ${
-                  !gender ? 'border-red-500/50 focus:border-red-500' : 'border-emerald-500/30 focus:border-emerald-500'
-                } text-white flex items-center justify-between transition-all duration-300 focus:ring-2 ${
-                  !gender ? 'focus:ring-red-500/20' : 'focus:ring-emerald-500/20'
-                } outline-none`}
-              >
-                <span className={gender ? "text-white" : "text-zinc-500"}>
-                  {gender ? GENDER_OPTIONS.find(g => g.value === gender)?.label || "Select gender" : "Select gender"}
-                </span>
-                <ChevronDown size={18} className={`text-zinc-400 transition-transform duration-300 ${isGenderOpen ? "rotate-180" : ""}`} />
-              </button>
-
-              {/* Dropdown Options */}
-              {isGenderOpen && (
-                <div className="absolute top-full left-0 right-0 mt-1.5 rounded-xl bg-[#050505] border border-white/10 overflow-hidden z-20 animate-slide-down max-h-48 overflow-y-auto custom-scrollbar">
-                  {GENDER_OPTIONS.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => {
-                        setGender(option.value);
-                        setIsGenderOpen(false);
-                      }}
-                      className="w-full px-4 py-2.5 text-left text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors flex items-center justify-between"
-                    >
-                      {option.label}
-                      {gender === option.value && <Check size={16} className="text-purple-400" />}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            {!gender && (
-              <p className="text-red-400 text-xs mt-1.5 flex items-center gap-1 animate-fade-in">
-                <AlertCircle size={12} />
-                Please select your gender.
-              </p>
-            )}
-          </div>
-
-          {/* Country - Dropdown with Flag */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">
-              Country <span className="text-red-400">*</span>
-            </label>
-            <div className="relative" ref={countryRef}>
-              <button
-                type="button"
-                onClick={() => setIsCountryOpen(!isCountryOpen)}
-                className={`w-full h-12 px-4 rounded-xl bg-[#050505] border ${
-                  !country ? 'border-red-500/50 focus:border-red-500' : 'border-emerald-500/30 focus:border-emerald-500'
-                } text-white flex items-center justify-between transition-all duration-300 focus:ring-2 ${
-                  !country ? 'focus:ring-red-500/20' : 'focus:ring-emerald-500/20'
-                } outline-none`}
-              >
-                <span className={country ? "text-white flex items-center gap-2" : "text-zinc-500"}>
-                  {country ? (
-                    <>
-                      <span>{COUNTRIES.find(c => c.code === country)?.flag}</span>
-                      <span>{COUNTRIES.find(c => c.code === country)?.name}</span>
-                    </>
-                  ) : (
-                    "Select your country"
-                  )}
-                </span>
-                <ChevronDown size={18} className={`text-zinc-400 transition-transform duration-300 ${isCountryOpen ? "rotate-180" : ""}`} />
-              </button>
-
-              {/* Country Dropdown Options */}
-              {isCountryOpen && (
-                <div className="absolute top-full left-0 right-0 mt-1.5 rounded-xl bg-[#050505] border border-white/10 overflow-hidden z-20 animate-slide-down max-h-48 overflow-y-auto custom-scrollbar">
-                  {COUNTRIES.map((countryItem) => (
-                    <button
-                      key={countryItem.code}
-                      type="button"
-                      onClick={() => {
-                        setCountry(countryItem.code);
-                        setIsCountryOpen(false);
-                      }}
-                      className="w-full px-4 py-2.5 text-left text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors flex items-center justify-between gap-2"
-                    >
-                      <span className="flex items-center gap-2">
-                        <span>{countryItem.flag}</span>
-                        <span>{countryItem.name}</span>
-                      </span>
-                      {country === countryItem.code && <Check size={16} className="text-purple-400 flex-shrink-0" />}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            {!country && (
-              <p className="text-red-400 text-xs mt-1.5 flex items-center gap-1 animate-fade-in">
-                <AlertCircle size={12} />
-                Please select your country.
-              </p>
-            )}
-          </div>
-
-          {/* Date of Birth - Month/Date/Year Dropdowns */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">
-              Date of Birth <span className="text-red-400">*</span>
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              {/* Month */}
-              <div className="relative">
-                <select
-                  value={month}
-                  onChange={(e) => setMonth(e.target.value)}
-                  className={`w-full h-12 px-3 rounded-xl bg-[#050505] border ${
-                    !month ? 'border-red-500/50 focus:border-red-500' : 'border-emerald-500/30 focus:border-emerald-500'
-                  } text-white appearance-none focus:ring-2 ${
-                    !month ? 'focus:ring-red-500/20' : 'focus:ring-emerald-500/20'
-                  } outline-none transition-all duration-300 cursor-pointer`}
-                >
-                  <option value="">Month</option>
-                  {MONTHS.map((m) => (
-                    <option key={m.value} value={m.value}>{m.label}</option>
-                  ))}
-                </select>
-                <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
-              </div>
-
-              {/* Day */}
-              <div className="relative">
-                <select
-                  value={day}
-                  onChange={(e) => setDay(e.target.value)}
-                  className={`w-full h-12 px-3 rounded-xl bg-[#050505] border ${
-                    !day ? 'border-red-500/50 focus:border-red-500' : 'border-emerald-500/30 focus:border-emerald-500'
-                  } text-white appearance-none focus:ring-2 ${
-                    !day ? 'focus:ring-red-500/20' : 'focus:ring-emerald-500/20'
-                  } outline-none transition-all duration-300 cursor-pointer`}
-                >
-                  <option value="">Day</option>
-                  {DAYS.map((d) => (
-                    <option key={d.value} value={d.value}>{d.label}</option>
-                  ))}
-                </select>
-                <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
-              </div>
-
-              {/* Year */}
-              <div className="relative">
-                <select
-                  value={year}
-                  onChange={(e) => setYear(e.target.value)}
-                  className={`w-full h-12 px-3 rounded-xl bg-[#050505] border ${
-                    !year ? 'border-red-500/50 focus:border-red-500' : 'border-emerald-500/30 focus:border-emerald-500'
-                  } text-white appearance-none focus:ring-2 ${
-                    !year ? 'focus:ring-red-500/20' : 'focus:ring-emerald-500/20'
-                  } outline-none transition-all duration-300 cursor-pointer`}
-                >
-                  <option value="">Year</option>
-                  {YEARS.map((y) => (
-                    <option key={y.value} value={y.value}>{y.label}</option>
-                  ))}
-                </select>
-                <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
-              </div>
-            </div>
-            
-            {/* Age Display */}
-            {age !== null && age >= 18 && (
-              <p className="text-xs text-emerald-400 mt-1.5 flex items-center gap-1.5 animate-fade-in">
-                <Check size={14} /> Age: {age} years
-              </p>
-            )}
-            {(!month || !day || !year) && (
-              <p className="text-red-400 text-xs mt-1.5 flex items-center gap-1 animate-fade-in">
-                <AlertCircle size={12} />
-                Please select your date of birth.
-              </p>
-            )}
-            {age !== null && age < 18 && age > 0 && (
-              <p className="text-xs text-red-400 mt-1.5 flex items-center gap-1.5 animate-fade-in">
-                <AlertCircle size={14} /> Age: {age} years - Must be 18+
-              </p>
-            )}
-          </div>
-
-          {/* Error Message */}
-          {error && (
-            <div className="p-3 rounded-xl bg-red-400/10 border border-red-400/20 text-red-400 text-sm flex items-start gap-2.5 animate-fade-in">
-              <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          {/* Continue Button */}
-          <button
-            onClick={handleContinue}
-            disabled={!isFormValid() || isLoading}
-            className="relative w-full h-12 rounded-xl bg-gradient-to-r from-purple-600 to-blue-500 text-white font-medium text-base transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-purple-500/30 disabled:opacity-50 disabled:hover:scale-100 disabled:hover:shadow-none overflow-hidden group"
-          >
-            <span className="relative z-10 flex items-center justify-center gap-3">
-              {isLoading ? (
-                <>
-                  <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  Setting up your account...
-                </>
-              ) : (
-                <>
-                  Start Your Journey
-                  <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-                </>
-              )}
-            </span>
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-blue-500 to-purple-600 bg-[length:200%_100%] opacity-0 group-hover:opacity-100 transition-opacity duration-500 group-hover:animate-shimmer" />
-          </button>
-
-          {/* ✅ Bottom Trust Section */}
-          <div className="text-center mt-4">
-            <p className="text-[#52525b] text-xs flex items-center justify-center gap-1.5">
-              <span>🔒</span>
-              <span>One-time setup • You won't see this page again</span>
+          {/* Heading */}
+          <div className="text-center mb-4">
+            <h2 className="text-3xl font-bold text-white tracking-tight">
+              Welcome to Adin AI
+            </h2>
+            <p className="text-[#71717a] text-sm mt-3">
+              No login • No sign up • Start in seconds • 100% Free
             </p>
           </div>
-        </div>
 
-        <style>{`
-          @keyframes shimmer {
-            0% { background-position: -200% 0; }
-            100% { background-position: 200% 0; }
-          }
-          .animate-shimmer {
-            animation: shimmer 2s linear infinite;
-          }
-          @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-4px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-          @keyframes slideDown {
-            from { opacity: 0; transform: translateY(-8px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-          .animate-fade-in {
-            animation: fadeIn 0.2s ease-out forwards;
-          }
-          .animate-slide-down {
-            animation: slideDown 0.2s ease-out forwards;
-          }
-          
-          /* ✅ Premium Purple Gradient Scrollbar */
-          .custom-scrollbar::-webkit-scrollbar {
-            width: 6px;
-          }
-          .custom-scrollbar::-webkit-scrollbar-track {
-            background: transparent;
-          }
-          .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: linear-gradient(180deg, #8b5cf6, #3b82f6);
-            border-radius: 10px;
-          }
-          .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(180deg, #7c3aed, #2563eb);
-          }
-          
-          /* For Firefox */
-          .custom-scrollbar {
-            scrollbar-width: thin;
-            scrollbar-color: #8b5cf6 transparent;
-          }
-        `}</style>
+          {/* Form */}
+          <div className="space-y-4">
+            {/* Full Name */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1.5">
+                Full Name <span className="text-red-400">*</span>
+              </label>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#52525b]">
+                  <User size={18} />
+                </div>
+                <input
+                  ref={nameInputRef}
+                  type="text"
+                  value={name}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    clearFieldError("name");
+                  }}
+                  placeholder="Enter your full name"
+                  className={`w-full h-12 pl-10 pr-4 rounded-xl bg-[#050505] border ${
+                    validationErrors.name 
+                      ? 'border-red-500/50 focus:border-red-500 focus:ring-red-500/20' 
+                      : name.trim() 
+                        ? 'border-emerald-500/30 focus:border-emerald-500 focus:ring-emerald-500/20' 
+                        : 'border-white/10 focus:border-purple-500 focus:ring-purple-500/20'
+                  } text-white placeholder-zinc-500 focus:ring-2 outline-none transition-all duration-300`}
+                />
+              </div>
+              {validationErrors.name && (
+                <p className="text-red-400 text-xs mt-1.5 flex items-center gap-1 animate-fade-in">
+                  <AlertCircle size={12} />
+                  {validationErrors.name}
+                </p>
+              )}
+            </div>
+
+            {/* Gender - Premium Dropdown */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1.5">
+                Gender <span className="text-red-400">*</span>
+              </label>
+              <div className="relative" ref={genderRef}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsGenderOpen(!isGenderOpen);
+                    clearFieldError("gender");
+                  }}
+                  className={`w-full h-12 px-4 rounded-xl bg-[#050505] border ${
+                    validationErrors.gender 
+                      ? 'border-red-500/50 focus:border-red-500 focus:ring-red-500/20' 
+                      : gender 
+                        ? 'border-emerald-500/30 focus:border-emerald-500 focus:ring-emerald-500/20' 
+                        : 'border-white/10 focus:border-purple-500 focus:ring-purple-500/20'
+                  } text-white flex items-center justify-between transition-all duration-300 focus:ring-2 outline-none`}
+                >
+                  <span className={gender ? "text-white" : "text-zinc-500"}>
+                    {gender ? GENDER_OPTIONS.find(g => g.value === gender)?.label || "Select gender" : "Select gender"}
+                  </span>
+                  <ChevronDown size={18} className={`text-zinc-400 transition-transform duration-300 ${isGenderOpen ? "rotate-180" : ""}`} />
+                </button>
+
+                {/* Dropdown Options */}
+                {isGenderOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-1.5 rounded-xl bg-[#050505] border border-white/10 overflow-hidden z-20 animate-slide-down max-h-48 overflow-y-auto custom-scrollbar">
+                    {GENDER_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => {
+                          setGender(option.value);
+                          setIsGenderOpen(false);
+                          clearFieldError("gender");
+                        }}
+                        className="w-full px-4 py-2.5 text-left text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors flex items-center justify-between"
+                      >
+                        {option.label}
+                        {gender === option.value && <Check size={16} className="text-purple-400" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {validationErrors.gender && (
+                <p className="text-red-400 text-xs mt-1.5 flex items-center gap-1 animate-fade-in">
+                  <AlertCircle size={12} />
+                  {validationErrors.gender}
+                </p>
+              )}
+            </div>
+
+            {/* Country - Dropdown with Flag */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1.5">
+                Country <span className="text-red-400">*</span>
+              </label>
+              <div className="relative" ref={countryRef}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCountryOpen(!isCountryOpen);
+                    clearFieldError("country");
+                  }}
+                  className={`w-full h-12 px-4 rounded-xl bg-[#050505] border ${
+                    validationErrors.country 
+                      ? 'border-red-500/50 focus:border-red-500 focus:ring-red-500/20' 
+                      : country 
+                        ? 'border-emerald-500/30 focus:border-emerald-500 focus:ring-emerald-500/20' 
+                        : 'border-white/10 focus:border-purple-500 focus:ring-purple-500/20'
+                  } text-white flex items-center justify-between transition-all duration-300 focus:ring-2 outline-none`}
+                >
+                  <span className={country ? "text-white flex items-center gap-2" : "text-zinc-500"}>
+                    {country ? (
+                      <>
+                        <span>{COUNTRIES.find(c => c.code === country)?.flag}</span>
+                        <span>{COUNTRIES.find(c => c.code === country)?.name}</span>
+                      </>
+                    ) : (
+                      "Select your country"
+                    )}
+                  </span>
+                  <ChevronDown size={18} className={`text-zinc-400 transition-transform duration-300 ${isCountryOpen ? "rotate-180" : ""}`} />
+                </button>
+
+                {/* Country Dropdown Options */}
+                {isCountryOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-1.5 rounded-xl bg-[#050505] border border-white/10 overflow-hidden z-20 animate-slide-down max-h-48 overflow-y-auto custom-scrollbar">
+                    {COUNTRIES.map((countryItem) => (
+                      <button
+                        key={countryItem.code}
+                        type="button"
+                        onClick={() => {
+                          setCountry(countryItem.code);
+                          setIsCountryOpen(false);
+                          clearFieldError("country");
+                        }}
+                        className="w-full px-4 py-2.5 text-left text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors flex items-center justify-between gap-2"
+                      >
+                        <span className="flex items-center gap-2">
+                          <span>{countryItem.flag}</span>
+                          <span>{countryItem.name}</span>
+                        </span>
+                        {country === countryItem.code && <Check size={16} className="text-purple-400 flex-shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {validationErrors.country && (
+                <p className="text-red-400 text-xs mt-1.5 flex items-center gap-1 animate-fade-in">
+                  <AlertCircle size={12} />
+                  {validationErrors.country}
+                </p>
+              )}
+            </div>
+
+            {/* Date of Birth - Month/Date/Year Dropdowns */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1.5">
+                Date of Birth <span className="text-red-400">*</span>
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {/* Month */}
+                <div className="relative">
+                  <select
+                    value={month}
+                    onChange={(e) => {
+                      setMonth(e.target.value);
+                      clearFieldError("dob");
+                    }}
+                    className={`w-full h-12 px-3 rounded-xl bg-[#050505] border ${
+                      validationErrors.dob 
+                        ? 'border-red-500/50 focus:border-red-500 focus:ring-red-500/20' 
+                        : month 
+                          ? 'border-emerald-500/30 focus:border-emerald-500 focus:ring-emerald-500/20' 
+                          : 'border-white/10 focus:border-purple-500 focus:ring-purple-500/20'
+                    } text-white appearance-none focus:ring-2 outline-none transition-all duration-300 cursor-pointer`}
+                  >
+                    <option value="">Month</option>
+                    {MONTHS.map((m) => (
+                      <option key={m.value} value={m.value}>{m.label}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+                </div>
+
+                {/* Day */}
+                <div className="relative">
+                  <select
+                    value={day}
+                    onChange={(e) => {
+                      setDay(e.target.value);
+                      clearFieldError("dob");
+                    }}
+                    className={`w-full h-12 px-3 rounded-xl bg-[#050505] border ${
+                      validationErrors.dob 
+                        ? 'border-red-500/50 focus:border-red-500 focus:ring-red-500/20' 
+                        : day 
+                          ? 'border-emerald-500/30 focus:border-emerald-500 focus:ring-emerald-500/20' 
+                          : 'border-white/10 focus:border-purple-500 focus:ring-purple-500/20'
+                    } text-white appearance-none focus:ring-2 outline-none transition-all duration-300 cursor-pointer`}
+                  >
+                    <option value="">Day</option>
+                    {DAYS.map((d) => (
+                      <option key={d.value} value={d.value}>{d.label}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+                </div>
+
+                {/* Year */}
+                <div className="relative">
+                  <select
+                    value={year}
+                    onChange={(e) => {
+                      setYear(e.target.value);
+                      clearFieldError("dob");
+                    }}
+                    className={`w-full h-12 px-3 rounded-xl bg-[#050505] border ${
+                      validationErrors.dob 
+                        ? 'border-red-500/50 focus:border-red-500 focus:ring-red-500/20' 
+                        : year 
+                          ? 'border-emerald-500/30 focus:border-emerald-500 focus:ring-emerald-500/20' 
+                          : 'border-white/10 focus:border-purple-500 focus:ring-purple-500/20'
+                    } text-white appearance-none focus:ring-2 outline-none transition-all duration-300 cursor-pointer`}
+                  >
+                    <option value="">Year</option>
+                    {YEARS.map((y) => (
+                      <option key={y.value} value={y.value}>{y.label}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+                </div>
+              </div>
+              
+              {/* Age Display - Only show when valid */}
+              {age !== null && age >= 18 && month && day && year && (
+                <p className="text-xs text-emerald-400 mt-1.5 flex items-center gap-1.5 animate-fade-in">
+                  <Check size={14} /> Age: {age} years
+                </p>
+              )}
+              
+              {/* DOB Validation Error */}
+              {validationErrors.dob && (
+                <p className="text-red-400 text-xs mt-1.5 flex items-center gap-1 animate-fade-in">
+                  <AlertCircle size={12} />
+                  {validationErrors.dob}
+                </p>
+              )}
+            </div>
+
+            {/* General Error Message */}
+            {error && (
+              <div className="p-3 rounded-xl bg-red-400/10 border border-red-400/20 text-red-400 text-sm flex items-start gap-2.5 animate-fade-in">
+                <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            {/* Continue Button - Always enabled */}
+            <button
+              onClick={handleContinue}
+              disabled={isLoading}
+              className="relative w-full h-12 rounded-xl bg-gradient-to-r from-purple-600 to-blue-500 text-white font-medium text-base transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-purple-500/30 disabled:opacity-50 disabled:hover:scale-100 disabled:hover:shadow-none overflow-hidden group"
+            >
+              <span className="relative z-10 flex items-center justify-center gap-3">
+                {isLoading ? (
+                  <>
+                    <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Setting up your account...
+                  </>
+                ) : (
+                  <>
+                    Continue to Adin AI
+                    <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                  </>
+                )}
+              </span>
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-blue-500 to-purple-600 bg-[length:200%_100%] opacity-0 group-hover:opacity-100 transition-opacity duration-500 group-hover:animate-shimmer" />
+            </button>
+
+            {/* ✅ Bottom Trust Section */}
+            <div className="text-center mt-4">
+              <p className="text-[#52525b] text-xs flex items-center justify-center gap-1.5">
+                <span>🔒</span>
+                <span>One-time setup • You won't see this page again</span>
+              </p>
+            </div>
+          </div>
+
+          <style>{`
+            @keyframes shimmer {
+              0% { background-position: -200% 0; }
+              100% { background-position: 200% 0; }
+            }
+            .animate-shimmer {
+              animation: shimmer 2s linear infinite;
+            }
+            @keyframes fadeIn {
+              from { opacity: 0; transform: translateY(-4px); }
+              to { opacity: 1; transform: translateY(0); }
+            }
+            @keyframes slideDown {
+              from { opacity: 0; transform: translateY(-8px); }
+              to { opacity: 1; transform: translateY(0); }
+            }
+            .animate-fade-in {
+              animation: fadeIn 0.2s ease-out forwards;
+            }
+            .animate-slide-down {
+              animation: slideDown 0.2s ease-out forwards;
+            }
+            
+            /* ✅ Professional Scrollbar - Always Visible & Matching UI */
+            ::-webkit-scrollbar {
+              width: 8px;
+              height: 8px;
+            }
+
+            ::-webkit-scrollbar-track {
+              background: rgba(139, 92, 246, 0.05);
+              border-radius: 10px;
+              border: 1px solid rgba(139, 92, 246, 0.05);
+            }
+
+            ::-webkit-scrollbar-thumb {
+              background: linear-gradient(180deg, rgba(139, 92, 246, 0.5), rgba(59, 130, 246, 0.5));
+              border-radius: 10px;
+              border: 1px solid rgba(139, 92, 246, 0.1);
+              transition: background 0.3s ease, border-color 0.3s ease;
+              box-shadow: 0 0 10px rgba(139, 92, 246, 0.05);
+            }
+
+            ::-webkit-scrollbar-thumb:hover {
+              background: linear-gradient(180deg, rgba(139, 92, 246, 0.7), rgba(59, 130, 246, 0.7));
+              border-color: rgba(139, 92, 246, 0.2);
+              box-shadow: 0 0 20px rgba(139, 92, 246, 0.1);
+            }
+
+            ::-webkit-scrollbar-thumb:active {
+              background: linear-gradient(180deg, rgba(139, 92, 246, 0.85), rgba(59, 130, 246, 0.85));
+              border-color: rgba(139, 92, 246, 0.3);
+              box-shadow: 0 0 30px rgba(139, 92, 246, 0.15);
+            }
+
+            /* For Firefox */
+            * {
+              scrollbar-width: thin;
+              scrollbar-color: rgba(139, 92, 246, 0.5) rgba(139, 92, 246, 0.05);
+            }
+            
+            /* ✅ Custom scrollbar for dropdowns */
+            .custom-scrollbar::-webkit-scrollbar {
+              width: 6px;
+              height: 6px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-track {
+              background: rgba(139, 92, 246, 0.04);
+              border-radius: 10px;
+              border: 1px solid rgba(139, 92, 246, 0.04);
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+              background: linear-gradient(180deg, rgba(139, 92, 246, 0.5), rgba(59, 130, 246, 0.5));
+              border-radius: 10px;
+              border: 1px solid rgba(139, 92, 246, 0.08);
+              transition: background 0.3s ease, border-color 0.3s ease;
+              box-shadow: 0 0 10px rgba(139, 92, 246, 0.03);
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+              background: linear-gradient(180deg, rgba(139, 92, 246, 0.7), rgba(59, 130, 246, 0.7));
+              border-color: rgba(139, 92, 246, 0.15);
+              box-shadow: 0 0 20px rgba(139, 92, 246, 0.08);
+            }
+            
+            /* For Firefox */
+            .custom-scrollbar {
+              scrollbar-width: thin;
+              scrollbar-color: rgba(139, 92, 246, 0.5) rgba(139, 92, 246, 0.04);
+            }
+          `}</style>
+        </div>
       </div>
     </div>
   );
