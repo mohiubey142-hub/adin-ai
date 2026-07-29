@@ -4,13 +4,9 @@ import { HelmetProvider } from 'react-helmet-async'
 import App from './App'
 import './index.css'
 
-// ❌ Clerk removed - Guest Mode only
-// No ClerkProvider needed
-
+// ✅ FIX: StrictMode hatao (Instagram WebView me double render issue)
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <HelmetProvider>
-      <App />
-    </HelmetProvider>
-  </React.StrictMode>,
+  <HelmetProvider>
+    <App />
+  </HelmetProvider>
 )

@@ -37,32 +37,19 @@ export default defineConfig(() => {
             }
           ]
         },
+        // ✅ FIX: Service worker ko sirf production me enable karo
+        devOptions: {
+          enabled: false
+        },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,ttf}'],
-          // ✅ FIX: Prevent service worker from hijacking SEO/static files
-          // Without this, the SPA navigateFallback (index.html) intercepts
-          // requests to robots.txt, sitemap.xml, etc. and serves the app
-          // shell instead of the real file — this was the root cause of
-          // "homepage loads instead of robots.txt/sitemap.xml" for returning visitors.
-          navigateFallbackDenylist: [
-            /^\/robots\.txt$/,
-            /^\/sitemap\.xml$/,
-            /^\/manifest\.webmanifest$/,
-            /^\/browserconfig\.xml$/,
-            /^\/favicon\.ico$/,
-          ],
+          // ✅ FIX: Sirf JS, CSS, HTML cache karo
+          globPatterns: ['**/*.{js,css,html}'],
+          // ✅ FIX: Navigate fallback disable karo (Sirf Vercel handle karega)
+          navigateFallback: null,
+          // ✅ FIX: Denylist remove karo (ab zaroorat nahi)
+          navigateFallbackDenylist: [],
+          // ✅ FIX: Runtime caching sirf fonts ke liye
           runtimeCaching: [
-            {
-              urlPattern: /^https:\/\/js\.puter\.com\/.*/i,
-              handler: 'CacheFirst',
-              options: {
-                cacheName: 'puter-cdn',
-                expiration: {
-                  maxEntries: 10,
-                  maxAgeSeconds: 60 * 60 * 24 * 30
-                }
-              }
-            },
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
               handler: 'CacheFirst',
@@ -88,7 +75,8 @@ export default defineConfig(() => {
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
     build: {
-      // ✅ CHUNK SIZE LIMIT INCREASED (warning hatane ke liye)
+      // ✅ FIX: Instagram WebView ke liye ES2017 target
+      target: 'es2017',
       chunkSizeWarningLimit: 1000,
       rollupOptions: {
         output: {
@@ -96,9 +84,7 @@ export default defineConfig(() => {
             'react-vendor': ['react', 'react-dom'],
             'clerk-vendor': ['@clerk/clerk-react'],
             'lucide-vendor': ['lucide-react'],
-            // ✅ NAYA: PDF libraries ko alag file mein
             'pdf-vendor': ['html2pdf.js', 'jspdf'],
-            // ✅ NAYA: Image libraries ko alag file mein
             'image-vendor': ['react-easy-crop'],
           }
         }
