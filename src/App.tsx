@@ -139,6 +139,39 @@ const safeRegisterSW = async () => {
   }
 };
 
+// ✅ INSTAGRAM WEBVIEW FIX: Safe localStorage wrappers
+// Instagram's in-app browser sometimes runs pages in a restricted storage
+// context where localStorage.getItem/setItem/removeItem throw a
+// SecurityError/DOMException instead of failing silently. Because those
+// calls were previously unguarded, that exception was left uncaught inside
+// useEffect, and with no ErrorBoundary in the tree React unmounts the whole
+// app -> black screen. These wrappers make every storage call crash-proof
+// while behaving exactly like normal localStorage everywhere else.
+const safeGetItem = (key: string): string | null => {
+  try {
+    return window.localStorage.getItem(key);
+  } catch (e) {
+    console.warn('localStorage.getItem blocked for', key, e);
+    return null;
+  }
+};
+
+const safeSetItem = (key: string, value: string): void => {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch (e) {
+    console.warn('localStorage.setItem blocked for', key, e);
+  }
+};
+
+const safeRemoveItem = (key: string): void => {
+  try {
+    window.localStorage.removeItem(key);
+  } catch (e) {
+    console.warn('localStorage.removeItem blocked for', key, e);
+  }
+};
+
 // Premium Programming Languages - Colors matching your interface (Purple/Violet/Blue theme)
 // ✅ FIXED: Store icon names instead of JSX elements to prevent React Error #310
 const programmingLanguages = [
@@ -187,8 +220,8 @@ function CodingExpert({ userId, onBack }: { userId: string; onBack?: () => void 
     if (isInitialized.current) return;
     isInitialized.current = true;
 
-    const savedLevel = localStorage.getItem(`user_level_${userId}`);
-    const savedLang = localStorage.getItem(`user_language_${userId}`);
+    const savedLevel = safeGetItem(`user_level_${userId}`);
+    const savedLang = safeGetItem(`user_language_${userId}`);
     if (savedLevel) setUserLevel(savedLevel);
     if (savedLang) setSelectedLanguage(savedLang);
 
@@ -219,7 +252,7 @@ function CodingExpert({ userId, onBack }: { userId: string; onBack?: () => void 
 
   const handleSetLevel = (level: string) => {
     setUserLevel(level);
-    localStorage.setItem(`user_level_${userId}`, level);
+    safeSetItem(`user_level_${userId}`, level);
     setMessages(prev => [...prev,
       { role: "user", text: level },
       { role: "ai", text: `**${level}** level selected.\n\n**Select a technology to master:**` }
@@ -228,7 +261,7 @@ function CodingExpert({ userId, onBack }: { userId: string; onBack?: () => void 
 
   const handleSelectLanguage = (langId: string) => {
     setSelectedLanguage(langId);
-    localStorage.setItem(`user_language_${userId}`, langId);
+    safeSetItem(`user_language_${userId}`, langId);
     const lang = programmingLanguages.find(l => l.id === langId);
     setMessages(prev => [...prev,
       { role: "user", text: lang?.name || langId },
@@ -293,8 +326,8 @@ function CodingExpert({ userId, onBack }: { userId: string; onBack?: () => void 
   };
 
   const handleReset = () => {
-    localStorage.removeItem(`user_level_${userId}`);
-    localStorage.removeItem(`user_language_${userId}`);
+    safeRemoveItem(`user_level_${userId}`);
+    safeRemoveItem(`user_language_${userId}`);
     setUserLevel(null);
     setSelectedLanguage(null);
     setMessages([]);
@@ -378,7 +411,7 @@ function CodingExpert({ userId, onBack }: { userId: string; onBack?: () => void 
     return (
       <div className="flex-1 flex flex-col bg-black overflow-hidden">
         <div className="h-[56px] flex justify-between items-center px-5 border-b border-zinc-900 shrink-0">
-          <button onClick={() => { localStorage.removeItem(`user_level_${userId}`); setUserLevel(null); }} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 transition">
+          <button onClick={() => { safeRemoveItem(`user_level_${userId}`); setUserLevel(null); }} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 transition">
             <ArrowLeft size={16} className="text-gray-400" />
             <span className="text-sm text-gray-400">Back</span>
           </button>
@@ -597,10 +630,10 @@ export default function App() {
   // ✅ Landing page state - FIXED: Check existing app state
   const [showLanding, setShowLanding] = useState(() => {
     // Check if user has already entered the app
-    const hasSeenLanding = localStorage.getItem('adin-has-seen-landing');
-    const guestSession = localStorage.getItem('adin-guest-session');
-    const onboardingCompleted = localStorage.getItem('adin-onboarding-completed');
-    const userName = localStorage.getItem('adin_user_name');
+    const hasSeenLanding = safeGetItem('adin-has-seen-landing');
+    const guestSession = safeGetItem('adin-guest-session');
+    const onboardingCompleted = safeGetItem('adin-onboarding-completed');
+    const userName = safeGetItem('adin_user_name');
     
     // If user has completed onboarding or has guest session or has user name, skip landing
     if (onboardingCompleted === 'true' || guestSession || userName) {
@@ -620,14 +653,14 @@ export default function App() {
   // This solves the localStorage data loss bug
   const userId = useMemo(() => {
     // First, check if we have a stored userId
-    const storedUserId = localStorage.getItem('adin-guest-user-id');
+    const storedUserId = safeGetItem('adin-guest-user-id');
     if (storedUserId) {
       console.log('✅ Restored userId from localStorage:', storedUserId);
       return storedUserId;
     }
     
     // If no stored userId, check if we have a session
-    const session = localStorage.getItem('adin-guest-session');
+    const session = safeGetItem('adin-guest-session');
     if (session) {
       try {
         const parsed = JSON.parse(session);
@@ -635,7 +668,7 @@ export default function App() {
         if (parsed.guestCreatedAt) {
           const timestamp = new Date(parsed.guestCreatedAt).getTime();
           const newUserId = "guest_" + timestamp.toString(36);
-          localStorage.setItem('adin-guest-user-id', newUserId);
+          safeSetItem('adin-guest-user-id', newUserId);
           console.log('✅ Created userId from session:', newUserId);
           return newUserId;
         }
@@ -646,7 +679,7 @@ export default function App() {
     
     // Create brand new userId
     const newUserId = "guest_" + Date.now().toString(36);
-    localStorage.setItem('adin-guest-user-id', newUserId);
+    safeSetItem('adin-guest-user-id', newUserId);
     console.log('✅ Created new userId:', newUserId);
     return newUserId;
   }, []);
@@ -656,7 +689,7 @@ export default function App() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [selectedCoverTemplateId, setSelectedCoverTemplateId] = useState<string | null>(null);
   const [active, setActive] = useState(() => {
-    const savedTab = localStorage.getItem("adin-active-tab");
+    const savedTab = safeGetItem("adin-active-tab");
     const hash = window.location.hash.slice(1);
     if (hash === "cv-builder") return "CV Builder";
     if (hash === "cover-letter") return "Cover Letter";
@@ -722,7 +755,7 @@ export default function App() {
 
   // ✅ Get user name from localStorage (no "Guest" wording)
   const getUserName = useCallback((): string => {
-    const savedName = localStorage.getItem("adin_user_name");
+    const savedName = safeGetItem("adin_user_name");
     return savedName || "User";
   }, []);
 
@@ -764,15 +797,15 @@ export default function App() {
 
   // ✅ Check guest session on mount
   useEffect(() => {
-    const guestSession = localStorage.getItem("adin-guest-session");
-    const onboardingCompleted = localStorage.getItem("adin-onboarding-completed");
+    const guestSession = safeGetItem("adin-guest-session");
+    const onboardingCompleted = safeGetItem("adin-onboarding-completed");
     
     if (guestSession) {
       try {
         const session = JSON.parse(guestSession);
         setIsGuest(true);
         // ✅ Get user name from separate storage
-        const savedName = localStorage.getItem("adin_user_name");
+        const savedName = safeGetItem("adin_user_name");
         if (savedName) {
           setUserName(savedName);
         } else {
@@ -787,7 +820,7 @@ export default function App() {
       }
     } else {
       // ✅ Check if user name exists without session (edge case)
-      const savedName = localStorage.getItem("adin_user_name");
+      const savedName = safeGetItem("adin_user_name");
       if (savedName) {
         setIsGuest(true);
         setUserName(savedName);
@@ -801,17 +834,17 @@ export default function App() {
   // ✅ Handle Onboarding Complete
   const handleOnboardingComplete = (name: string) => {
     // ✅ Save user name to localStorage
-    localStorage.setItem("adin_user_name", name);
+    safeSetItem("adin_user_name", name);
     
     // ✅ Save guest session
     const guestSession = {
       isGuest: true,
       guestCreatedAt: new Date().toISOString(),
     };
-    localStorage.setItem("adin-guest-session", JSON.stringify(guestSession));
+    safeSetItem("adin-guest-session", JSON.stringify(guestSession));
     
     // ✅ Mark onboarding as completed
-    localStorage.setItem("adin-onboarding-completed", "true");
+    safeSetItem("adin-onboarding-completed", "true");
     
     // ✅ Update state
     setIsGuest(true);
@@ -822,11 +855,11 @@ export default function App() {
   // ✅ Guest Logout handler - Clears ALL guest data and shows Landing Page
   const handleGuestLogout = () => {
     // Clear all localStorage data
-    localStorage.removeItem("adin-guest-session");
-    localStorage.removeItem("adin_user_name");
-    localStorage.removeItem("adin-onboarding-completed");
-    localStorage.removeItem("adin-guest-user-id");
-    localStorage.removeItem('adin-has-seen-landing');
+    safeRemoveItem("adin-guest-session");
+    safeRemoveItem("adin_user_name");
+    safeRemoveItem("adin-onboarding-completed");
+    safeRemoveItem("adin-guest-user-id");
+    safeRemoveItem('adin-has-seen-landing');
     
     // Reset all states
     setIsGuest(false);
@@ -842,7 +875,7 @@ export default function App() {
 
   // ✅ NEW: Handle Landing Page Complete
   const handleLandingComplete = () => {
-    localStorage.setItem('adin-has-seen-landing', 'true');
+    safeSetItem('adin-has-seen-landing', 'true');
     setShowLanding(false);
   };
 
@@ -858,17 +891,17 @@ export default function App() {
       setCurrentPage('templates');
       setActive('CV Templates');
       window.location.hash = 'templates';
-      localStorage.setItem("adin-current-page", "templates");
+      safeSetItem("adin-current-page", "templates");
     } else if (page === 'cover-letter') {
       setCurrentPage('cover-templates');
       setActive('Cover Templates');
       window.location.hash = 'cover-templates';
-      localStorage.setItem("adin-current-page", "cover-templates");
+      safeSetItem("adin-current-page", "cover-templates");
     } else if (page === 'founder') {
       setCurrentPage('founder');
       setActive('Founder');
       window.location.hash = 'founder';
-      localStorage.setItem("adin-current-page", "founder");
+      safeSetItem("adin-current-page", "founder");
     }
   }, []);
 
@@ -877,9 +910,9 @@ export default function App() {
     setSelectedTemplateId(templateId);
     setCurrentPage('app');
     setActive('CV Builder');
-    localStorage.setItem("adin-active-tab", "CV Builder");
-    localStorage.setItem("adin-selected-template", templateId);
-    localStorage.setItem("adin-current-page", "app");
+    safeSetItem("adin-active-tab", "CV Builder");
+    safeSetItem("adin-selected-template", templateId);
+    safeSetItem("adin-current-page", "app");
     window.location.hash = "cv-builder";
   }, []);
 
@@ -888,9 +921,9 @@ export default function App() {
     setSelectedCoverTemplateId(templateId);
     setCurrentPage('app');
     setActive('Cover Letter');
-    localStorage.setItem("adin-active-tab", "Cover Letter");
-    localStorage.setItem("adin-selected-cover-template", templateId);
-    localStorage.setItem("adin-current-page", "app");
+    safeSetItem("adin-active-tab", "Cover Letter");
+    safeSetItem("adin-selected-cover-template", templateId);
+    safeSetItem("adin-current-page", "app");
     window.location.hash = "cover-letter";
   }, []);
 
@@ -898,8 +931,8 @@ export default function App() {
   const navigateToWorkspace = useCallback(() => {
     setCurrentPage('workspace');
     window.location.hash = '';
-    localStorage.setItem("adin-active-tab", "AI Chat");
-    localStorage.setItem("adin-current-page", "workspace");
+    safeSetItem("adin-active-tab", "AI Chat");
+    safeSetItem("adin-current-page", "workspace");
   }, []);
 
   // ✅ Navigate back to CV templates from CV builder
@@ -907,7 +940,7 @@ export default function App() {
     setCurrentPage('templates');
     setActive('CV Templates');
     window.location.hash = 'templates';
-    localStorage.setItem("adin-current-page", "templates");
+    safeSetItem("adin-current-page", "templates");
   }, []);
 
   // ✅ Navigate back to Cover Letter templates
@@ -915,20 +948,20 @@ export default function App() {
     setCurrentPage('cover-templates');
     setActive('Cover Templates');
     window.location.hash = 'cover-templates';
-    localStorage.setItem("adin-current-page", "cover-templates");
+    safeSetItem("adin-current-page", "cover-templates");
   }, []);
 
   // ✅ Navigate back to workspace from any page
   const navigateToWorkspaceFromApp = useCallback(() => {
     setCurrentPage('workspace');
     window.location.hash = '';
-    localStorage.setItem("adin-active-tab", "AI Chat");
-    localStorage.setItem("adin-current-page", "workspace");
+    safeSetItem("adin-active-tab", "AI Chat");
+    safeSetItem("adin-current-page", "workspace");
   }, []);
 
   const setActiveTab = useCallback((tabName: string) => {
     setActive(tabName);
-    localStorage.setItem("adin-active-tab", tabName);
+    safeSetItem("adin-active-tab", tabName);
 
     let hash = "";
     if (tabName === "CV Builder") hash = "cv-builder";
@@ -957,37 +990,37 @@ export default function App() {
       if (hash === "templates") {
         setCurrentPage('templates');
         setActive("CV Templates");
-        localStorage.setItem("adin-active-tab", "CV Templates");
-        localStorage.setItem("adin-current-page", "templates");
+        safeSetItem("adin-active-tab", "CV Templates");
+        safeSetItem("adin-current-page", "templates");
       } else if (hash === "cover-templates") {
         setCurrentPage('cover-templates');
         setActive("Cover Templates");
-        localStorage.setItem("adin-active-tab", "Cover Templates");
-        localStorage.setItem("adin-current-page", "cover-templates");
+        safeSetItem("adin-active-tab", "Cover Templates");
+        safeSetItem("adin-current-page", "cover-templates");
       } else if (hash === "cv-builder") {
         setCurrentPage('app');
         setActive("CV Builder");
-        localStorage.setItem("adin-active-tab", "CV Builder");
-        localStorage.setItem("adin-current-page", "app");
+        safeSetItem("adin-active-tab", "CV Builder");
+        safeSetItem("adin-current-page", "app");
       } else if (hash === "cover-letter") {
         setCurrentPage('app');
         setActive("Cover Letter");
-        localStorage.setItem("adin-active-tab", "Cover Letter");
-        localStorage.setItem("adin-current-page", "app");
+        safeSetItem("adin-active-tab", "Cover Letter");
+        safeSetItem("adin-current-page", "app");
       } else if (hash === "founder") {
         setCurrentPage('founder');
         setActive("Founder");
-        localStorage.setItem("adin-active-tab", "Founder");
-        localStorage.setItem("adin-current-page", "founder");
+        safeSetItem("adin-active-tab", "Founder");
+        safeSetItem("adin-current-page", "founder");
       } else if (hash === "privacy-policy" || hash === "terms-of-service" || hash === "contact") {
         setCurrentPage('legal');
         const pageName = hash === "privacy-policy" ? "Privacy Policy" : hash === "terms-of-service" ? "Terms of Service" : "Contact";
         setActive(pageName);
-        localStorage.setItem("adin-active-tab", pageName);
-        localStorage.setItem("adin-current-page", "legal");
+        safeSetItem("adin-active-tab", pageName);
+        safeSetItem("adin-current-page", "legal");
       } else if (hash === "" || hash === "workspace") {
         setCurrentPage('workspace');
-        localStorage.setItem("adin-current-page", "workspace");
+        safeSetItem("adin-current-page", "workspace");
       }
     };
 
@@ -1001,12 +1034,12 @@ export default function App() {
   }), []);
 
   useEffect(() => {
-    localStorage.setItem("adin-active-tab", active);
+    safeSetItem("adin-active-tab", active);
   }, [active]);
 
   useEffect(() => {
-    if (input) localStorage.setItem("adin-draft-input", input);
-    else localStorage.removeItem("adin-draft-input");
+    if (input) safeSetItem("adin-draft-input", input);
+    else safeRemoveItem("adin-draft-input");
   }, [input]);
 
   // ✅ GA: Initialize Google Analytics on app mount
@@ -1023,16 +1056,16 @@ export default function App() {
     if (loaded.current) return;
     loaded.current = true;
     try {
-      const savedHistory = localStorage.getItem("adin-history");
-      const savedMessages = localStorage.getItem("adin-messages");
-      const savedCurrent = localStorage.getItem("adin-current-chat");
-      const savedWeb = localStorage.getItem("adin-web-enabled");
-      const savedLikes = localStorage.getItem("adin-likes");
-      const savedDislikes = localStorage.getItem("adin-dislikes");
-      const savedDraft = localStorage.getItem("adin-draft-input");
-      const savedTemplate = localStorage.getItem("adin-selected-template");
-      const savedCoverTemplate = localStorage.getItem("adin-selected-cover-template");
-      const savedCurrentPage = localStorage.getItem("adin-current-page");
+      const savedHistory = safeGetItem("adin-history");
+      const savedMessages = safeGetItem("adin-messages");
+      const savedCurrent = safeGetItem("adin-current-chat");
+      const savedWeb = safeGetItem("adin-web-enabled");
+      const savedLikes = safeGetItem("adin-likes");
+      const savedDislikes = safeGetItem("adin-dislikes");
+      const savedDraft = safeGetItem("adin-draft-input");
+      const savedTemplate = safeGetItem("adin-selected-template");
+      const savedCoverTemplate = safeGetItem("adin-selected-cover-template");
+      const savedCurrentPage = safeGetItem("adin-current-page");
 
       let historyData = savedHistory ? JSON.parse(savedHistory) : [];
       const messagesData = savedMessages ? JSON.parse(savedMessages) : {};
@@ -1052,7 +1085,7 @@ export default function App() {
         } else if (page === 'founder') {
           window.location.hash = 'founder';
         } else if (page === 'legal') {
-          const savedActiveTab = localStorage.getItem("adin-active-tab");
+          const savedActiveTab = safeGetItem("adin-active-tab");
           if (savedActiveTab === "Privacy Policy") {
             window.location.hash = 'privacy-policy';
           } else if (savedActiveTab === "Terms of Service") {
@@ -1061,7 +1094,7 @@ export default function App() {
             window.location.hash = 'contact';
           }
         } else if (page === 'app') {
-          const savedActiveTab = localStorage.getItem("adin-active-tab");
+          const savedActiveTab = safeGetItem("adin-active-tab");
           if (savedActiveTab === "CV Builder") {
             window.location.hash = 'cv-builder';
           } else if (savedActiveTab === "Cover Letter") {
@@ -1093,12 +1126,12 @@ export default function App() {
   }, [messages]);
 
   // ✅ Persist data to localStorage
-  useEffect(() => { localStorage.setItem("adin-likes", JSON.stringify(likedMessages)); }, [likedMessages]);
-  useEffect(() => { localStorage.setItem("adin-dislikes", JSON.stringify(dislikedMessages)); }, [dislikedMessages]);
-  useEffect(() => { localStorage.setItem("adin-history", JSON.stringify(chatHistory)); }, [chatHistory]);
-  useEffect(() => { localStorage.setItem("adin-messages", JSON.stringify(chatMessages)); }, [chatMessages]);
-  useEffect(() => { localStorage.setItem("adin-current-chat", JSON.stringify(currentChatId)); }, [currentChatId]);
-  useEffect(() => { localStorage.setItem("adin-web-enabled", JSON.stringify(webEnabled)); }, [webEnabled]);
+  useEffect(() => { safeSetItem("adin-likes", JSON.stringify(likedMessages)); }, [likedMessages]);
+  useEffect(() => { safeSetItem("adin-dislikes", JSON.stringify(dislikedMessages)); }, [dislikedMessages]);
+  useEffect(() => { safeSetItem("adin-history", JSON.stringify(chatHistory)); }, [chatHistory]);
+  useEffect(() => { safeSetItem("adin-messages", JSON.stringify(chatMessages)); }, [chatMessages]);
+  useEffect(() => { safeSetItem("adin-current-chat", JSON.stringify(currentChatId)); }, [currentChatId]);
+  useEffect(() => { safeSetItem("adin-web-enabled", JSON.stringify(webEnabled)); }, [webEnabled]);
   useEffect(() => { saveMemory(aiMemory); }, [aiMemory]);
 
   // ✅ INSTAGRAM WEBVIEW FIX: Safe copy function - REPLACED
@@ -1133,14 +1166,14 @@ export default function App() {
     const chatTitle = currentChat?.title || "Chat";
 
     let favorites = [];
-    const saved = localStorage.getItem("adin-favorites");
+    const saved = safeGetItem("adin-favorites");
     if (saved) favorites = JSON.parse(saved);
 
     const exists = favorites.some((fav: any) => fav.text === text);
 
     if (!exists) {
       favorites.push({ id: Date.now(), text, role, chatTitle, createdAt: new Date().toISOString() });
-      localStorage.setItem("adin-favorites", JSON.stringify(favorites));
+      safeSetItem("adin-favorites", JSON.stringify(favorites));
       toast.success("Saved to favorites!");
     } else {
       toast.info("Already in favorites");
@@ -1151,9 +1184,9 @@ export default function App() {
   }, [chatHistory, currentChatId]);
 
   const toggleDislike = useCallback((i: number, text: string) => {
-    const old = JSON.parse(localStorage.getItem("adin-feedback") || "[]");
+    const old = JSON.parse(safeGetItem("adin-feedback") || "[]");
     old.push({ type: "dislike", text, createdAt: new Date().toISOString() });
-    localStorage.setItem("adin-feedback", JSON.stringify(old));
+    safeSetItem("adin-feedback", JSON.stringify(old));
     setDislikedMessages(prev => prev.includes(i) ? prev.filter(x=>x!==i) : [...prev, i]);
     setLikedMessages(prev => prev.filter(x=>x!==i));
     toast.success("Feedback saved");
@@ -1176,7 +1209,7 @@ export default function App() {
     const updated = chatHistory.map(c=>c.id===id?{...c, pinned:!c.pinned}:c);
     const sorted = sortChats(updated);
     setChatHistory(sorted);
-    localStorage.setItem("adin-history", JSON.stringify(sorted));
+    safeSetItem("adin-history", JSON.stringify(sorted));
   }, [chatHistory, sortChats]);
 
   const saveRename = useCallback((id: number) => {
@@ -1220,7 +1253,7 @@ export default function App() {
 
     isSendingRef.current = true;
 
-    localStorage.removeItem("adin-draft-input");
+    safeRemoveItem("adin-draft-input");
     
     // Use a fresh copy of chatHistory for the new chat
     let activeId = currentChatId;
@@ -1284,7 +1317,7 @@ export default function App() {
     setInput("");
     setPendingFiles([]);
     fileUploadRef.current?.clearFile();
-    localStorage.removeItem("adin-draft-input");
+    safeRemoveItem("adin-draft-input");
   }, []);
 
   const renderAIChat = useCallback(() => {
