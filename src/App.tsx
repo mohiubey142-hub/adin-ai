@@ -1391,8 +1391,27 @@ export default function App() {
   const seoConfig = getSEOConfig(pageKey);
 
   // ✅ NEW: Show Landing Page if not seen (Sab se pehle)
+  // ✅ SEO FIX: this branch was returning <LandingPage> with no SEOHead
+  // at all — since a fresh visitor (no localStorage) always lands here
+  // first, this was the exact reason Google's rendered snapshot had no
+  // <title>, no meta description, and no JSON-LD whatsoever. Mirrors the
+  // same pattern already used below for Onboarding/Login.
   if (showLanding) {
-    return <LandingPage onGetStarted={handleLandingComplete} />;
+    return (
+      <>
+        <SEOHead
+          title={seoConfig.title}
+          description={seoConfig.description}
+          keywords={seoConfig.keywords}
+          canonicalUrl={seoConfig.canonicalUrl}
+          ogType={seoConfig.ogType || "website"}
+        />
+        <script type="application/ld+json">
+          {generateJSONLDScript(generatePageSchemas(pageKey as any))}
+        </script>
+        <LandingPage onGetStarted={handleLandingComplete} />
+      </>
+    );
   }
 
   // ✅ Show Onboarding if not completed (SEO tags now render underneath it too)

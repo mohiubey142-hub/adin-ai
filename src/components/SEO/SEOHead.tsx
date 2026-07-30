@@ -2,8 +2,19 @@
 // SEOHead.tsx - Dynamic Meta Tags Component
 // PRODUCTION READY - All SEO tags
 // ============================================
-
-import { Helmet } from "react-helmet-async";
+//
+// ✅ FIX: react-helmet-async does not officially support React 19
+// (its peer dependency range is react@"^16.6.0 || ^17.0.0 || ^18.0.0"),
+// and in this app it was silently failing to inject any tags into
+// <head> at all — confirmed via Google Search Console's "View Tested
+// Page" rendered HTML, which showed no <title>, no meta description,
+// no canonical, and no JSON-LD whatsoever, even though the rest of the
+// page rendered fine.
+//
+// React 19 natively supports rendering <title>, <meta>, and <link>
+// tags directly inside a component's JSX and automatically hoists them
+// to the real document <head> — no library required. This component
+// now relies on that native behavior instead of <Helmet>.
 
 interface SEOHeadProps {
   title: string;
@@ -60,7 +71,7 @@ export function SEOHead({
   const imageUrl = ogImage || "https://adin-ai-gray.vercel.app/og-image.png";
   
   return (
-    <Helmet>
+    <>
       {/* ============================================
            BASIC META TAGS
            ============================================ */}
@@ -127,7 +138,6 @@ export function SEOHead({
            ============================================ */}
       <meta name="geo.region" content="PK" />
       <meta name="geo.placename" content="Pakistan" />
-      
-    </Helmet>
+    </>
   );
 }
