@@ -1,4 +1,5 @@
 // App.tsx - Complete updated file with SEO & Lazy Loading + Founder Profile + Legal Pages + Landing Page
+// ✅ INSTAGRAM WEBVIEW FIX: Safe clipboard, crypto, and observers
 import { useState, useEffect, useRef, lazy, Suspense, useMemo, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 // ❌ Clerk removed - Guest Mode only
@@ -48,6 +49,95 @@ import toast, { Toaster } from "react-hot-toast";
 import { sendToAI, saveMemoryFromResponse } from "./services/ai";
 import { saveMemory, loadMemory } from "./utils/memory";
 import { LoadingScreen } from "./components/LoadingScreen";
+
+// ✅ INSTAGRAM WEBVIEW FIX: Safe clipboard function
+const safeCopyToClipboard = (text: string): boolean => {
+  try {
+    // Method 1: Modern Clipboard API
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      navigator.clipboard.writeText(text).catch(() => {
+        // Fallback if clipboard API fails
+        fallbackCopy(text);
+      });
+      return true;
+    }
+    // Method 2: Fallback for old browsers
+    return fallbackCopy(text);
+  } catch (e) {
+    console.warn('Clipboard copy failed:', e);
+    return fallbackCopy(text);
+  }
+};
+
+const fallbackCopy = (text: string): boolean => {
+  try {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    textarea.style.left = '-9999px';
+    textarea.style.top = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    const success = document.execCommand('copy');
+    document.body.removeChild(textarea);
+    return success;
+  } catch (e) {
+    console.warn('Fallback copy failed:', e);
+    return false;
+  }
+};
+
+// ✅ INSTAGRAM WEBVIEW FIX: Safe crypto.randomUUID polyfill
+const safeRandomUUID = (): string => {
+  try {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+      return window.crypto.randomUUID();
+    }
+  } catch (e) {
+    // Fall through to polyfill
+  }
+  // Polyfill for old browsers
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
+// ✅ INSTAGRAM WEBVIEW FIX: Safe ResizeObserver
+const safeResizeObserver = (callback: ResizeObserverCallback): ResizeObserver | null => {
+  try {
+    if (typeof ResizeObserver !== 'undefined') {
+      return new ResizeObserver(callback);
+    }
+  } catch (e) {
+    console.warn('ResizeObserver not supported');
+  }
+  return null;
+};
+
+// ✅ INSTAGRAM WEBVIEW FIX: Check if in Instagram WebView
+const isInstagramWebView = (): boolean => {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  return ua.includes('Instagram') && ua.includes('Android');
+};
+
+// ✅ INSTAGRAM WEBVIEW FIX: Safe service worker registration
+const safeRegisterSW = async () => {
+  if (isInstagramWebView()) {
+    console.log('📱 Instagram WebView detected - SW registration skipped');
+    return;
+  }
+  try {
+    if ('serviceWorker' in navigator) {
+      await navigator.serviceWorker.register('/sw.js');
+    }
+  } catch (e) {
+    console.warn('Service Worker registration failed:', e);
+  }
+};
 
 // Premium Programming Languages - Colors matching your interface (Purple/Violet/Blue theme)
 // ✅ FIXED: Store icon names instead of JSX elements to prevent React Error #310
@@ -1011,11 +1101,16 @@ export default function App() {
   useEffect(() => { localStorage.setItem("adin-web-enabled", JSON.stringify(webEnabled)); }, [webEnabled]);
   useEffect(() => { saveMemory(aiMemory); }, [aiMemory]);
 
+  // ✅ INSTAGRAM WEBVIEW FIX: Safe copy function - REPLACED
   const copyMessage = useCallback((text: string, i: number) => {
-    navigator.clipboard.writeText(text);
-    setCopiedIndex(i);
-    toast.success("Copied");
-    setTimeout(() => setCopiedIndex(null), 2000);
+    const success = safeCopyToClipboard(text);
+    if (success) {
+      setCopiedIndex(i);
+      toast.success("Copied");
+      setTimeout(() => setCopiedIndex(null), 2000);
+    } else {
+      toast.error("Copy failed");
+    }
   }, []);
 
   const handleVoiceTranscript = useCallback((text: string, language: string) => {
