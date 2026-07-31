@@ -438,7 +438,7 @@ const ExperienceItemComponent: React.FC<{
                     />
                 </div>
                 
-                {/* ✅ Description */}
+                {/* ✅ Description - Height increased 20% more (rows 5 → 6) */}
                 <div>
                     <div className="flex justify-between items-center mb-2">
                         <label className="text-sm text-gray-300">Description <span className="text-gray-500">(Optional)</span></label>
@@ -475,11 +475,12 @@ const ExperienceItemComponent: React.FC<{
                             ⚠ Please fix the Experience Level mismatch before generating AI content.
                         </p>
                     )}
+                    {/* ✅ rows={6} - 20% more height */}
                     <textarea 
                         placeholder="Describe your responsibilities, achievements, and impact..." 
                         value={exp.description} 
                         onChange={e => updateExperience(idx, 'description', e.target.value)} 
-                        rows={3} 
+                        rows={6} 
                         className="w-full p-3 rounded-xl bg-gray-800 border border-gray-700 text-white outline-none resize-none focus:border-purple-500 transition-colors duration-300" 
                     />
                 </div>

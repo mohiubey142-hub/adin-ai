@@ -18,13 +18,8 @@ const AdinAIIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" })
         fill="none" 
         xmlns="http://www.w3.org/2000/svg"
     >
-        {/* Glow effect */}
         <circle cx="12" cy="12" r="10" fill="rgba(59,130,246,0.12)" />
-        
-        {/* Center Core */}
         <circle cx="12" cy="12" r="4" fill="white" stroke="rgba(255,255,255,0.85)" strokeWidth="2" />
-        
-        {/* Top Diamond */}
         <path 
             d="M12 2L14 6L12 10L10 6L12 2Z" 
             fill="#A855F7" 
@@ -32,8 +27,6 @@ const AdinAIIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" })
             strokeWidth="2" 
             strokeLinejoin="round"
         />
-        
-        {/* Bottom Diamond */}
         <path 
             d="M12 14L14 18L12 22L10 18L12 14Z" 
             fill="#A855F7" 
@@ -41,8 +34,6 @@ const AdinAIIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" })
             strokeWidth="2" 
             strokeLinejoin="round"
         />
-        
-        {/* Left Hexagon */}
         <path 
             d="M5 9L7 7L10 8L10 11L7 13L5 11L5 9Z" 
             fill="#3B82F6" 
@@ -50,8 +41,6 @@ const AdinAIIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" })
             strokeWidth="2" 
             strokeLinejoin="round"
         />
-        
-        {/* Right Hexagon */}
         <path 
             d="M19 9L17 7L14 8L14 11L17 13L19 11L19 9Z" 
             fill="#3B82F6" 
@@ -113,7 +102,6 @@ const AchievementsSection: React.FC<AchievementsSectionProps> = ({
 }) => {
     return (
         <div className="space-y-5">
-            {/* ✅ ONLY ONE HEADING — No duplicate */}
             <h2 className="text-xl font-semibold text-white mb-1 tracking-tight">
                 Achievements & Awards <span className="text-sm font-normal text-gray-400">(Optional)</span>
             </h2>
@@ -167,11 +155,12 @@ const AchievementsSection: React.FC<AchievementsSectionProps> = ({
                                     )}
                                 </button>
                             </div>
+                            {/* ✅ rows={6} - Same as Experience & Projects */}
                             <textarea 
                                 placeholder="Describe the achievement and its impact..." 
                                 value={ach.description} 
                                 onChange={e => updateAchievement(idx, 'description', e.target.value)} 
-                                rows={2} 
+                                rows={6} 
                                 className="w-full p-3 rounded-xl bg-gray-800 border border-gray-700 text-white outline-none resize-none focus:border-purple-500 transition-colors duration-300" 
                             />
                         </div>

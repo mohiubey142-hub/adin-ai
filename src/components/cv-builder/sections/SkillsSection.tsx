@@ -26,13 +26,8 @@ const AdinAIIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" })
         fill="none" 
         xmlns="http://www.w3.org/2000/svg"
     >
-        {/* Glow effect */}
         <circle cx="12" cy="12" r="10" fill="rgba(59,130,246,0.08)" />
-        
-        {/* Center Core */}
         <circle cx="12" cy="12" r="4" fill="white" stroke="rgba(255,255,255,0.85)" strokeWidth="2" />
-        
-        {/* Top Diamond */}
         <path 
             d="M12 2L14 6L12 10L10 6L12 2Z" 
             fill="#A855F7" 
@@ -40,8 +35,6 @@ const AdinAIIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" })
             strokeWidth="2" 
             strokeLinejoin="round"
         />
-        
-        {/* Bottom Diamond */}
         <path 
             d="M12 14L14 18L12 22L10 18L12 14Z" 
             fill="#A855F7" 
@@ -49,8 +42,6 @@ const AdinAIIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" })
             strokeWidth="2" 
             strokeLinejoin="round"
         />
-        
-        {/* Left Hexagon */}
         <path 
             d="M5 9L7 7L10 8L10 11L7 13L5 11L5 9Z" 
             fill="#3B82F6" 
@@ -58,8 +49,6 @@ const AdinAIIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" })
             strokeWidth="2" 
             strokeLinejoin="round"
         />
-        
-        {/* Right Hexagon */}
         <path 
             d="M19 9L17 7L14 8L14 11L17 13L19 11L19 9Z" 
             fill="#3B82F6" 
@@ -617,11 +606,11 @@ const SkillsSection: React.FC<SkillsSectionProps> = ({
                 </div>
             )}
 
-            {/* Text Area */}
+            {/* ✅ Text Area - Height increased 40% (rows 8 → 11) */}
             <textarea 
                 value={skills} 
                 onChange={(e) => setSkills(e.target.value)} 
-                rows={8} 
+                rows={11} 
                 placeholder="Type your skills here...
 Example: SEO, Google Ads, PPC, Analytics
 

@@ -18,13 +18,8 @@ const AdinAIIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" })
         fill="none" 
         xmlns="http://www.w3.org/2000/svg"
     >
-        {/* Glow effect */}
         <circle cx="12" cy="12" r="10" fill="rgba(59,130,246,0.12)" />
-        
-        {/* Center Core */}
         <circle cx="12" cy="12" r="4" fill="white" stroke="rgba(255,255,255,0.85)" strokeWidth="2" />
-        
-        {/* Top Diamond */}
         <path 
             d="M12 2L14 6L12 10L10 6L12 2Z" 
             fill="#A855F7" 
@@ -32,8 +27,6 @@ const AdinAIIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" })
             strokeWidth="2" 
             strokeLinejoin="round"
         />
-        
-        {/* Bottom Diamond */}
         <path 
             d="M12 14L14 18L12 22L10 18L12 14Z" 
             fill="#A855F7" 
@@ -41,8 +34,6 @@ const AdinAIIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" })
             strokeWidth="2" 
             strokeLinejoin="round"
         />
-        
-        {/* Left Hexagon */}
         <path 
             d="M5 9L7 7L10 8L10 11L7 13L5 11L5 9Z" 
             fill="#3B82F6" 
@@ -50,8 +41,6 @@ const AdinAIIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" })
             strokeWidth="2" 
             strokeLinejoin="round"
         />
-        
-        {/* Right Hexagon */}
         <path 
             d="M19 9L17 7L14 8L14 11L17 13L19 11L19 9Z" 
             fill="#3B82F6" 
@@ -62,7 +51,7 @@ const AdinAIIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" })
     </svg>
 );
 
-// Loading variant with rotation - same animation as Skills/Experience/Achievements
+// Loading variant with rotation
 const AdinAILoadingIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
     <svg 
         className={`${className} animate-spin`} 
@@ -144,7 +133,6 @@ const ProjectsSection: React.FC<ProjectsSectionProps> = ({
         const name = proj.name || 'Project';
         const tech = proj.tech || 'modern technologies';
         
-        // 3 professional bullet points based on title
         const bullets = [
             `• Built ${name} using ${tech}, delivering a scalable and maintainable solution`,
             `• Implemented core features and functionality with focus on performance optimization`,
@@ -177,27 +165,23 @@ const ProjectsSection: React.FC<ProjectsSectionProps> = ({
 
     // ✅ Generate 3 bullets based on title with minimum 2.5s loading
     const handleGenerateBullets = async (idx: number, proj: ProjectItem) => {
-        // Start loading for this specific project
         setIsGenerating(idx);
         
         try {
-            // Start the AI generation
             const generationPromise = new Promise<string>((resolve) => {
                 const threeBullets = generateThreeBullets(proj);
                 resolve(threeBullets);
             });
             
-            // Wait for both: AI generation AND minimum 2.5 seconds
             const [threeBullets] = await Promise.all([
                 generationPromise,
-                new Promise(resolve => setTimeout(resolve, 2500)) // Minimum 2.5s loading
+                new Promise(resolve => setTimeout(resolve, 2500))
             ]);
             
             updateProject(idx, 'description', threeBullets);
         } catch (error) {
             console.error('Failed to generate bullets:', error);
         } finally {
-            // End loading
             setIsGenerating(null);
         }
     };
@@ -267,7 +251,6 @@ const ProjectsSection: React.FC<ProjectsSectionProps> = ({
                             <div>
                                 <div className="flex justify-between items-center mb-2">
                                     <label className="text-sm text-gray-300">Description</label>
-                                    {/* ✅ Premium AI Button with minimum 2.5s loading */}
                                     <button 
                                         onClick={() => handleGenerateBullets(idx, proj)} 
                                         disabled={isLoading}
@@ -286,11 +269,12 @@ const ProjectsSection: React.FC<ProjectsSectionProps> = ({
                                         )}
                                     </button>
                                 </div>
+                                {/* ✅ rows={6} - Same as Experience Section */}
                                 <textarea 
                                     placeholder="Describe your project in bullet points (each line gets a bullet)..." 
                                     value={proj.description || ''} 
                                     onChange={e => handleDescriptionChange(idx, e.target.value)} 
-                                    rows={5} 
+                                    rows={6} 
                                     className="w-full p-3 rounded-xl bg-gray-800 border border-gray-700 text-white outline-none resize-none focus:border-purple-500 font-mono text-sm transition-colors duration-300" 
                                 />
                                 {proj.description && getBulletCount(proj.description) < 3 && proj.name && (

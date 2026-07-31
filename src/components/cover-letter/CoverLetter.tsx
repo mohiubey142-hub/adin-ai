@@ -1,7 +1,7 @@
 // src/components/cover-letter/CoverLetter.tsx
 import { useState, useEffect, useRef } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
-import { ChevronLeft, ChevronRight, Sparkles, Trash2, Maximize2, Minimize2, Mail, Shield, Star, CheckCircle, Lock, Download, RotateCcw, ArrowLeft, ArrowDown, LayoutGrid, SendHorizontal } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Sparkles, Trash2, Maximize2, Minimize2, Mail, Shield, Star, CheckCircle, Lock, Download, RotateCcw, ArrowLeft, ArrowDown, LayoutGrid, SendHorizontal, Eye, Activity } from 'lucide-react';
 import Step1Details from './steps/Step1Details';
 import Step2Style from './steps/Step2Style';
 import CoverLetterProgress from './CoverLetterProgress';
@@ -31,8 +31,11 @@ import {
   EmailPremiumPanel, 
   MoreInsightsArrow,
   ClassicPreview,
-  ModernPreview
+  ModernPreview,
 } from './components';
+
+// ✅ Import CoverLetterPreview directly (not from components/index)
+import CoverLetterPreview from './CoverLetterPreview';
 
 // ✅ NEW: Feedback Modal & Widget
 import FeedbackModal from '../../components/feedback/FeedbackModal';
@@ -76,6 +79,8 @@ interface CoverLetterProps {
   initialTemplateId?: string;
 }
 
+type TabType = 'preview' | 'health';
+
 const CoverLetter = ({ onBackToHome, initialTemplateId }: CoverLetterProps) => {
   // ===== ALL STATE VARIABLES =====
   const [step, setStep] = useState(1);
@@ -109,6 +114,10 @@ const CoverLetter = ({ onBackToHome, initialTemplateId }: CoverLetterProps) => {
   // ✅ NEW: Current Position state
   const [currentPosition, setCurrentPosition] = useState('');
 
+  // ✅ MOBILE TABS STATE
+  const [mobileActiveTab, setMobileActiveTab] = useState<TabType | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
   // ✅ NEW: Feedback Modal & Widget State
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedbackSourceKey, setFeedbackSourceKey] = useState('cover-letter');
@@ -119,13 +128,25 @@ const CoverLetter = ({ onBackToHome, initialTemplateId }: CoverLetterProps) => {
   });
 
   // ============================================================
+  // ===== MOBILE DETECTION =====
+  // ============================================================
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // ============================================================
   // ===== ✅ FIX: STABLE STATE REF (98% QUALITY FIX) =====
   // ============================================================
   const stateRef = useRef({
     userName, email, phoneNumber, selectedCountryCode, address, linkedin,
     education, experience, skills, jobTitle, company, jobDescription,
     additionalInfo, profilePhoto, selectedStyle, projects,
-    currentPosition // ✅ ADDED
+    currentPosition
   });
 
   // ✅ Har state change par ref update karein
@@ -134,13 +155,13 @@ const CoverLetter = ({ onBackToHome, initialTemplateId }: CoverLetterProps) => {
       userName, email, phoneNumber, selectedCountryCode, address, linkedin,
       education, experience, skills, jobTitle, company, jobDescription,
       additionalInfo, profilePhoto, selectedStyle, projects,
-      currentPosition // ✅ ADDED
+      currentPosition
     };
   }, [
     userName, email, phoneNumber, selectedCountryCode, address, linkedin,
     education, experience, skills, jobTitle, company, jobDescription,
     additionalInfo, profilePhoto, selectedStyle, projects,
-    currentPosition // ✅ ADDED
+    currentPosition
   ]);
 
   // ============================================================
@@ -236,7 +257,7 @@ const CoverLetter = ({ onBackToHome, initialTemplateId }: CoverLetterProps) => {
       step,
       projects,
       isEnhanced,
-      currentPosition // ✅ ADDED
+      currentPosition
     };
     
     saveToLocalStorage(data);
@@ -263,7 +284,7 @@ const CoverLetter = ({ onBackToHome, initialTemplateId }: CoverLetterProps) => {
     step,
     projects,
     isEnhanced,
-    currentPosition, // ✅ ADDED
+    currentPosition,
     isInitialLoad
   ]);
 
@@ -467,7 +488,6 @@ const CoverLetter = ({ onBackToHome, initialTemplateId }: CoverLetterProps) => {
   const generateLetterHandler = () => {
     const currentState = stateRef.current;
     
-    // Debug log
     console.log('🚀 Generating with latest values:', {
       userName: currentState.userName,
       jobTitle: currentState.jobTitle,
@@ -623,6 +643,17 @@ const CoverLetter = ({ onBackToHome, initialTemplateId }: CoverLetterProps) => {
 
   const livePreview = getLivePreview();
   const currentTemplate = templates.find(t => t.id === selectedTemplate) || templates[0];
+
+  // ============================================================
+  // ===== MOBILE TABS HANDLER =====
+  // ============================================================
+  const handleMobileTabClick = (tabId: TabType) => {
+    if (mobileActiveTab === tabId) {
+      setMobileActiveTab(null);
+    } else {
+      setMobileActiveTab(tabId);
+    }
+  };
 
   // ============================================================
   // ===== CSS STYLES =====
@@ -874,6 +905,439 @@ const CoverLetter = ({ onBackToHome, initialTemplateId }: CoverLetterProps) => {
 
   // ============================================================
   // ===== RENDER =====
+  // ============================================================
+
+  // ===== MOBILE RENDER =====
+  if (isMobile) {
+    return (
+      <>
+        {/* ✅ SEO: Cover Letter Page */}
+        <SEOHead
+          title={getSEOConfig('cover-letter').title}
+          description={getSEOConfig('cover-letter').description}
+          keywords={getSEOConfig('cover-letter').keywords}
+          canonicalUrl={getSEOConfig('cover-letter').canonicalUrl}
+          ogType="website"
+        />
+
+        {/* ✅ JSON-LD: Cover Letter Schema */}
+        <script type="application/ld+json">
+          {generateJSONLDScript(generatePageSchemas('cover-letter'))}
+        </script>
+
+        {/* ✅ FIXED: h-screen + overflow-hidden for proper flex height */}
+        <div ref={containerRef} className="h-screen flex flex-col bg-black main-scroll smooth-scroll overflow-hidden">
+          
+          <Toaster
+            position="top-center"
+            toastOptions={{
+              duration: 3000,
+              style: {
+                background: '#1f2937',
+                color: '#fff',
+                border: '1px solid rgba(168, 85, 247, 0.3)',
+                boxShadow: '0 10px 40px rgba(0, 0, 0, 0.5), 0 0 20px rgba(168, 85, 247, 0.1)',
+                borderRadius: '12px',
+                padding: '12px 24px',
+                fontSize: '14px',
+                maxWidth: '500px',
+                textAlign: 'center',
+              },
+              success: {
+                style: { border: '1px solid rgba(34, 197, 94, 0.3)' },
+                iconTheme: { primary: '#22c55e', secondary: '#fff' },
+              },
+              error: {
+                style: { border: '1px solid rgba(239, 68, 68, 0.3)' },
+                iconTheme: { primary: '#ef4444', secondary: '#fff' },
+              },
+              loading: {
+                style: { border: '1px solid rgba(168, 85, 247, 0.3)' },
+              },
+            }}
+            containerStyle={{
+              position: 'fixed',
+              top: '20px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 9999,
+              pointerEvents: 'none',
+            }}
+            containerClassName="go-to-top"
+          />
+          
+          {/* ===== HEADER - flex-shrink-0 ===== */}
+          <div className="flex-shrink-0 sticky top-0 z-50 bg-black/95 backdrop-blur-sm border-b border-purple-500/20">
+            <div className="flex items-center justify-between py-2 sm:py-3 px-0">
+              <div className="flex items-center flex-shrink-0">
+                <button 
+                  onClick={() => {
+                    if (onBackToHome) {
+                      onBackToHome();
+                    } else {
+                      toast.error('Navigation to templates not available');
+                    }
+                  }}
+                  className="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[10px] sm:text-sm font-medium transition-all duration-300 hover:scale-105 shadow-lg shadow-blue-600/20 hover:shadow-blue-600/40 flex items-center gap-1.5 sm:gap-2 group"
+                >
+                  <ArrowLeft size={14} className="sm:size-[16px] text-white/80 group-hover:text-white transition-all duration-300 group-hover:scale-110 group-hover:-translate-x-0.5" />
+                  <span className="relative hidden xs:inline">
+                    Templates
+                    <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-400 to-blue-300 transition-all duration-300 group-hover:w-full" />
+                  </span>
+                  <span className="relative xs:hidden">
+                    Templates
+                    <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-400 to-blue-300 transition-all duration-300 group-hover:w-full" />
+                  </span>
+                </button>
+              </div>
+              
+              <div className="absolute left-1/2 -translate-x-1/2 text-center whitespace-nowrap pointer-events-none">
+                <h1 className="text-base sm:text-xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent tracking-tight">
+                  Adin AI Cover Letter
+                </h1>
+              </div>
+              
+              <div className="flex items-center flex-shrink-0">
+                <button 
+                  onClick={toggleFullscreen} 
+                  className="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-gradient-to-r from-purple-600 to-blue-500 hover:opacity-90 text-white font-medium shadow-lg shadow-purple-500/30 transition-all duration-300 hover:scale-105 hover:shadow-purple-500/50 flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-sm fullscreen-btn"
+                >
+                  {isFullscreen ? (
+                    <>
+                      <Minimize2 size={14} className="sm:size-[16px] text-white/90 transition-all duration-300 fullscreen-btn-icon" />
+                      <span className="hidden xs:inline text-white/90">Exit Full Screen</span>
+                      <span className="xs:hidden text-white/90">Exit</span>
+                    </>
+                  ) : (
+                    <>
+                      <Maximize2 size={14} className="sm:size-[16px] text-white/90 transition-all duration-300 fullscreen-btn-icon" />
+                      <span className="hidden xs:inline text-white/90">Full Screen</span>
+                      <span className="xs:hidden text-white/90">Full</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* ✅ FIXED: flex-1 + min-h-0 for proper scrolling */}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden pb-24 min-h-0">
+            <div className="w-full px-3 sm:px-6 py-4 sm:py-6">
+              
+              <CoverLetterProgress step={step} jobTitle={jobTitle} company={company} selectedStyle={selectedStyle} />
+              
+              <div className="max-w-7xl mx-auto">
+                <div className="space-y-6">
+                  
+                  {/* LEFT COLUMN - Full width on mobile */}
+                  <div className="space-y-6">
+                    
+                    {step === 1 && (
+                      <div className="rounded-2xl p-4 sm:p-6 bg-gray-900/40 backdrop-blur-sm border border-purple-500/20 shadow-xl transition-all duration-300 hover:border-purple-500/40 hover:shadow-purple-500/10">
+                        <h3 className="text-base sm:text-lg font-semibold text-white mb-4 sm:mb-6 pb-2 border-b border-purple-500/30 tracking-wide sticky top-0 bg-gray-900/80 backdrop-blur-sm z-10">
+                          Personal Information
+                        </h3>
+                        <Step1Details 
+                          userName={userName} setUserName={setUserName}
+                          email={email} setEmail={setEmail}
+                          phoneNumber={phoneNumber} setPhoneNumber={setPhoneNumber}
+                          selectedCountryCode={selectedCountryCode} setSelectedCountryCode={setSelectedCountryCode}
+                          address={address} setAddress={setAddress}
+                          linkedin={linkedin} setLinkedin={setLinkedin}
+                          education={education} setEducation={setEducation}
+                          experience={experience} setExperience={setExperience}
+                          skills={skills} setSkills={handleSkillsChange}
+                          jobTitle={jobTitle} setJobTitle={setJobTitle}
+                          company={company} setCompany={setCompany}
+                          jobDescription={jobDescription} setJobDescription={setJobDescription}
+                          additionalInfo={additionalInfo} setAdditionalInfo={setAdditionalInfo}
+                          profilePhoto={profilePhoto} setProfilePhoto={setProfilePhoto}
+                          projects={projects} setProjects={setProjects}
+                          currentPosition={currentPosition} setCurrentPosition={setCurrentPosition}
+                          onNext={nextStep}
+                          generating={generating}
+                        />
+                      </div>
+                    )}
+                    
+                    {step === 2 && (
+                      <>
+                        <div className="rounded-2xl p-4 sm:p-6 bg-gray-900/40 backdrop-blur-sm border border-purple-500/20 shadow-xl transition-all duration-300 hover:border-purple-500/40 hover:shadow-purple-500/10">
+                          <h3 className="text-base sm:text-lg font-semibold text-purple-400 mb-4 sm:mb-6 pb-2 border-b border-purple-500/30 tracking-wide">
+                            Letter Style
+                          </h3>
+                          <Step2Style 
+                            selectedStyle={selectedStyle} setSelectedStyle={setSelectedStyle}
+                            selectedTemplate={selectedTemplate} setSelectedTemplate={setSelectedTemplate}
+                          />
+                        </div>
+
+                        <div className="flex justify-between pt-4 gap-4 bg-black/80 backdrop-blur-sm py-3 -mx-2 px-2 rounded-xl">
+                          <button onClick={prevStep} className="px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl bg-gray-800/80 hover:bg-gray-700 text-white text-sm sm:text-base font-medium transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-purple-500/20">
+                            ← Back
+                          </button>
+                          <button 
+                            onClick={() => {
+                              nextStep();
+                            }} 
+                            disabled={generating}
+                            className={`
+                              relative px-5 sm:px-7 py-2.5 sm:py-3 rounded-xl 
+                              bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600
+                              hover:from-blue-500 hover:via-purple-500 hover:to-blue-500
+                              text-white text-sm sm:text-base font-semibold 
+                              transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]
+                              hover:scale-105 active:scale-95
+                              shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50
+                              border border-white/10 hover:border-white/20
+                              flex items-center justify-center gap-2.5 sm:gap-3
+                              min-w-[160px] sm:min-w-[200px]
+                              generate-btn
+                              ${generating ? 'opacity-90 cursor-wait' : 'cursor-pointer'}
+                            `}
+                            style={{
+                              backgroundSize: '200% auto',
+                            }}
+                          >
+                            <span className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-blue-500/20 blur-xl transition-all duration-500 hover:blur-2xl opacity-0 hover:opacity-100 pointer-events-none" />
+                            <span className="absolute inset-[1px] rounded-xl bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-blue-600/20 opacity-0 transition-opacity duration-300 group-hover:opacity-100 pointer-events-none" />
+                            
+                            {generating ? (
+                              <>
+                                <svg 
+                                  className="generate-spinner w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 text-white" 
+                                  xmlns="http://www.w3.org/2000/svg" 
+                                  fill="none" 
+                                  viewBox="0 0 24 24"
+                                >
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span className="relative z-10 text-white/90">Generating...</span>
+                              </>
+                            ) : (
+                              <>
+                                <SendHorizontal 
+                                  size={18} 
+                                  className="sm:size-[20px] flex-shrink-0 text-white/90 transition-all duration-300 generate-btn-icon group-hover:scale-110 group-hover:text-white group-hover:translate-y-[-2px]" 
+                                  strokeWidth={2}
+                                />
+                                <span className="relative z-10 bg-gradient-to-r from-white to-white/90 bg-clip-text text-transparent">
+                                  Generate Letter
+                                </span>
+                                <span className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-blue-500/10 opacity-0 hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </>
+                    )}
+                    
+                    {step === 3 && generatedLetter && (
+                      <>
+                        <div className="rounded-2xl p-4 sm:p-6 bg-gradient-to-r from-purple-600/20 to-blue-600/20 border border-purple-500/30 shadow-xl text-center transition-all duration-300 hover:border-purple-500/50 hover:shadow-purple-500/20">
+                          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-r from-purple-600 to-blue-500 flex items-center justify-center mx-auto mb-3 sm:mb-4 shadow-lg shadow-purple-500/30 transition-all duration-500 hover:scale-110 hover:shadow-purple-500/50 animate-float-cover animate-glow-cover">
+                            <span className="text-xl sm:text-2xl">🎉</span>
+                          </div>
+                          <h3 className="text-lg sm:text-xl font-bold text-purple-400 tracking-wide">Cover Letter Ready!</h3>
+                          <p className="text-[10px] sm:text-xs text-gray-400 mt-1 sm:mt-1.5 tracking-wide">Your professional cover letter is ready for use</p>
+                          <div className="mt-4 sm:mt-5 flex justify-center gap-6 sm:gap-8">
+                            <div className="text-center">
+                              <p className="text-xl sm:text-2xl font-bold text-white">{totalScore}%</p>
+                              <p className="text-[9px] sm:text-[10px] text-gray-400 tracking-wide">Complete</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-xl sm:text-2xl font-bold text-white">{overallQuality}%</p>
+                              <p className="text-[9px] sm:text-[10px] text-gray-400 tracking-wide">Quality</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <CoverLetterEnhancer 
+                          originalLetter={originalLetter || generatedLetter}
+                          onEnhance={handleEnhance}
+                          userName={userName}
+                          jobTitle={jobTitle}
+                          company={company}
+                          isEnhanced={isEnhanced}
+                          onRestoreOriginal={resetToOriginal}
+                        />
+
+                        <EmailPremiumPanel />
+
+                        <div className="flex gap-2 sm:gap-3 justify-center flex-wrap">
+                          <button onClick={copyToClipboard} className="px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-medium transition-all duration-300 hover:scale-105 shadow-lg shadow-green-600/20 hover:shadow-green-600/40">
+                            📋 Copy
+                          </button>
+                          <button onClick={downloadPDF} className="px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-blue-500 hover:opacity-90 text-white text-xs sm:text-sm font-medium transition-all duration-300 hover:scale-105 shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50">
+                            📥 PDF
+                          </button>
+                          <button onClick={downloadTXT} className="px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-gray-600 hover:bg-gray-700 text-white text-xs sm:text-sm font-medium transition-all duration-300 hover:scale-105 shadow-lg shadow-gray-600/20 hover:shadow-gray-600/40">
+                            📄 TXT
+                          </button>
+                          <button 
+                            onClick={clearAllData} 
+                            className="px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium transition-all duration-300 hover:scale-105 shadow-lg shadow-red-600/20 hover:shadow-red-600/40 flex items-center gap-1.5 sm:gap-2"
+                          >
+                            <Trash2 size={14} className="sm:size-[16px]" />
+                            <span className="hidden xs:inline">Clear All Data</span>
+                            <span className="xs:hidden">Clear</span>
+                          </button>
+                        </div>
+
+                        <div className="flex justify-between pt-4 gap-4 bg-black/80 backdrop-blur-sm py-3 -mx-2 px-2 rounded-xl">
+                          <button onClick={goBackToEdit} className="px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl bg-gray-800/80 hover:bg-gray-700 text-white text-sm sm:text-base font-medium transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-purple-500/20">
+                            ← Back to Edit
+                          </button>
+                        </div>
+                      </>
+                    )}
+                    
+                  </div>
+                </div>
+              </div>
+              
+            </div>
+          </div>
+
+          {/* ===== MOBILE TABS - FIXED AT BOTTOM ===== */}
+          <div className="flex-shrink-0 fixed bottom-0 left-0 right-0 z-20 bg-white/95 backdrop-blur-md border-t border-gray-200/80 px-3 py-2 shadow-lg">
+            <div className="max-w-7xl mx-auto">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleMobileTabClick('preview')}
+                  className={`flex-1 flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl text-sm font-medium transition-all duration-300 touch-manipulation ${
+                    mobileActiveTab === 'preview'
+                      ? 'bg-gradient-to-r from-purple-600 to-blue-500 text-white shadow-lg shadow-purple-500/30'
+                      : 'bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-800'
+                  }`}
+                >
+                  <Eye size={18} className="flex-shrink-0" />
+                  <span>Preview</span>
+                </button>
+                <button
+                  onClick={() => handleMobileTabClick('health')}
+                  className={`flex-1 flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl text-sm font-medium transition-all duration-300 touch-manipulation ${
+                    mobileActiveTab === 'health'
+                      ? 'bg-gradient-to-r from-purple-600 to-blue-500 text-white shadow-lg shadow-purple-500/30'
+                      : 'bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-800'
+                  }`}
+                >
+                  <Activity size={18} className="flex-shrink-0" />
+                  <span>Health</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* ===== TAB CONTENT - OVERLAY ON BOTTOM ===== */}
+          {/* ✅ FIXED: Use ClassicPreview/ModernPreview for proper image alignment */}
+          {mobileActiveTab === 'preview' && (
+            <div className="fixed bottom-20 left-0 right-0 z-10 max-h-[60vh] overflow-auto bg-black/95 backdrop-blur-md border-t border-purple-500/20 rounded-t-2xl shadow-2xl animate-in slide-in-from-bottom-4 fade-in duration-300 p-4">
+              <div className="max-w-7xl mx-auto">
+                <div className="rounded-2xl p-3 bg-gray-900/40 backdrop-blur-sm border border-purple-500/20 shadow-xl">
+                  <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl shadow-2xl shadow-purple-500/20 overflow-hidden">
+                    <div className="p-0.5">
+                      {selectedTemplate === 'classic' ? (
+                        <ClassicPreview 
+                          letter={generatedLetter || livePreview}
+                          photo={profilePhoto}
+                          name={userName}
+                          title={jobTitle}
+                          email={email}
+                          phone={phoneNumber}
+                          countryCode={selectedCountryCode}
+                          userAddress={address}
+                          linkedinUrl={linkedin}
+                          companyName={company}
+                        />
+                      ) : (
+                        <ModernPreview 
+                          letter={generatedLetter || livePreview}
+                          photo={profilePhoto}
+                          name={userName}
+                          title={jobTitle}
+                          email={email}
+                          phone={phoneNumber}
+                          countryCode={selectedCountryCode}
+                          userAddress={address}
+                          linkedinUrl={linkedin}
+                          companyName={company}
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {mobileActiveTab === 'health' && (
+            <div className="fixed bottom-20 left-0 right-0 z-10 max-h-[60vh] overflow-auto bg-black/95 backdrop-blur-md border-t border-purple-500/20 rounded-t-2xl shadow-2xl animate-in slide-in-from-bottom-4 fade-in duration-300 p-4">
+              <div className="max-w-7xl mx-auto">
+                <div className="rounded-2xl p-4 bg-gray-900/40 backdrop-blur-sm border border-purple-500/20 shadow-xl">
+                  <h3 className="text-xs sm:text-sm font-semibold text-purple-400 mb-4 flex items-center gap-2 tracking-wide">
+                    <span className="text-sm sm:text-base">📊</span> Letter Health
+                  </h3>
+                  
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-4">
+                    <CircularProgressRing score={nameScore} label="Full Name" />
+                    <CircularProgressRing score={emailScore} label="Email" />
+                    <CircularProgressRing score={phoneScore} label="Phone" />
+                    <CircularProgressRing score={educationScore} label="Education" />
+                    <CircularProgressRing score={experienceScore} label="Experience" />
+                    <CircularProgressRing score={skillsScore} label="Skills" />
+                    <CircularProgressRing score={jobTitleScore} label="Job Title" />
+                    <CircularProgressRing score={companyScore} label="Company" />
+                    <CircularProgressRing score={descriptionScore} label="Description" />
+                    <CircularProgressRing score={achievementsScore} label="Achievements" />
+                    <CircularProgressRing score={currentPositionScore} label="Current Position" />
+                  </div>
+                  
+                  <div className="mt-2 pt-3 border-t border-purple-500/20">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] sm:text-xs text-gray-500 tracking-wide">Overall Health</span>
+                      <span className="text-xs sm:text-sm font-bold text-white">{totalScore}<span className="text-[9px] sm:text-xs text-purple-400">%</span></span>
+                    </div>
+                    <div className="w-full bg-gray-800 rounded-full h-1.5 mt-2 overflow-hidden">
+                      <div className="bg-gradient-to-r from-purple-500 to-blue-500 h-1.5 rounded-full transition-all duration-700" style={{ width: `${totalScore}%` }} />
+                    </div>
+                    <div className="text-center mt-2.5">
+                      <span className="text-[9px] sm:text-[10px] text-gray-500 tracking-wide">{missingFields} field{missingFields !== 1 ? 's' : ''} remaining</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ✅ Feedback Modal - Feature-Specific with onMinimize */}
+          <FeedbackModal
+            isOpen={showFeedbackModal}
+            onClose={() => {
+              setShowFeedbackModal(false);
+              markFeedbackShown('cover-letter');
+            }}
+            onMinimize={handleMinimize}
+            source="cover-letter"
+            sourceKey="cover-letter"
+          />
+
+          {/* ✅ NEW: Feedback Widget */}
+          <FeedbackWidget
+            isVisible={showWidget}
+            onOpen={handleOpenFromWidget}
+            onClose={handleCloseWidget}
+            source="cover-letter"
+          />
+        </div>
+      </>
+    );
+  }
+
+  // ============================================================
+  // ===== DESKTOP RENDER (100% UNCHANGED) =====
   // ============================================================
   return (
     <>

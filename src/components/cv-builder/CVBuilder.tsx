@@ -61,6 +61,7 @@ import SummarySection from './sections/SummarySection';
 
 // Preview
 import CVPreview from './preview/CVPreview';
+import CVPreviewMobile from './preview/CVPreviewMobile';
 
 // ✅ NEW: Feedback Modal & Widget
 import FeedbackModal from '../../components/feedback/FeedbackModal';
@@ -714,6 +715,19 @@ const CVBuilder: React.FC<CVBuilderProps> = ({ userId, initialTemplateId, onBack
     // ============================================
     // 15. RENDER
     // ============================================
+    
+    // ✅ Mobile: Check if mobile viewport
+    const [isMobile, setIsMobile] = useState(false);
+    
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 640);
+        };
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+    
     return (
         <>
             {/* ✅ SEO: CV Builder Page */}
@@ -850,10 +864,10 @@ const CVBuilder: React.FC<CVBuilderProps> = ({ userId, initialTemplateId, onBack
                     />
                 )}
                 
-                {/* ✅ FIXED: Main Content - Mobile height fix for form visibility */}
+                {/* ✅ Main Content - Mobile: Full page sections, Preview as overlay */}
                 <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-                    {/* ✅ Left Panel - Mobile: min-height to ensure form visibility */}
-                    <div className="w-full lg:w-1/2 overflow-auto p-3 sm:p-4 md:p-6 lg:p-8 border-r border-gray-800 min-h-[50vh] lg:min-h-0">
+                    {/* ✅ Left Panel - Full height with bottom padding for buttons */}
+                    <div className="w-full lg:w-1/2 overflow-auto p-3 sm:p-4 md:p-6 lg:p-8 pt-4 sm:pt-4 lg:pt-8 pb-24 sm:pb-32 lg:pb-8 border-r border-gray-800">
                         {step === 1 && <PersonalSection {...personalSectionProps} />}
                         {step === 2 && <ExperienceSection {...experienceSectionProps} />}
                         {step === 3 && (
@@ -951,7 +965,7 @@ const CVBuilder: React.FC<CVBuilderProps> = ({ userId, initialTemplateId, onBack
                             </div>
                         )}
                         
-                        {/* Navigation Buttons - Mobile optimized */}
+                        {/* Navigation Buttons - Mobile optimized with proper spacing */}
                         {step < 10 && (
                             <div className="flex justify-between pt-6 sm:pt-8 lg:pt-10 mt-4 sm:mt-6 border-t border-gray-800">
                                 {step > 1 && (
@@ -982,29 +996,54 @@ const CVBuilder: React.FC<CVBuilderProps> = ({ userId, initialTemplateId, onBack
                         )}
                     </div>
                     
-                    {/* ✅ Right Panel - Preview - Mobile: top margin for breathing space */}
-                    <div ref={previewRef} className="w-full lg:w-1/2 overflow-auto mt-8 lg:mt-0">
-                        <CVPreview
-                            personalInfo={personalInfo}
-                            phoneNumber={phoneNumber}
-                            selectedCountryCode={selectedCountryCode}
-                            professionalSummary={professionalSummary}
-                            experiences={experiences}
-                            educations={educations}
-                            projects={projects}
-                            certifications={certifications}
-                            languages={languages}
-                            achievements={achievements}
-                            skills={skills}
-                            profilePhoto={profilePhoto}
-                            template={template}
-                            atsScore={realWeightedAverage}
-                            strength={getStrengthStatus(realWeightedAverage)}
-                            completionPercentage={realCompletionPercentage}
-                            sectionStatuses={sectionStatuses}
-                        />
-                    </div>
+                    {/* ✅ Right Panel - Desktop only, Mobile hidden (CVPreviewMobile as overlay) */}
+                    {!isMobile && (
+                        <div ref={previewRef} className="w-full lg:w-1/2 overflow-auto mt-8 lg:mt-0">
+                            <CVPreview
+                                personalInfo={personalInfo}
+                                phoneNumber={phoneNumber}
+                                selectedCountryCode={selectedCountryCode}
+                                professionalSummary={professionalSummary}
+                                experiences={experiences}
+                                educations={educations}
+                                projects={projects}
+                                certifications={certifications}
+                                languages={languages}
+                                achievements={achievements}
+                                skills={skills}
+                                profilePhoto={profilePhoto}
+                                template={template}
+                                atsScore={realWeightedAverage}
+                                strength={getStrengthStatus(realWeightedAverage)}
+                                completionPercentage={realCompletionPercentage}
+                                sectionStatuses={sectionStatuses}
+                            />
+                        </div>
+                    )}
                 </div>
+
+                {/* ✅ Mobile Preview Overlay - Like Cover Letter */}
+                {isMobile && (
+                    <CVPreviewMobile
+                        personalInfo={personalInfo}
+                        phoneNumber={phoneNumber}
+                        selectedCountryCode={selectedCountryCode}
+                        professionalSummary={professionalSummary}
+                        experiences={experiences}
+                        educations={educations}
+                        projects={projects}
+                        certifications={certifications}
+                        languages={languages}
+                        achievements={achievements}
+                        skills={skills}
+                        profilePhoto={profilePhoto}
+                        template={template}
+                        atsScore={realWeightedAverage}
+                        strength={getStrengthStatus(realWeightedAverage)}
+                        completionPercentage={realCompletionPercentage}
+                        sectionStatuses={sectionStatuses}
+                    />
+                )}
 
                 {/* ✅ Feedback Modal - Feature-Specific with onMinimize */}
                 <FeedbackModal
