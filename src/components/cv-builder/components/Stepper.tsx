@@ -46,12 +46,16 @@ const Stepper: React.FC<StepperProps> = ({
         }
     }, [currentStep]);
 
+    // ✅ Calculate progress percentage
+    const totalSteps = stepIcons.length;
+    const progressPercentage = ((currentStep) / totalSteps) * 100;
+
     return (
-        // ✅ Mobile: scrollbar hidden, artificial scrollbar added
-        <div className="sticky top-[52px] sm:top-[56px] lg:top-[60px] z-30 px-3 sm:px-3 lg:px-6 py-2.5 sm:py-2 lg:py-2.5 mt-2 sm:mt-0 lg:mt-0 border-b border-gray-800 bg-black/95 backdrop-blur-sm overflow-x-auto scroll-smooth scrollbar-hide">
-            
-            {/* Steps Container */}
-            <div className="flex justify-between min-w-max gap-6 sm:gap-1.5 lg:gap-3">
+        <div 
+            ref={scrollContainerRef}
+            className="sticky top-[52px] sm:top-[56px] lg:top-[60px] z-30 px-3 sm:px-3 lg:px-6 py-2.5 sm:py-2 lg:py-2.5 mt-2 sm:mt-0 lg:mt-0 border-b border-gray-800 bg-black/95 backdrop-blur-sm overflow-x-auto scroll-smooth stepper-scrollbar"
+        >
+            <div className="flex justify-between min-w-[900px] md:min-w-[800px] lg:min-w-[700px] xl:min-w-[900px] gap-6 sm:gap-1.5 lg:gap-3">
                 {stepIcons.map((s, idx) => {
                     const score = getSectionScore(s.num);
                     const IconComponent = s.icon;
@@ -61,7 +65,7 @@ const Stepper: React.FC<StepperProps> = ({
                     return (
                         <div 
                             key={s.num} 
-                            className="flex items-center"
+                            className="flex items-center flex-shrink-0"
                             ref={(el) => {
                                 stepRefs.current[s.num] = el;
                             }}
@@ -104,7 +108,7 @@ const Stepper: React.FC<StepperProps> = ({
                             </div>
                             
                             {idx < stepIcons.length - 1 && (
-                                <div className="relative w-4 sm:w-3 lg:w-5 mx-1 sm:mx-0.5 lg:mx-1">
+                                <div className="relative w-4 sm:w-3 lg:w-5 mx-1 sm:mx-0.5 lg:mx-1 flex-shrink-0">
                                     <div className={`h-0.5 w-full transition-all duration-500 ${
                                         currentStep > s.num 
                                             ? 'bg-gradient-to-r from-purple-500 to-blue-500 shadow-[0_0_10px_rgba(168,85,247,0.6)]' 
@@ -127,50 +131,94 @@ const Stepper: React.FC<StepperProps> = ({
                 })}
             </div>
 
-            {/* ✅ Artificial Scrollbar - Mobile only, permanent full width */}
-            <div className="sm:hidden relative w-full h-1 mt-3 bg-gray-700/50 rounded-full overflow-hidden">
+            {/* ✅ Desktop Progress Bar - 6px thick with blinking purple gradient */}
+            <div className="hidden lg:block relative w-full h-[6px] mt-3 bg-gray-700/50 rounded-full overflow-hidden group">
                 <div 
-                    className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full transition-all duration-500"
+                    className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full transition-all duration-700 ease-out animate-gradient-shift"
                     style={{ 
-                        width: `${((currentStep - 1) / (stepIcons.length - 1)) * 100}%`,
-                        boxShadow: '0 0 12px rgba(168,85,247,0.4)'
+                        width: `${Math.min(progressPercentage, 100)}%`,
+                        boxShadow: '0 0 20px rgba(168,85,247,0.4), 0 0 40px rgba(168,85,247,0.2)'
                     }}
                 />
+                {/* ✅ Subtle hover glow */}
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-500/30 to-blue-500/30 blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             </div>
 
-            {/* ✅ CSS: Hide scrollbar on mobile only */}
+            {/* ✅ CSS: Custom scrollbar styles + Progress Bar Animations */}
             <style>{`
-                /* Hide scrollbar on mobile (sm: and below) */
-                @media (max-width: 639px) {
-                    .scrollbar-hide::-webkit-scrollbar {
-                        display: none;
+                /* ✅ Progress Bar Blinking Animation */
+                @keyframes gradientShift {
+                    0% {
+                        background-position: 0% 50%;
+                        opacity: 0.9;
                     }
-                    .scrollbar-hide {
-                        -ms-overflow-style: none;
-                        scrollbar-width: none;
+                    25% {
+                        opacity: 1;
+                    }
+                    50% {
+                        background-position: 100% 50%;
+                        opacity: 0.9;
+                    }
+                    75% {
+                        opacity: 1;
+                    }
+                    100% {
+                        background-position: 0% 50%;
+                        opacity: 0.9;
                     }
                 }
-                /* Desktop scrollbar styles (unchanged) */
-                @media (min-width: 640px) {
-                    .scrollbar-hide::-webkit-scrollbar {
-                        width: 4px;
-                        height: 4px;
+                .animate-gradient-shift {
+                    background-size: 200% 100%;
+                    animation: gradientShift 3s ease-in-out infinite;
+                }
+
+                /* Mobile scrollbar styles - 14px thick (+3px from 11px) */
+                @media (max-width: 639px) {
+                    .stepper-scrollbar::-webkit-scrollbar {
+                        height: 14px;
+                        width: 14px;
                     }
-                    .scrollbar-hide::-webkit-scrollbar-track {
+                    .stepper-scrollbar::-webkit-scrollbar-track {
                         background: rgba(31, 41, 55, 0.5);
                         border-radius: 10px;
                     }
-                    .scrollbar-hide::-webkit-scrollbar-thumb {
-                        background: linear-gradient(to bottom, rgba(168, 85, 247, 0.6), rgba(59, 130, 246, 0.6));
+                    .stepper-scrollbar::-webkit-scrollbar-thumb {
+                        background: linear-gradient(to right, rgba(168, 85, 247, 0.8), rgba(59, 130, 246, 0.8));
                         border-radius: 10px;
                         transition: all 0.3s ease;
                     }
-                    .scrollbar-hide::-webkit-scrollbar-thumb:hover {
-                        background: linear-gradient(to bottom, rgba(168, 85, 247, 0.8), rgba(59, 130, 246, 0.8));
+                    .stepper-scrollbar::-webkit-scrollbar-thumb:hover {
+                        background: linear-gradient(to right, rgba(168, 85, 247, 1), rgba(59, 130, 246, 1));
+                        box-shadow: 0 0 20px rgba(168, 85, 247, 0.3);
                     }
-                    .scrollbar-hide {
+                    .stepper-scrollbar {
                         scrollbar-width: thin;
-                        scrollbar-color: rgba(168, 85, 247, 0.6) rgba(31, 41, 55, 0.5);
+                        scrollbar-color: rgba(168, 85, 247, 0.8) rgba(31, 41, 55, 0.5);
+                    }
+                }
+                /* Desktop scrollbar styles - unchanged */
+                @media (min-width: 640px) {
+                    .stepper-scrollbar::-webkit-scrollbar {
+                        width: 6px;
+                        height: 6px;
+                    }
+                    .stepper-scrollbar::-webkit-scrollbar-track {
+                        background: rgba(31, 41, 55, 0.3);
+                        border-radius: 10px;
+                    }
+                    .stepper-scrollbar::-webkit-scrollbar-thumb {
+                        background: linear-gradient(to bottom, rgba(168, 85, 247, 0.5), rgba(59, 130, 246, 0.5));
+                        border-radius: 10px;
+                        transition: all 0.3s ease;
+                        min-height: 30px;
+                    }
+                    .stepper-scrollbar::-webkit-scrollbar-thumb:hover {
+                        background: linear-gradient(to bottom, rgba(168, 85, 247, 0.8), rgba(59, 130, 246, 0.8));
+                        box-shadow: 0 0 20px rgba(168, 85, 247, 0.3);
+                    }
+                    .stepper-scrollbar {
+                        scrollbar-width: thin;
+                        scrollbar-color: rgba(168, 85, 247, 0.5) rgba(31, 41, 55, 0.3);
                     }
                 }
             `}</style>
