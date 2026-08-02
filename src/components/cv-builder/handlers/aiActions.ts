@@ -484,10 +484,10 @@ export const createAIActions = (
                     border: '1px solid rgba(239, 68, 68, 0.3)',
                 }
             });
-            // Fallback
+            // ✅ FIXED: Use exp.title instead of personalInfo.title for experience
             const desc = generateDescriptionFromData({
                 type: 'experience',
-                jobTitle: personalInfo.title,
+                jobTitle: exp.title || personalInfo.title, // ✅ FIXED: exp.title first
                 companyName: exp.company,
                 currentStartDate: exp.startDate,
                 currentEndDate: exp.endDate,
@@ -525,10 +525,23 @@ export const createAIActions = (
         const generateContent = async (): Promise<string> => {
             return new Promise((resolve) => {
                 setTimeout(() => {
+                    // ✅ FIXED: Use correct jobTitle based on type
+                    let jobTitle = personalInfo.title;
+                    let companyName = '';
+                    
+                    if (type === 'experience' && currentData) {
+                        jobTitle = currentData.title || personalInfo.title; // ✅ FIXED: exp.title first
+                        companyName = currentData.company || '';
+                    } else if (type === 'project' && currentData) {
+                        jobTitle = currentData.name || personalInfo.title;
+                    } else if (type === 'achievement' && currentData) {
+                        jobTitle = currentData.title || personalInfo.title;
+                    }
+                    
                     const generatedDesc = generateDescriptionFromData({
                         type,
-                        jobTitle: personalInfo.title,
-                        companyName: type === 'experience' && currentData?.company,
+                        jobTitle: jobTitle,
+                        companyName: companyName,
                         projectName: type === 'project' && currentData?.name,
                         achievementTitle: type === 'achievement' && currentData?.title,
                         currentStartDate: type === 'experience' && currentData?.startDate,
