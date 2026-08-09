@@ -19,6 +19,10 @@ export const detectEngineering = (t: string): Profession | null => {
     if (t.includes('robotics engineer') || t.includes('robotics')) return 'robotics-engineer';
     if (t.includes('architect') || t.includes('architecture')) return 'architect';
     
+    // ===== NEW ENGINEERING PROFESSIONS =====
+    if (t.includes('telecommunications engineer') || t.includes('telecom engineer')) return 'telecommunications-engineer';
+    if (t.includes('quantity surveyor') || t.includes('qs ') || t.includes('cost estimator')) return 'quantity-surveyor';
+    
     // ===== GENERAL ENGINEERING (Baad me check) =====
     if (t.includes('engineering') || t.includes('engineer')) return 'engineering';
     

@@ -1,11 +1,11 @@
 // ============================================
-// SENIORITY DETECTOR - STRICT RULES
+// SENIORITY DETECTOR - STRICT RULES (FIXED)
 // ============================================
 
 export type SeniorityLevel = 'junior' | 'mid' | 'senior' | 'manager' | 'director';
 
 // ============================================
-// STRICT SENIORITY DETECTION
+// BASE DETECTION (Title-based only)
 // ============================================
 export const detectSeniority = (jobTitle: string, yearsOfExperience?: number): SeniorityLevel => {
     const t = jobTitle.toLowerCase();
@@ -54,9 +54,99 @@ export const detectSeniority = (jobTitle: string, yearsOfExperience?: number): S
         return 'junior';
     }
     
-    // ===== DEFAULT =====
-    // Agar kuch bhi match na ho toh "mid" return karo (safest option)
     return 'mid';
+};
+
+// ============================================
+// GET SENIORITY FROM YEARS
+// ============================================
+export const getSeniorityFromYears = (years: number): SeniorityLevel => {
+    if (years >= 10) return 'director';
+    if (years >= 7) return 'senior';
+    if (years >= 3) return 'mid';
+    if (years >= 1) return 'junior';
+    return 'junior';
+};
+
+// ============================================
+// ✅ FIXED: STRICT DETECTION - Title + Years Both Check
+// ============================================
+export const detectSeniorityStrict = (jobTitle: string, yearsOfExperience: number): SeniorityLevel => {
+    // First get title-based detection
+    const titleBased = detectSeniority(jobTitle, yearsOfExperience);
+    
+    // Get years-based detection
+    const yearsBased = getSeniorityFromYears(yearsOfExperience);
+    
+    // ============================================
+    // ✅ FIX 1: "Senior" in title but years < 7 → DOWNGRADE
+    // ============================================
+    if (titleBased === 'senior' && yearsOfExperience < 7) {
+        // 3-6 years → MID
+        if (yearsOfExperience >= 3) {
+            return 'mid';
+        }
+        // 0-2 years → JUNIOR
+        return 'junior';
+    }
+    
+    // ============================================
+    // ✅ FIX 2: "Manager" in title but years < 5 → DOWNGRADE
+    // ============================================
+    if (titleBased === 'manager' && yearsOfExperience < 5) {
+        // 3-4 years → MID
+        if (yearsOfExperience >= 3) {
+            return 'mid';
+        }
+        // 0-2 years → JUNIOR
+        return 'junior';
+    }
+    
+    // ============================================
+    // ✅ FIX 3: "Director" in title but years < 7 → DOWNGRADE
+    // ============================================
+    if (titleBased === 'director' && yearsOfExperience < 7) {
+        // 5-6 years → MANAGER
+        if (yearsOfExperience >= 5) {
+            return 'manager';
+        }
+        // 3-4 years → MID
+        if (yearsOfExperience >= 3) {
+            return 'mid';
+        }
+        // 0-2 years → JUNIOR
+        return 'junior';
+    }
+    
+    // ============================================
+    // ✅ FIX 4: "Junior" in title but years >= 3 → UPGRADE
+    // ============================================
+    if (titleBased === 'junior' && yearsOfExperience >= 3) {
+        // 7+ years → SENIOR
+        if (yearsOfExperience >= 7) {
+            return 'senior';
+        }
+        // 3-6 years → MID
+        return 'mid';
+    }
+    
+    // ============================================
+    // ✅ FIX 5: "Specialist" or "Consultant" with low years
+    // ============================================
+    const t = jobTitle.toLowerCase();
+    if ((t.includes('specialist') || t.includes('consultant')) && yearsOfExperience < 5) {
+        // 3-4 years → MID
+        if (yearsOfExperience >= 3) {
+            return 'mid';
+        }
+        // 0-2 years → JUNIOR
+        return 'junior';
+    }
+    
+    // ============================================
+    // DEFAULT: Use years-based detection
+    // ============================================
+    return yearsBased;
 };
 
 // ============================================
@@ -95,50 +185,6 @@ export const isValidSeniority = (level: string): level is SeniorityLevel => {
 };
 
 // ============================================
-// GET SENIORITY FROM YEARS
-// ============================================
-export const getSeniorityFromYears = (years: number): SeniorityLevel => {
-    if (years >= 10) return 'director';
-    if (years >= 7) return 'senior';
-    if (years >= 3) return 'mid';
-    if (years >= 1) return 'junior';
-    return 'junior';
-};
-
-// ============================================
-// DETECT SENIORITY WITH BOTH TITLE & YEARS
-// ============================================
-export const detectSeniorityStrict = (jobTitle: string, yearsOfExperience: number): SeniorityLevel => {
-    // First try title-based detection
-    const titleBased = detectSeniority(jobTitle, yearsOfExperience);
-    
-    // Then validate with years
-    const yearsBased = getSeniorityFromYears(yearsOfExperience);
-    
-    // If title says "senior" but years are less than 3, downgrade
-    if (titleBased === 'senior' && yearsOfExperience < 3) {
-        return 'mid';
-    }
-    
-    // If title says "director" but years are less than 7, downgrade
-    if (titleBased === 'director' && yearsOfExperience < 7) {
-        return 'senior';
-    }
-    
-    // If title says "manager" but years are less than 3, downgrade
-    if (titleBased === 'manager' && yearsOfExperience < 3) {
-        return 'mid';
-    }
-    
-    // If title says "junior" but years are more than 3, upgrade
-    if (titleBased === 'junior' && yearsOfExperience >= 3) {
-        return 'mid';
-    }
-    
-    return titleBased;
-};
-
-// ============================================
 // GET SENIORITY LEVEL NUMBER (For scoring)
 // ============================================
 export const getSeniorityScore = (level: SeniorityLevel): number => {
@@ -157,22 +203,38 @@ export const getSeniorityScore = (level: SeniorityLevel): number => {
 // ============================================
 export const testSeniorityDetector = (): void => {
     console.log('🧪 TESTING SENIORITY DETECTOR');
+    console.log('====================================');
     
     const testCases = [
-        { title: 'Senior Software Engineer', years: 8 },
-        { title: 'Junior Developer', years: 1 },
+        { title: 'Senior Dentist', years: 4 },
+        { title: 'Senior Software Engineer', years: 4 },
+        { title: 'Senior Developer', years: 2 },
+        { title: 'Senior Developer', years: 7 },
+        { title: 'Senior Manager', years: 3 },
+        { title: 'Senior Manager', years: 6 },
+        { title: 'Senior Consultant', years: 3 },
+        { title: 'Senior Specialist', years: 2 },
+        { title: 'Senior Architect', years: 8 },
+        { title: 'Product Manager', years: 3 },
         { title: 'Product Manager', years: 5 },
-        { title: 'CTO', years: 12 },
-        { title: 'Software Engineer', years: 4 },
+        { title: 'Product Manager', years: 2 },
+        { title: 'Director of Engineering', years: 6 },
         { title: 'Director of Engineering', years: 8 },
-        { title: 'Team Lead', years: 6 },
-        { title: 'Intern', years: 0 },
-        { title: 'VP of Sales', years: 15 },
-        { title: 'UX Designer', years: 3 }
+        { title: 'Director of Engineering', years: 4 },
+        { title: 'Junior Developer', years: 1 },
+        { title: 'Junior Developer', years: 4 },
+        { title: 'Junior Developer', years: 8 },
+        { title: 'Software Engineer', years: 4 },
+        { title: 'Software Engineer', years: 8 },
+        { title: 'Software Engineer', years: 2 },
     ];
     
+    console.log('📋 RESULTS:');
+    console.log('------------------------------------');
     for (const test of testCases) {
         const result = detectSeniorityStrict(test.title, test.years);
-        console.log(`📌 ${test.title} (${test.years} yrs) → ${result} (${getSeniorityLabel(result)})`);
+        const label = getSeniorityLabel(result);
+        console.log(`📌 ${test.title} (${test.years} yrs) → ${result} (${label})`);
     }
+    console.log('====================================');
 };

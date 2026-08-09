@@ -14,6 +14,7 @@ export const detectBusiness = (t: string): Profession | null => {
     if (t.includes('entrepreneur') || t.includes('founder') || t.includes('startup') || 
         t.includes('ceo') || t.includes('cto') || t.includes('cfo') || t.includes('cmo')) return 'entrepreneur';
     if (t.includes('business analyst')) return 'business-analyst';
+    if (t.includes('supply chain analyst')) return 'supply-chain-analyst';
     if (t.includes('supply chain') || t.includes('logistics')) return 'supply-chain';
     if (t.includes('consultant') || t.includes('consulting')) return 'consultant';
     

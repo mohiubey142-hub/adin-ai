@@ -1,3 +1,5 @@
+// src/components/cv-builder/sections/SummarySection.tsx
+
 import React, { useState, useEffect } from 'react';
 import { generateDescriptionFromData } from '../utils/aiGenerators';
 import toast from 'react-hot-toast';
@@ -20,51 +22,15 @@ const AdinAIIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" })
         fill="none" 
         xmlns="http://www.w3.org/2000/svg"
     >
-        {/* Glow effect */}
         <circle cx="12" cy="12" r="10" fill="rgba(59,130,246,0.12)" />
-        
-        {/* Center Core */}
         <circle cx="12" cy="12" r="4" fill="white" stroke="rgba(255,255,255,0.85)" strokeWidth="2" />
-        
-        {/* Top Diamond */}
-        <path 
-            d="M12 2L14 6L12 10L10 6L12 2Z" 
-            fill="#A855F7" 
-            stroke="rgba(255,255,255,0.85)" 
-            strokeWidth="2" 
-            strokeLinejoin="round"
-        />
-        
-        {/* Bottom Diamond */}
-        <path 
-            d="M12 14L14 18L12 22L10 18L12 14Z" 
-            fill="#A855F7" 
-            stroke="rgba(255,255,255,0.85)" 
-            strokeWidth="2" 
-            strokeLinejoin="round"
-        />
-        
-        {/* Left Hexagon */}
-        <path 
-            d="M5 9L7 7L10 8L10 11L7 13L5 11L5 9Z" 
-            fill="#3B82F6" 
-            stroke="rgba(255,255,255,0.85)" 
-            strokeWidth="2" 
-            strokeLinejoin="round"
-        />
-        
-        {/* Right Hexagon */}
-        <path 
-            d="M19 9L17 7L14 8L14 11L17 13L19 11L19 9Z" 
-            fill="#3B82F6" 
-            stroke="rgba(255,255,255,0.85)" 
-            strokeWidth="2" 
-            strokeLinejoin="round"
-        />
+        <path d="M12 2L14 6L12 10L10 6L12 2Z" fill="#A855F7" stroke="rgba(255,255,255,0.85)" strokeWidth="2" strokeLinejoin="round"/>
+        <path d="M12 14L14 18L12 22L10 18L12 14Z" fill="#A855F7" stroke="rgba(255,255,255,0.85)" strokeWidth="2" strokeLinejoin="round"/>
+        <path d="M5 9L7 7L10 8L10 11L7 13L5 11L5 9Z" fill="#3B82F6" stroke="rgba(255,255,255,0.85)" strokeWidth="2" strokeLinejoin="round"/>
+        <path d="M19 9L17 7L14 8L14 11L17 13L19 11L19 9Z" fill="#3B82F6" stroke="rgba(255,255,255,0.85)" strokeWidth="2" strokeLinejoin="round"/>
     </svg>
 );
 
-// Loading variant with rotation
 const AdinAILoadingIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
     <svg 
         className={`${className} animate-spin`} 
@@ -74,36 +40,44 @@ const AdinAILoadingIcon: React.FC<{ className?: string }> = ({ className = "w-5 
     >
         <circle cx="12" cy="12" r="10" fill="rgba(59,130,246,0.12)" />
         <circle cx="12" cy="12" r="4" fill="white" stroke="rgba(255,255,255,0.85)" strokeWidth="2" />
-        <path 
-            d="M12 2L14 6L12 10L10 6L12 2Z" 
-            fill="#A855F7" 
-            stroke="rgba(255,255,255,0.85)" 
-            strokeWidth="2" 
-            strokeLinejoin="round"
-        />
-        <path 
-            d="M12 14L14 18L12 22L10 18L12 14Z" 
-            fill="#A855F7" 
-            stroke="rgba(255,255,255,0.85)" 
-            strokeWidth="2" 
-            strokeLinejoin="round"
-        />
-        <path 
-            d="M5 9L7 7L10 8L10 11L7 13L5 11L5 9Z" 
-            fill="#3B82F6" 
-            stroke="rgba(255,255,255,0.85)" 
-            strokeWidth="2" 
-            strokeLinejoin="round"
-        />
-        <path 
-            d="M19 9L17 7L14 8L14 11L17 13L19 11L19 9Z" 
-            fill="#3B82F6" 
-            stroke="rgba(255,255,255,0.85)" 
-            strokeWidth="2" 
-            strokeLinejoin="round"
-        />
+        <path d="M12 2L14 6L12 10L10 6L12 2Z" fill="#A855F7" stroke="rgba(255,255,255,0.85)" strokeWidth="2" strokeLinejoin="round"/>
+        <path d="M12 14L14 18L12 22L10 18L12 14Z" fill="#A855F7" stroke="rgba(255,255,255,0.85)" strokeWidth="2" strokeLinejoin="round"/>
+        <path d="M5 9L7 7L10 8L10 11L7 13L5 11L5 9Z" fill="#3B82F6" stroke="rgba(255,255,255,0.85)" strokeWidth="2" strokeLinejoin="round"/>
+        <path d="M19 9L17 7L14 8L14 11L17 13L19 11L19 9Z" fill="#3B82F6" stroke="rgba(255,255,255,0.85)" strokeWidth="2" strokeLinejoin="round"/>
     </svg>
 );
+
+// ✅ COLON CLEANER - SAFETY FILTER
+const removeAllColons = (text: string): string => {
+    if (!text) return text;
+    
+    let cleaned = text;
+    
+    // Pattern 1: "word: word" -> "word word" (remove colon with space)
+    cleaned = cleaned.replace(/\b(\w+(?:-\w+)?)\s*:\s*(\w+)\b/g, '$1 $2');
+    
+    // Pattern 2: "word:word" -> "word word" (remove colon without space)
+    cleaned = cleaned.replace(/\b(\w+):(\w+)\b/g, '$1 $2');
+    
+    // Pattern 3: "my: professional" -> "my professional"
+    cleaned = cleaned.replace(/\bmy\s*:\s*professional\b/gi, 'my professional');
+    cleaned = cleaned.replace(/\bmy\s*:\s*career\b/gi, 'my career');
+    cleaned = cleaned.replace(/\bmy\s*:\s*journey\b/gi, 'my journey');
+    
+    // Pattern 4: Any remaining colon with space
+    cleaned = cleaned.replace(/:\s+/g, ' ');
+    
+    // Pattern 5: Any remaining colon without space
+    cleaned = cleaned.replace(/:/g, ' ');
+    
+    // Pattern 6: Fix multiple spaces
+    cleaned = cleaned.replace(/\s+/g, ' ');
+    
+    // Pattern 7: Fix spaces before punctuation
+    cleaned = cleaned.replace(/\s+([.,!?;])/g, '$1');
+    
+    return cleaned.trim();
+};
 
 const SummarySection: React.FC<SummarySectionProps> = ({
     professionalSummary,
@@ -122,8 +96,13 @@ const SummarySection: React.FC<SummarySectionProps> = ({
         warnings: [] as string[]
     });
     
-    // ✅ Local loading state for synchronous operation
     const [isGenerating, setIsGenerating] = useState(false);
+
+    // ✅ WRAPPER: Set summary with automatic colon removal
+    const setSummarySafe = (summary: string) => {
+        const cleaned = removeAllColons(summary);
+        setProfessionalSummary(cleaned);
+    };
 
     // ✅ New human-touch summary generator with minimum 2.5s loading
     const generateHumanSummary = async () => {
@@ -132,11 +111,9 @@ const SummarySection: React.FC<SummarySectionProps> = ({
             return;
         }
         
-        // Start loading
         setIsGenerating(true);
         
         try {
-            // Start the AI generation
             const generationPromise = new Promise<string>((resolve) => {
                 const summary = generateDescriptionFromData({
                     type: 'summary',
@@ -147,20 +124,26 @@ const SummarySection: React.FC<SummarySectionProps> = ({
                 resolve(summary);
             });
             
-            // Wait for both: AI generation AND minimum 2.5 seconds
             const [summary] = await Promise.all([
                 generationPromise,
-                new Promise(resolve => setTimeout(resolve, 2500)) // Minimum 2.5s loading
+                new Promise(resolve => setTimeout(resolve, 2500))
             ]);
             
-            setProfessionalSummary(summary);
+            // ✅ COLONS REMOVED HERE
+            setSummarySafe(summary);
             toast.success('Human-touch summary generated!');
         } catch (error) {
             toast.error('Failed to generate summary');
         } finally {
-            // End loading
             setIsGenerating(false);
         }
+    };
+
+    // ✅ Textarea change handler with colon filter
+    const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        const value = e.target.value;
+        const cleaned = removeAllColons(value);
+        setProfessionalSummary(cleaned);
     };
 
     useEffect(() => {
@@ -203,7 +186,6 @@ const SummarySection: React.FC<SummarySectionProps> = ({
         return 'text-gray-400';
     };
     
-    // Combine external and local loading states
     const isLoading = generating || isGenerating;
 
     return (
@@ -233,13 +215,12 @@ const SummarySection: React.FC<SummarySectionProps> = ({
             
             <textarea 
                 value={professionalSummary} 
-                onChange={e => setProfessionalSummary(e.target.value)} 
+                onChange={handleTextChange} 
                 rows={6} 
                 placeholder="Write a brief professional summary highlighting your experience, skills, and career goals..." 
                 className="w-full p-4 rounded-xl bg-gray-800 border border-gray-700 text-white outline-none resize-none focus:border-purple-500 text-sm transition-colors duration-300" 
             />
             
-            {/* Live Summary Analyzer */}
             {professionalSummary && (
                 <div className="p-4 rounded-xl bg-gray-800/50 border border-gray-700">
                     <div className="flex justify-between items-center mb-3">

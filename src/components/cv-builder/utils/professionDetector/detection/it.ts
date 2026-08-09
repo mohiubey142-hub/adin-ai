@@ -15,6 +15,7 @@ export const detectIT = (t: string): Profession | null => {
     if (t.includes('cloud') || t.includes('aws') || t.includes('azure') || t.includes('gcp')) return 'cloud';
     if (t.includes('data scientist') || t.includes('machine learning')) return 'data-scientist';
     if (t.includes('data analyst') || t.includes('analytics')) return 'data-analyst';
+    if (t.includes('data engineer') || t.includes('etl') || t.includes('data pipeline')) return 'data-engineer';
     if (t.includes('cybersecurity') || t.includes('security engineer') || 
         t.includes('ethical hacker') || t.includes('penetration')) return 'cybersecurity';
     if (t.includes('game developer') || t.includes('game dev') || t.includes('unity') || t.includes('unreal')) return 'game-developer';
@@ -22,10 +23,12 @@ export const detectIT = (t: string): Profession | null => {
         t.includes('react native') || t.includes('flutter')) return 'mobile';
     if (t.includes('ai') || t.includes('ml') || t.includes('artificial intelligence') || 
         t.includes('machine learning')) return 'ai-ml';
-    if (t.includes('blockchain') || t.includes('web3') || t.includes('solidity')) return 'blockchain';
     if (t.includes('qa') || t.includes('quality assurance') || t.includes('testing')) return 'qa';
     if (t.includes('salesforce') || t.includes('crm')) return 'salesforce';
     if (t.includes('it support') || t.includes('helpdesk') || t.includes('desktop support')) return 'it-support';
+    
+    // ===== NEW IT PROFESSIONS =====
+    if (t.includes('software engineer') || t.includes('software developer')) return 'software-engineer';
     
     // ===== GENERAL IT (Baad me check) =====
     if (t.includes('fullstack') || t.includes('full stack')) return 'full-stack';
@@ -33,8 +36,6 @@ export const detectIT = (t: string): Profession | null => {
         t.includes('django') || t.includes('laravel')) return 'backend';
     if (t.includes('frontend') || t.includes('front-end') || t.includes('react') || 
         t.includes('angular') || t.includes('vue') || t.includes('ui developer')) return 'frontend';
-    if (t.includes('software engineer') || t.includes('software developer') || 
-        t.includes('system engineer') || t.includes('programmer')) return 'software';
     if (t.includes('web developer') || t.includes('web engineer') || t.includes('wordpress') ||
         t.includes('php developer') || t.includes('full stack web')) return 'web';
     if (t.includes('developer') || t.includes('engineer') || t.includes('programmer')) return 'developer';

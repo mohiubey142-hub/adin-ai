@@ -335,7 +335,7 @@ export const createAIActions = (
         }, 1000);
     };
 
-    // ✅ AI Generate Summary - WITH MINIMUM 3-SECOND DELAY
+    // ✅ AI Generate Summary - WITH MINIMUM 3-SECOND DELAY (UPDATED: Fresher Support)
     const handleAIGenerateSummary = async () => {
         const title = personalInfo.title;
         if (!title.trim()) {
@@ -367,7 +367,8 @@ export const createAIActions = (
                     years: years,
                     profession: profession,
                     skills: skillsArray,
-                    experiences: experiences
+                    experiences: experiences,
+                    educations: educations  // ✅ PASS educations for fresher detection
                 }),
                 3000
             );
@@ -611,7 +612,7 @@ export const createAIActions = (
         );
     };
 
-    // Helper functions
+    // ✅ UPDATED: getYears - calculates total years from experiences
     const getYears = (experiences: ExperienceItem[]): number => {
         if (!experiences || experiences.length === 0) return 0;
         const currentYear = new Date().getFullYear();
@@ -632,15 +633,51 @@ export const createAIActions = (
         return totalYears;
     };
 
+    // ✅ UPDATED: getLevel with Fresher Support
     const getLevel = (title: string, years: number): string => {
         const t = title.toLowerCase();
-        if (t.includes('director') || t.includes('chief') || t.includes('head')) return 'director';
-        if (t.includes('lead') || t.includes('manager')) return 'manager';
-        if (t.includes('senior') || t.includes('sr')) return 'senior';
-        if (t.includes('junior') || t.includes('jr')) return 'junior';
+        
+        // ✅ FIRST: Check if this is a fresher based on title keywords
+        const fresherKeywords = ['fresh', 'graduate', 'intern', 'trainee', 'entry', 'fresher'];
+        if (fresherKeywords.some(k => t.includes(k))) {
+            return 'fresher';
+        }
+        
+        // ✅ SECOND: Check director/executive level
+        if (t.includes('director') || t.includes('chief') || t.includes('head') || 
+            t.includes('cto') || t.includes('ceo') || t.includes('cfo') ||
+            t.includes('vp') || t.includes('vice president')) {
+            return 'director';
+        }
+        
+        // ✅ THIRD: Check manager/lead level
+        if (t.includes('lead') || t.includes('manager') || t.includes('supervisor') ||
+            t.includes('team lead') || t.includes('general manager') || t.includes('gm')) {
+            return 'manager';
+        }
+        
+        // ✅ FOURTH: Check senior level
+        if (t.includes('senior') || t.includes('sr') || t.includes('sr.') || 
+            t.includes('architect') || t.includes('staff')) {
+            return 'senior';
+        }
+        
+        // ✅ FIFTH: Check junior level
+        if (t.includes('junior') || t.includes('jr') || t.includes('jr.') || 
+            t.includes('associate')) {
+            return 'junior';
+        }
+        
+        // ✅ SIXTH: Years-based detection (with fresher check)
+        if (years === 0) {
+            return 'fresher';  // ✅ 0 years = fresher!
+        }
+        if (years >= 10) return 'director';
         if (years >= 7) return 'senior';
         if (years >= 3) return 'mid';
-        return 'junior';
+        if (years >= 1) return 'junior';
+        
+        return 'fresher';  // ✅ Default fallback
     };
 
     return {

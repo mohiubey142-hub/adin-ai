@@ -105,6 +105,22 @@ export interface ExperienceValidationResult {
     message: string;
 }
 
+// ✅ NEW: Summary Level Types (for fresher support)
+export type SummaryLevel = 'fresher' | 'junior' | 'mid' | 'senior' | 'manager' | 'director';
+
+// ✅ NEW: Summary Variables
+export interface SummaryVariables {
+    years: number;
+    company: string;
+    title: string;
+    skills: string[];
+    degree: string;
+    institution: string;
+    graduationYear: string;
+    profession: string;
+    isFresher: boolean;
+}
+
 // ✅ NEW: Experience Level Constants
 export const EXPERIENCE_LEVELS = {
     JUNIOR: 'Junior',

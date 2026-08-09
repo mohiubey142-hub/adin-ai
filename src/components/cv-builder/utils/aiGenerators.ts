@@ -2,8 +2,16 @@
 // ============================================
 // AI GENERATOR - ENTRY POINT
 // ============================================
+// 
+// 🚀 UPDATED: Fresher Detection Support
+// 🚀 UPDATED: Passes hasExperience to summary generator
+// 🚀 FIXED: Import path for helpers (now uses ./profession/summaries/helpers)
+// 🔍 DEBUG: Added console logs for debugging
+// ✅ FIXED: Summary capitalization bug — using fixGrammar instead of polishText/enhanceCVText
+// 
+// ============================================
 
-console.log("🚀 AI GENERATOR - PAKISTAN EDITION (60+ Professions) 🚀");
+console.log("🚀 AI GENERATOR - PAKISTAN EDITION (80+ Professions) 🚀");
 
 // ============================================
 // CONFIG
@@ -16,8 +24,17 @@ export { initializeAI, isAIInitialized, resetAI } from './config';
 export { detectProfession, getBulletsByProfession, getProfessionalSummary } from './profession';
 
 // ============================================
-// HELPERS
+// HELPERS - ✅ FIXED: Now imports from correct path
 // ============================================
+import { 
+    normalizeJobTitle, 
+    getLevel, 
+    getYears, 
+    getYearsForCurrentExp, 
+    generateSmartProjectDescription, 
+    generateSmartAchievementDescription 
+} from './profession/summaries/helpers';
+
 export {
     normalizeJobTitle,
     getLevel,
@@ -25,7 +42,7 @@ export {
     getYearsForCurrentExp,
     generateSmartProjectDescription,
     generateSmartAchievementDescription
-} from './helpers';
+};
 
 // ============================================
 // ENHANCERS
@@ -83,8 +100,7 @@ export type { QAResponse, GeneratedContent };
 // MAIN GENERATION FUNCTION
 // ============================================
 import { detectProfession, getBulletsByProfession, getProfessionalSummary } from './profession';
-import { getLevel, getYears, getYearsForCurrentExp, generateSmartProjectDescription, generateSmartAchievementDescription } from './helpers';
-import { polishText, polishBullets, enhanceCVText } from './enhancers';
+import { fixGrammar, polishText, polishBullets, enhanceCVText } from './enhancers';
 import { generateFallbackBullets, generateFallbackSummary } from './fallback/guidedQAFallback';
 import { getGeneralBullets } from './pools/generalPool';
 import { AISummaryGenerator, AIExperienceEnhancer, AISkillsGenerator } from './providers';
@@ -142,7 +158,27 @@ const filterLanguagesFromSkills = (skills: string[]): string[] => {
 };
 
 // ============================================
-// 🆕 AI GENERATE SUMMARY WITH AI PROVIDER
+// 🆕 FRESHER DETECTION HELPER
+// ============================================
+const isFresher = (experiences: any[]): boolean => {
+    if (!experiences || experiences.length === 0) return true;
+    
+    // Check if any experience has actual professional content
+    const hasRealExperience = experiences.some(exp => 
+        exp.title?.trim() && 
+        exp.company?.trim() && 
+        exp.startDate?.trim() && 
+        exp.endDate?.trim() &&
+        exp.title.toLowerCase() !== 'intern' &&
+        exp.title.toLowerCase() !== 'internship' &&
+        exp.title.toLowerCase() !== 'trainee'
+    );
+    
+    return !hasRealExperience;
+};
+
+// ============================================
+// 🆕 AI GENERATE SUMMARY WITH AI PROVIDER (UPDATED)
 // ============================================
 export const generateAISummary = async (params: {
     jobTitle: string;
@@ -151,17 +187,39 @@ export const generateAISummary = async (params: {
     profession: string;
     skills: string[];
     experiences: any[];
+    educations?: any[];
 }): Promise<string> => {
     initializeAI();
+    
+    // ✅ FRESHER DETECTION
+    const hasExperience = params.experiences && params.experiences.length > 0;
+    const hasRealExperience = params.experiences?.some(exp => 
+        exp.title?.trim() && 
+        exp.company?.trim() && 
+        exp.startDate?.trim() && 
+        exp.endDate?.trim()
+    );
+    const isFresherStatus = !hasRealExperience || params.years < 1;
     
     try {
         const summaryGenerator = new AISummaryGenerator();
         return await summaryGenerator.generate(params);
     } catch (error) {
         console.error('AI Summary failed, using fallback:', error);
-        const { jobTitle, company, years, profession } = params;
-        const level = getLevel(jobTitle, years);
-        return getProfessionalSummary(profession, level, years, jobTitle, company || '');
+        const { jobTitle, company, years, profession, skills, educations } = params;
+        
+        // ✅ Pass fresher info to fallback
+        const level = isFresherStatus ? 'fresher' : getLevel(jobTitle, years);
+        
+        return getProfessionalSummary(
+            profession, 
+            level, 
+            years, 
+            jobTitle, 
+            company || '',
+            skills || [],
+            educations || []
+        );
     }
 };
 
@@ -237,7 +295,10 @@ export const generateAISkills = async (params: {
     }
 };
 
+// ============================================
 // ✅ MAIN GENERATION FUNCTION (UPDATED - With enhancers + AI)
+// ✅ FIXED: Summary case now uses fixGrammar() instead of polishText() + enhanceCVText()
+// ============================================
 export const generateDescriptionFromData = (params: any): string => {
     const { type, jobTitle, companyName, currentStartDate, currentEndDate, userData, projectName, achievementTitle } = params;
 
@@ -286,22 +347,121 @@ export const generateDescriptionFromData = (params: any): string => {
         return enhanceCVText(polished);
     }
 
-    // ✅ SUMMARY - Professional Summary (FIXED - No Diary/Emotion)
+    // ✅ SUMMARY - Professional Summary (UPDATED: Fresher Support)
+    // ✅ FIXED: Using fixGrammar() instead of polishText() + enhanceCVText()
+    // ✅ fixGrammar() only fixes spelling mistakes and preserves capitalization
     if (type === 'summary') {
+        // ============================================
+        // 🔍 DEBUG STEP 1: Raw Input
+        // ============================================
+        console.log('🔍🔍🔍 DEBUG STEP 1: Raw Input');
+        console.log('📌 jobTitle:', jobTitle);
+        console.log('📌 companyName:', companyName);
+        console.log('📌 userData:', userData);
+        
         const title = jobTitle || '';
         const company = companyName || 'the organization';
         const profession = detectProfession(title);
+        
+        // ============================================
+        // 🔍 DEBUG STEP 2: Profession Detection
+        // ============================================
+        console.log('🔍🔍🔍 DEBUG STEP 2: Profession Detection');
+        console.log('📌 Detected profession:', profession);
+        
         const years = getYears(userData?.experiences || []);
-        const level = getLevel(title, years);
         
-        let summary = getProfessionalSummary(profession, level, years, title, company);
+        // ============================================
+        // 🔍 DEBUG STEP 3: Years Calculation
+        // ============================================
+        console.log('🔍🔍🔍 DEBUG STEP 3: Years Calculation');
+        console.log('📌 Raw experiences:', userData?.experiences);
+        console.log('📌 Calculated years:', years);
         
-        if (!summary || summary.includes('learning, growing, and contributing') && years > 2) {
+        // ✅ CHECK: Is this a fresher?
+        const experiences = userData?.experiences || [];
+        const hasRealExperience = experiences.some((exp: any) => 
+            exp.title?.trim() && 
+            exp.company?.trim() && 
+            exp.startDate?.trim() && 
+            exp.endDate?.trim()
+        );
+        const isFresherStatus = !hasRealExperience || years < 1;
+        
+        // ============================================
+        // 🔍 DEBUG STEP 4: Level Detection
+        // ============================================
+        console.log('🔍🔍🔍 DEBUG STEP 4: Level Detection');
+        console.log('📌 hasRealExperience:', hasRealExperience);
+        console.log('📌 isFresherStatus:', isFresherStatus);
+        
+        // ✅ Pass fresher info to getProfessionalSummary
+        const level = isFresherStatus ? 'fresher' : getLevel(title, years);
+        console.log('📌 Detected level:', level);
+        
+        const skills = userData?.skills ? userData.skills.split(',').map((s: string) => s.trim()).filter((s: string) => s) : [];
+        const educations = userData?.educations || [];
+        
+        // ============================================
+        // 🔍 DEBUG STEP 5: Summary Generation Call
+        // ============================================
+        console.log('🔍🔍🔍 DEBUG STEP 5: Calling getProfessionalSummary');
+        console.log('📌 Parameters:', {
+            profession,
+            level,
+            years,
+            title,
+            company,
+            skillsCount: skills.length,
+            educationsCount: educations.length
+        });
+        
+        let summary = getProfessionalSummary(
+            profession, 
+            level, 
+            years, 
+            title, 
+            company,
+            skills,
+            educations
+        );
+        
+        // ============================================
+        // 🔍 DEBUG STEP 6: Final Summary
+        // ============================================
+        console.log('🔍🔍🔍 DEBUG STEP 6: Generated summary');
+        console.log('📌 Summary:', summary);
+        
+        // ============================================
+        // 🔍 DEBUG STEP 7: Fallback Check
+        // ============================================
+        if (!summary || (summary.includes('learning, growing, and contributing') && years > 2)) {
+            console.log('🔍🔍🔍 DEBUG STEP 7: Using Fallback Summary');
             summary = generateFallbackSummary(title, level, company, years);
+            console.log('📌 Fallback summary:', summary);
+        } else {
+            console.log('🔍🔍🔍 DEBUG STEP 7: No fallback needed');
         }
         
-        let polished = polishText(summary);
-        return enhanceCVText(polished);
+        // ============================================
+        // ✅ FIX APPLIED HERE: STEP 8
+        // ============================================
+        // ✅ FIX: Sirf spelling mistakes fix karo, capitalization preserve karo
+        // polishText() aur enhanceCVText() hata diya kyunke ye capitalization corrupt kar rahe hain
+        // fixGrammar() only fixes spelling mistakes and preserves original capitalization
+        // ============================================
+        console.log('🔍🔍🔍 DEBUG STEP 8: Applying fix — using fixGrammar() instead of polishText() + enhanceCVText()');
+        
+        let fixed = fixGrammar(summary);
+        console.log('📌 Fixed summary (capitalization preserved):', fixed);
+        
+        // ============================================
+        // 🔍 DEBUG STEP 9: Final Output
+        // ============================================
+        console.log('🔍🔍🔍 DEBUG STEP 9: Final Output');
+        console.log('📌 Final summary:', fixed);
+        
+        return fixed;
     }
 
     return '';

@@ -1,6 +1,6 @@
 // utils/professionDetector/mappings/categories.ts
 // ============================================
-// PROFESSION CATEGORIES - 80+ Professions
+// PROFESSION CATEGORIES - 100+ Professions
 // ============================================
 
 import { Profession } from '../types';
@@ -19,7 +19,7 @@ export const PROFESSION_CATEGORIES: Record<Profession, string> = {
     'medical-technologist': 'Medical',
     'physical-therapist': 'Medical',
     
-    // ===== NEW HEALTHCARE (9) =====
+    // ===== HEALTHCARE - NEW (13) =====
     'physiotherapist': 'Medical',
     'nutritionist': 'Medical',
     'medical-lab-technologist': 'Medical',
@@ -29,6 +29,10 @@ export const PROFESSION_CATEGORIES: Record<Profession, string> = {
     'optometrist': 'Medical',
     'veterinary-doctor': 'Medical',
     'healthcare-administrator': 'Medical',
+    'paramedic': 'Medical',
+    'medical-technician': 'Medical',
+    'physician-assistant': 'Medical',
+    'medical-sales-representative': 'Sales',
     
     // Education
     'teacher': 'Education',
@@ -69,12 +73,13 @@ export const PROFESSION_CATEGORIES: Record<Profession, string> = {
     'network-engineer': 'IT',
     'software-architect': 'IT',
     
-    // ===== NEW IT (5) =====
+    // ===== IT - NEW (7) =====
     'software-engineer': 'IT',
     'ai-research-engineer': 'IT',
     'embedded-systems-engineer': 'IT',
     'database-administrator': 'IT',
-    'mechatronics-engineer': 'Engineering',  // Mechatronics is Engineering
+    'mechatronics-engineer': 'Engineering',
+    'data-engineer': 'IT',
     
     // Business
     'business': 'Business',
@@ -86,13 +91,14 @@ export const PROFESSION_CATEGORIES: Record<Profession, string> = {
     'supply-chain': 'Business',
     'consultant': 'Business',
     
-    // ===== NEW BUSINESS (6) =====
+    // ===== BUSINESS - NEW (7) =====
     'finance-analyst': 'Finance',
     'financial-advisor': 'Finance',
     'supply-chain-manager': 'Business',
     'procurement-officer': 'Business',
     'logistics-manager': 'Business',
     'business-development-executive': 'Business',
+    'supply-chain-analyst': 'Business',
     
     // Engineering
     'engineering': 'Engineering',
@@ -108,9 +114,11 @@ export const PROFESSION_CATEGORIES: Record<Profession, string> = {
     'biomedical-engineer': 'Engineering',
     'robotics-engineer': 'Engineering',
     
-    // ===== NEW ENGINEERING (2) =====
+    // ===== ENGINEERING - NEW (4) =====
     'automobile-engineer': 'Engineering',
     'mining-engineer': 'Engineering',
+    'telecommunications-engineer': 'Engineering',
+    'quantity-surveyor': 'Engineering',
     
     // Commerce
     'accountant': 'Finance',
@@ -135,7 +143,7 @@ export const PROFESSION_CATEGORIES: Record<Profession, string> = {
     'journalist': 'Media',
     'pr-specialist': 'Media',
     
-    // ===== NEW SALES & MARKETING (1) =====
+    // ===== SALES & MARKETING - NEW (1) =====
     'customer-support-specialist': 'Sales',
     
     // Creative
@@ -191,7 +199,7 @@ export const PROFESSION_CATEGORIES: Record<Profession, string> = {
     'police-officer': 'Defense',
     'firefighter': 'Emergency',
     
-    // Vocational
+    // ===== VOCATIONAL =====
     'electrician': 'Vocational',
     'plumber': 'Vocational',
     'carpenter': 'Vocational',
@@ -200,6 +208,15 @@ export const PROFESSION_CATEGORIES: Record<Profession, string> = {
     'construction-worker': 'Vocational',
     'cnc-operator': 'Vocational',
     'machine-operator': 'Vocational',
+    
+    // ===== VOCATIONAL - NEW (7) =====
+    'computer-operator': 'Vocational',
+    'electrical-technician': 'Vocational',
+    'stitching-machine-operator': 'Vocational',
+    'civil-technician': 'Vocational',
+    'auto-mechanic': 'Vocational',
+    'hvac-technician': 'Vocational',
+    'agricultural-technician': 'Vocational',
     
     // Renewable
     'renewable': 'Renewable Energy',

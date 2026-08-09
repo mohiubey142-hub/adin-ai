@@ -17,7 +17,7 @@ export type Profession =
     | 'medical-technologist'
     | 'physical-therapist'
     
-    // ===== HEALTHCARE ALLIED - NEW (9) =====
+    // ===== HEALTHCARE ALLIED - NEW (13) =====
     | 'physiotherapist'
     | 'nutritionist'
     | 'medical-lab-technologist'
@@ -27,6 +27,10 @@ export type Profession =
     | 'optometrist'
     | 'veterinary-doctor'
     | 'healthcare-administrator'
+    | 'paramedic'
+    | 'medical-technician'
+    | 'physician-assistant'
+    | 'medical-sales-representative'
     
     // ===== EDUCATION & TEACHING =====
     | 'teacher'
@@ -67,12 +71,13 @@ export type Profession =
     | 'network-engineer'
     | 'software-architect'
     
-    // ===== IT - NEW (5) =====
+    // ===== IT - NEW (7) =====
     | 'software-engineer'
     | 'ai-research-engineer'
     | 'embedded-systems-engineer'
     | 'database-administrator'
     | 'mechatronics-engineer'
+    | 'data-engineer'
     
     // ===== BUSINESS & MANAGEMENT =====
     | 'business'
@@ -84,13 +89,14 @@ export type Profession =
     | 'supply-chain'
     | 'consultant'
     
-    // ===== BUSINESS - NEW (6) =====
+    // ===== BUSINESS - NEW (7) =====
     | 'finance-analyst'
     | 'financial-advisor'
     | 'supply-chain-manager'
     | 'procurement-officer'
     | 'logistics-manager'
     | 'business-development-executive'
+    | 'supply-chain-analyst'
     
     // ===== ENGINEERING =====
     | 'engineering'
@@ -106,9 +112,11 @@ export type Profession =
     | 'biomedical-engineer'
     | 'robotics-engineer'
     
-    // ===== ENGINEERING - NEW (2) =====
+    // ===== ENGINEERING - NEW (4) =====
     | 'automobile-engineer'
     | 'mining-engineer'
+    | 'telecommunications-engineer'
+    | 'quantity-surveyor'
     
     // ===== COMMERCE & FINANCE =====
     | 'accountant'
@@ -133,8 +141,9 @@ export type Profession =
     | 'journalist'
     | 'pr-specialist'
     
-    // ===== SALES & MARKETING - NEW (1) =====
+    // ===== SALES & MARKETING - NEW (2) =====
     | 'customer-support-specialist'
+    | 'medical-sales-representative'
     
     // ===== CREATIVE & DESIGN =====
     | 'graphic-designer'
@@ -198,6 +207,15 @@ export type Profession =
     | 'construction-worker'
     | 'cnc-operator'
     | 'machine-operator'
+    
+    // ===== VOCATIONAL - NEW (7) =====
+    | 'computer-operator'
+    | 'electrical-technician'
+    | 'stitching-machine-operator'
+    | 'civil-technician'
+    | 'auto-mechanic'
+    | 'hvac-technician'
+    | 'agricultural-technician'
     
     // ===== RENEWABLE ENERGY =====
     | 'renewable'

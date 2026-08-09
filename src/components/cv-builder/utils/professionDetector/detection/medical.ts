@@ -15,6 +15,12 @@ export const detectMedical = (t: string): Profession | null => {
     if (t.includes('physical therapist') || t.includes('dpt')) return 'physical-therapist';
     if (t.includes('medical technologist')) return 'medical-technologist';
     
+    // ===== NEW MEDICAL PROFESSIONS =====
+    if (t.includes('physician assistant') || t.includes('clinical assistant') || t.includes('pa ')) return 'physician-assistant';
+    if (t.includes('paramedic') || t.includes('emergency medical')) return 'paramedic';
+    if (t.includes('medical technician') || t.includes('lab technician')) return 'medical-technician';
+    if (t.includes('medical sales representative') || t.includes('pharma sales') || t.includes('medical representative')) return 'medical-sales-representative';
+    
     // ===== GENERAL MEDICAL (Baad me check) =====
     if (t.includes('doctor') || t.includes('physician') || t.includes('medical') || 
         t.includes('surgeon') || t.includes('mbbs') || t.includes('md ') || 

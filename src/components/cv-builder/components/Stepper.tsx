@@ -46,7 +46,7 @@ const Stepper: React.FC<StepperProps> = ({
         }
     }, [currentStep]);
 
-    // ✅ Calculate progress percentage
+    // ✅ Calculate progress percentage (abhi sirf mobile ke liye use ho raha hai, lekin rakhte hain agar kahi aur use ho)
     const totalSteps = stepIcons.length;
     const progressPercentage = ((currentStep) / totalSteps) * 100;
 
@@ -131,47 +131,8 @@ const Stepper: React.FC<StepperProps> = ({
                 })}
             </div>
 
-            {/* ✅ Desktop Progress Bar - 6px thick with blinking purple gradient */}
-            <div className="hidden lg:block relative w-full h-[6px] mt-3 bg-gray-700/50 rounded-full overflow-hidden group">
-                <div 
-                    className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full transition-all duration-700 ease-out animate-gradient-shift"
-                    style={{ 
-                        width: `${Math.min(progressPercentage, 100)}%`,
-                        boxShadow: '0 0 20px rgba(168,85,247,0.4), 0 0 40px rgba(168,85,247,0.2)'
-                    }}
-                />
-                {/* ✅ Subtle hover glow */}
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-500/30 to-blue-500/30 blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            </div>
-
-            {/* ✅ CSS: Custom scrollbar styles + Progress Bar Animations */}
+            {/* ✅ CSS: Custom scrollbar styles + Mobile-only progress bar animations */}
             <style>{`
-                /* ✅ Progress Bar Blinking Animation */
-                @keyframes gradientShift {
-                    0% {
-                        background-position: 0% 50%;
-                        opacity: 0.9;
-                    }
-                    25% {
-                        opacity: 1;
-                    }
-                    50% {
-                        background-position: 100% 50%;
-                        opacity: 0.9;
-                    }
-                    75% {
-                        opacity: 1;
-                    }
-                    100% {
-                        background-position: 0% 50%;
-                        opacity: 0.9;
-                    }
-                }
-                .animate-gradient-shift {
-                    background-size: 200% 100%;
-                    animation: gradientShift 3s ease-in-out infinite;
-                }
-
                 /* Mobile scrollbar styles - 14px thick (+3px from 11px) */
                 @media (max-width: 639px) {
                     .stepper-scrollbar::-webkit-scrollbar {

@@ -1,6 +1,6 @@
 // ============================================
 // 🚀 PROFESSION POOLS - INDEX
-// All 80+ Profession Pools Export
+// All 100+ Profession Pools Export
 // ============================================
 
 // ============================================
@@ -19,7 +19,7 @@ export { getMedicalTechnologistBullets } from './medicalTechnologistPool';
 export { getPhysicalTherapistBullets } from './physicalTherapistPool';
 
 // ============================================
-// HEALTHCARE - NEW POOLS (9)
+// HEALTHCARE - NEW POOLS (13)
 // ============================================
 export { getPhysiotherapistBullets } from './physiotherapistPool';
 export { getNutritionistBullets } from './nutritionistPool';
@@ -30,6 +30,10 @@ export { getSpeechTherapistBullets } from './speechTherapistPool';
 export { getOptometristBullets } from './optometristPool';
 export { getVeterinaryDoctorBullets } from './veterinaryDoctorPool';
 export { getHealthcareAdministratorBullets } from './healthcareAdministratorPool';
+export { getParamedicBullets } from './paramedicPool';
+export { getMedicalTechnicianBullets } from './medicalTechnicianPool';
+export { getPhysicianAssistantBullets } from './physicianAssistantPool';
+export { getMedicalSalesRepresentativeBullets } from './medicalSalesRepresentativePool';
 
 // ============================================
 // EDUCATION & TEACHING
@@ -78,13 +82,14 @@ export { getNetworkEngineerBullets } from './networkEngineerPool';
 export { getSoftwareArchitectBullets } from './softwareArchitectPool';
 
 // ============================================
-// IT & TECHNOLOGY - NEW POOLS (5)
+// IT & TECHNOLOGY - NEW POOLS (6)
 // ============================================
 export { getSoftwareEngineerBullets } from './softwareEngineerPool';
 export { getAiResearchEngineerBullets } from './aiResearchEngineerPool';
 export { getEmbeddedSystemsEngineerBullets } from './embeddedSystemsEngineerPool';
 export { getDatabaseAdministratorBullets } from './databaseAdministratorPool';
 export { getMechatronicsEngineerBullets } from './mechatronicsEngineerPool';
+export { getDataEngineerBullets } from './dataEngineerPool';
 
 // ============================================
 // BUSINESS & MANAGEMENT
@@ -99,7 +104,7 @@ export { getSupplyChainBullets } from './supplyChainPool';
 export { getConsultantBullets } from './consultantPool';
 
 // ============================================
-// BUSINESS & MANAGEMENT - NEW POOLS (6)
+// BUSINESS & MANAGEMENT - NEW POOLS (7)
 // ============================================
 export { getFinanceAnalystBullets } from './financeAnalystPool';
 export { getFinancialAdvisorBullets } from './financialAdvisorPool';
@@ -107,6 +112,7 @@ export { getSupplyChainManagerBullets } from './supplyChainManagerPool';
 export { getProcurementOfficerBullets } from './procurementOfficerPool';
 export { getLogisticsManagerBullets } from './logisticsManagerPool';
 export { getBusinessDevelopmentExecutiveBullets } from './businessDevelopmentExecutivePool';
+export { getSupplyChainAnalystBullets } from './supplyChainAnalystPool';
 
 // ============================================
 // ENGINEERING
@@ -125,10 +131,12 @@ export { getBiomedicalEngineerBullets } from './biomedicalEngineerPool';
 export { getRoboticsEngineerBullets } from './roboticsEngineerPool';
 
 // ============================================
-// ENGINEERING - NEW POOLS (3)
+// ENGINEERING - NEW POOLS (4)
 // ============================================
 export { getAutomobileEngineerBullets } from './automobileEngineerPool';
 export { getMiningEngineerBullets } from './miningEngineerPool';
+export { getTelecommunicationsEngineerBullets } from './telecommunicationsEngineerPool';
+export { getQuantitySurveyorBullets } from './quantitySurveyorPool';
 
 // ============================================
 // COMMERCE, ACCOUNTING & FINANCE
@@ -241,6 +249,17 @@ export { getCncOperatorBullets } from './cncOperatorPool';
 export { getMachineOperatorBullets } from './machineOperatorPool';
 
 // ============================================
+// VOCATIONAL - NEW POOLS (7)
+// ============================================
+export { getComputerOperatorBullets } from './computerOperatorPool';
+export { getElectricalTechnicianBullets } from './electricalTechnicianPool';
+export { getStitchingMachineOperatorBullets } from './stitchingMachineOperatorPool';
+export { getCivilTechnicianBullets } from './civilTechnicianPool';
+export { getAutoMechanicBullets } from './autoMechanicPool';
+export { getHvacTechnicianBullets } from './hvacTechnicianPool';
+export { getAgriculturalTechnicianBullets } from './agriculturalTechnicianPool';
+
+// ============================================
 // RENEWABLE ENERGY
 // ============================================
 export { getRenewableEnergyEngineerBullets } from './renewableEnergyEngineerPool';
@@ -308,7 +327,7 @@ export const professionPoolMap: Record<string, (level: string, company: string) 
     'medical-technologist': getMedicalTechnologistBullets,
     'physical-therapist': getPhysicalTherapistBullets,
 
-    // Healthcare - NEW (9)
+    // Healthcare - NEW (13)
     'physiotherapist': getPhysiotherapistBullets,
     'nutritionist': getNutritionistBullets,
     'medical-lab-technologist': getMedicalLabTechnologistBullets,
@@ -318,6 +337,10 @@ export const professionPoolMap: Record<string, (level: string, company: string) 
     'optometrist': getOptometristBullets,
     'veterinary-doctor': getVeterinaryDoctorBullets,
     'healthcare-administrator': getHealthcareAdministratorBullets,
+    'paramedic': getParamedicBullets,
+    'medical-technician': getMedicalTechnicianBullets,
+    'physician-assistant': getPhysicianAssistantBullets,
+    'medical-sales-representative': getMedicalSalesRepresentativeBullets,
 
     // Education
     'teacher': getTeacherBullets,
@@ -357,12 +380,13 @@ export const professionPoolMap: Record<string, (level: string, company: string) 
     'network-engineer': getNetworkEngineerBullets,
     'software-architect': getSoftwareArchitectBullets,
 
-    // IT - NEW (5)
+    // IT - NEW (6)
     'software-engineer': getSoftwareEngineerBullets,
     'ai-research-engineer': getAiResearchEngineerBullets,
     'embedded-systems-engineer': getEmbeddedSystemsEngineerBullets,
     'database-administrator': getDatabaseAdministratorBullets,
     'mechatronics-engineer': getMechatronicsEngineerBullets,
+    'data-engineer': getDataEngineerBullets,
 
     // Business
     'business': getBusinessBullets,
@@ -374,13 +398,14 @@ export const professionPoolMap: Record<string, (level: string, company: string) 
     'supply-chain': getSupplyChainBullets,
     'consultant': getConsultantBullets,
 
-    // Business - NEW (6)
+    // Business - NEW (7)
     'finance-analyst': getFinanceAnalystBullets,
     'financial-advisor': getFinancialAdvisorBullets,
     'supply-chain-manager': getSupplyChainManagerBullets,
     'procurement-officer': getProcurementOfficerBullets,
     'logistics-manager': getLogisticsManagerBullets,
     'business-development-executive': getBusinessDevelopmentExecutiveBullets,
+    'supply-chain-analyst': getSupplyChainAnalystBullets,
 
     // Engineering
     'engineering': getEngineeringBullets,
@@ -396,9 +421,11 @@ export const professionPoolMap: Record<string, (level: string, company: string) 
     'biomedical-engineer': getBiomedicalEngineerBullets,
     'robotics-engineer': getRoboticsEngineerBullets,
 
-    // Engineering - NEW (2)
+    // Engineering - NEW (4)
     'automobile-engineer': getAutomobileEngineerBullets,
     'mining-engineer': getMiningEngineerBullets,
+    'telecommunications-engineer': getTelecommunicationsEngineerBullets,
+    'quantity-surveyor': getQuantitySurveyorBullets,
 
     // Finance
     'accountant': getAccountantBullets,
@@ -490,6 +517,15 @@ export const professionPoolMap: Record<string, (level: string, company: string) 
     'cnc-operator': getCncOperatorBullets,
     'machine-operator': getMachineOperatorBullets,
 
+    // Vocational - NEW (7)
+    'computer-operator': getComputerOperatorBullets,
+    'electrical-technician': getElectricalTechnicianBullets,
+    'stitching-machine-operator': getStitchingMachineOperatorBullets,
+    'civil-technician': getCivilTechnicianBullets,
+    'auto-mechanic': getAutoMechanicBullets,
+    'hvac-technician': getHvacTechnicianBullets,
+    'agricultural-technician': getAgriculturalTechnicianBullets,
+
     // Renewable Energy
     'renewable': getRenewableEnergyEngineerBullets,
     'solar': getSolarPVInstallerBullets,
@@ -554,7 +590,7 @@ export const getProfessionName = (profession: string): string => {
         'medical-technologist': 'Medical Technologist',
         'physical-therapist': 'Physical Therapist',
 
-        // Healthcare - NEW (9)
+        // Healthcare - NEW (13)
         'physiotherapist': 'Physiotherapist',
         'nutritionist': 'Nutritionist',
         'medical-lab-technologist': 'Medical Lab Technologist',
@@ -564,6 +600,10 @@ export const getProfessionName = (profession: string): string => {
         'optometrist': 'Optometrist',
         'veterinary-doctor': 'Veterinary Doctor',
         'healthcare-administrator': 'Healthcare Administrator',
+        'paramedic': 'Paramedic',
+        'medical-technician': 'Medical Technician',
+        'physician-assistant': 'Physician Assistant',
+        'medical-sales-representative': 'Medical Sales Representative',
 
         // Education
         'teacher': 'Teacher',
@@ -603,12 +643,13 @@ export const getProfessionName = (profession: string): string => {
         'network-engineer': 'Network Engineer',
         'software-architect': 'Software Architect',
 
-        // IT - NEW (5)
+        // IT - NEW (6)
         'software-engineer': 'Software Engineer',
         'ai-research-engineer': 'AI Research Engineer',
         'embedded-systems-engineer': 'Embedded Systems Engineer',
         'database-administrator': 'Database Administrator',
         'mechatronics-engineer': 'Mechatronics Engineer',
+        'data-engineer': 'Data Engineer',
 
         // Business
         'business': 'Business Professional',
@@ -620,13 +661,14 @@ export const getProfessionName = (profession: string): string => {
         'supply-chain': 'Supply Chain Manager',
         'consultant': 'Consultant',
 
-        // Business - NEW (6)
+        // Business - NEW (7)
         'finance-analyst': 'Finance Analyst',
         'financial-advisor': 'Financial Advisor',
         'supply-chain-manager': 'Supply Chain Manager',
         'procurement-officer': 'Procurement Officer',
         'logistics-manager': 'Logistics Manager',
         'business-development-executive': 'Business Development Executive',
+        'supply-chain-analyst': 'Supply Chain Analyst',
 
         // Engineering
         'engineering': 'Engineer',
@@ -642,9 +684,11 @@ export const getProfessionName = (profession: string): string => {
         'biomedical-engineer': 'Biomedical Engineer',
         'robotics-engineer': 'Robotics Engineer',
 
-        // Engineering - NEW (2)
+        // Engineering - NEW (4)
         'automobile-engineer': 'Automobile Engineer',
         'mining-engineer': 'Mining Engineer',
+        'telecommunications-engineer': 'Telecommunications Engineer',
+        'quantity-surveyor': 'Quantity Surveyor',
 
         // Finance
         'accountant': 'Accountant',
@@ -735,6 +779,15 @@ export const getProfessionName = (profession: string): string => {
         'construction-worker': 'Construction Worker',
         'cnc-operator': 'CNC Operator',
         'machine-operator': 'Machine Operator',
+
+        // Vocational - NEW (7)
+        'computer-operator': 'Computer Operator',
+        'electrical-technician': 'Electrical Technician',
+        'stitching-machine-operator': 'Stitching Machine Operator',
+        'civil-technician': 'Civil Technician',
+        'auto-mechanic': 'Auto Mechanic',
+        'hvac-technician': 'HVAC Technician',
+        'agricultural-technician': 'Agricultural Technician',
 
         // Renewable Energy
         'renewable': 'Renewable Energy',
