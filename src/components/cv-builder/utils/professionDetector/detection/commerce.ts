@@ -9,6 +9,8 @@ export const detectCommerce = (t: string): Profession | null => {
     // ===== SPECIFIC FINANCE PROFESSIONS (Pehle check) =====
     if (t.includes('investment banker') || t.includes('investment banking')) return 'investment-banker';
     if (t.includes('financial analyst')) return 'financial-analyst';
+    if (t.includes('finance analyst')) return 'finance-analyst';
+    if (t.includes('financial advisor') || t.includes('financial adviser')) return 'financial-advisor';
     if (t.includes('auditor') || t.includes('auditing')) return 'auditor';
     if (t.includes('tax consultant')) return 'tax-consultant';
     if (t.includes('credit analyst')) return 'credit-analyst';

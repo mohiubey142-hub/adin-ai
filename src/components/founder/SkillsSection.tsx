@@ -1,5 +1,5 @@
 // src/components/founder/SkillsSection.tsx
-import { Wrench, Code2, Brain, Sparkles, Zap, Layers, Globe, Palette, Rocket as RocketIcon, Users, PenTool, Search, BarChart, Shield, GitBranch } from "lucide-react";
+import { Code2, Brain, Sparkles, Zap, Layers, Globe, Palette, Rocket as RocketIcon, Users, PenTool, Search, BarChart } from "lucide-react";
 
 export default function SkillsSection() {
   const skills = [
@@ -17,47 +17,46 @@ export default function SkillsSection() {
     { name: "Problem Solving", icon: <Zap size={16} /> },
   ];
 
-  const tools = [
-    "ChatGPT", "Claude", "Gemini", "DeepSeek",
-    "Vercel", "GitHub", "React", "Prompt Engineering"
-  ];
-
-  // ✅ ALL BADGES - SAME PREMIUM PURPLE/BLUE THEME
-  const badgeClass = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-purple-500/20 bg-purple-500/5 text-purple-300 hover:bg-purple-500/10 hover:border-purple-500/30 transition-all duration-300";
+  const tools = ["ChatGPT", "Claude", "Gemini", "DeepSeek", "Vercel", "GitHub", "React", "Prompt Engineering"];
 
   return (
-    <section className="py-12 sm:py-16 px-4 sm:px-6 border-t border-zinc-900/50">
+    <section className="py-16 sm:py-24 px-4 sm:px-6 border-t border-slate-200">
       <div className="max-w-4xl mx-auto">
-        <div className="flex items-center gap-3 mb-6">
-          <Wrench size={24} className="text-purple-400" />
-          <h2 className="text-2xl font-bold text-white">Skills &amp; Expertise</h2>
-        </div>
-
-        <p className="text-sm text-gray-400 mb-6 leading-relaxed">
-          I specialize in building AI-powered products by combining modern AI tools with product strategy. 
-          While I am not a traditional software engineer, I use AI-assisted development to design, plan, 
+        <span className="inline-flex items-center text-[11px] font-semibold tracking-[0.2em] uppercase text-purple-600">
+          03 — Skills &amp; Expertise
+        </span>
+        <h2 className="mt-3 text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">
+          How the work gets done
+        </h2>
+        <p className="mt-4 text-sm sm:text-base text-slate-600 leading-relaxed max-w-2xl">
+          I specialize in building AI-powered products by combining modern AI tools with product strategy.
+          While I am not a traditional software engineer, I use AI-assisted development to design, plan,
           and build websites, digital products, content, and business solutions.
         </p>
 
-        <div className="flex flex-wrap gap-2 mb-6">
+        {/* Spec-sheet style skills grid — hairline grid lines via gap + bg */}
+        <div className="mt-10 grid sm:grid-cols-2 lg:grid-cols-3 gap-px bg-slate-200 border border-slate-200 rounded-2xl overflow-hidden">
           {skills.map((skill) => (
-            <span
+            <div
               key={skill.name}
-              className={badgeClass}
+              className="flex items-center gap-2.5 bg-white px-4 py-3.5 text-sm text-slate-700 font-medium"
             >
-              {skill.icon}
+              <span className="text-purple-600 shrink-0">{skill.icon}</span>
               {skill.name}
-            </span>
+            </div>
           ))}
         </div>
 
-        <div className="p-5 rounded-2xl bg-gradient-to-br from-purple-500/5 to-blue-500/5 border border-purple-500/10">
-          <h3 className="text-sm font-medium text-purple-300 mb-3">AI Tools (Advanced)</h3>
+        {/* Tools */}
+        <div className="mt-10">
+          <h3 className="text-xs font-semibold tracking-[0.15em] uppercase text-slate-400 mb-3">
+            AI Tools (Advanced)
+          </h3>
           <div className="flex flex-wrap gap-2">
             {tools.map((tool) => (
               <span
                 key={tool}
-                className="px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-xs text-purple-300 font-medium hover:bg-purple-500/20 hover:border-purple-500/30 transition-all duration-300"
+                className="px-3 py-1.5 rounded-md border border-slate-200 text-xs font-mono text-slate-700 hover:border-purple-300 hover:text-purple-700 transition-colors duration-200"
               >
                 {tool}
               </span>

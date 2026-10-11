@@ -586,3 +586,18 @@ body .cover-letter-stepper {
     animation: none;
   }
 }
+
+/* ============================================
+   PNG CAPTURE — FINAL SAFETY NET
+   ============================================
+   The hook already hides the edit label & outline via inline styles.
+   These rules are a belt-and-braces backup for any element that
+   somehow still carries the edit chrome during capture.
+   ============================================ */
+[data-png-capturing] [data-edit-label],
+[data-png-capturing] [data-edit-label] * {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}

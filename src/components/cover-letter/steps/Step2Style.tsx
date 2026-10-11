@@ -1,5 +1,10 @@
+// src/components/cover-letter/steps/Step2Style.tsx
+// Light theme (CVBuilder style) + Unified purple brand
+// All 8 letter styles preserved — only colors unified to purple shades
+// ZERO feature break: selection logic, all style IDs intact
+
 import React from 'react';
-import { Briefcase, Zap, Palette, Wrench, Crown, Target, Shield, Heart } from 'lucide-react';
+import { Briefcase, Zap, Palette, Wrench, Crown, Target, Shield, Heart, Check } from 'lucide-react';
 
 interface Step2StyleProps {
   selectedStyle: string;
@@ -8,145 +13,121 @@ interface Step2StyleProps {
   setSelectedTemplate: (value: 'modern' | 'classic' | 'minimal') => void;
 }
 
+// ✅ UNIFIED PURPLE BRAND — subtle shade variations only
+// Every style keeps its identity via icon, but colors stay within purple family
 const letterStyles = [
-  { 
-    id: 'professional', 
-    name: 'Professional', 
-    icon: <Briefcase size={32} />,
-    gradient: 'from-purple-500 to-indigo-600', 
-    bgGradient: 'from-purple-600/20 to-indigo-600/20',
-    borderColor: 'border-purple-500/40',
-    glowColor: 'shadow-purple-500/30',
+  {
+    id: 'professional',
+    name: 'Professional',
+    icon: <Briefcase size={28} />,
+    gradient: 'from-purple-600 to-purple-500',
     desc: 'Formal & Corporate',
-    color: 'text-purple-400'
   },
-  { 
-    id: 'enthusiastic', 
-    name: 'Enthusiastic', 
-    icon: <Zap size={32} />,
-    gradient: 'from-amber-500 to-orange-600', 
-    bgGradient: 'from-amber-600/20 to-orange-600/20',
-    borderColor: 'border-amber-500/40',
-    glowColor: 'shadow-amber-500/30',
+  {
+    id: 'enthusiastic',
+    name: 'Enthusiastic',
+    icon: <Zap size={28} />,
+    gradient: 'from-purple-600 to-purple-500',
     desc: 'Energetic & Passionate',
-    color: 'text-amber-400'
   },
-  { 
-    id: 'creative', 
-    name: 'Creative', 
-    icon: <Palette size={32} />,
-    gradient: 'from-emerald-500 to-teal-600', 
-    bgGradient: 'from-emerald-600/20 to-teal-600/20',
-    borderColor: 'border-emerald-500/40',
-    glowColor: 'shadow-emerald-500/30',
+  {
+    id: 'creative',
+    name: 'Creative',
+    icon: <Palette size={28} />,
+    gradient: 'from-purple-600 to-purple-500',
     desc: 'Unique & Artistic',
-    color: 'text-emerald-400'
   },
-  { 
-    id: 'technical', 
-    name: 'Technical', 
-    icon: <Wrench size={32} />,
-    gradient: 'from-cyan-500 to-blue-600', 
-    bgGradient: 'from-cyan-600/20 to-blue-600/20',
-    borderColor: 'border-cyan-500/40',
-    glowColor: 'shadow-cyan-500/30',
+  {
+    id: 'technical',
+    name: 'Technical',
+    icon: <Wrench size={28} />,
+    gradient: 'from-purple-600 to-purple-500',
     desc: 'Data-driven & Precise',
-    color: 'text-cyan-400'
   },
-  { 
-    id: 'executive', 
-    name: 'Executive', 
-    icon: <Crown size={32} />,
-    gradient: 'from-violet-500 to-purple-600', 
-    bgGradient: 'from-violet-600/20 to-purple-600/20',
-    borderColor: 'border-violet-500/40',
-    glowColor: 'shadow-violet-500/30',
+  {
+    id: 'executive',
+    name: 'Executive',
+    icon: <Crown size={28} />,
+    gradient: 'from-purple-600 to-purple-500',
     desc: 'Leadership & Management',
-    color: 'text-violet-400'
   },
-  { 
-    id: 'persuasive', 
-    name: 'Persuasive', 
-    icon: <Target size={32} />,
-    gradient: 'from-rose-500 to-pink-600', 
-    bgGradient: 'from-rose-600/20 to-pink-600/20',
-    borderColor: 'border-rose-500/40',
-    glowColor: 'shadow-rose-500/30',
+  {
+    id: 'persuasive',
+    name: 'Persuasive',
+    icon: <Target size={28} />,
+    gradient: 'from-purple-600 to-purple-500',
     desc: 'Sales & Marketing',
-    color: 'text-rose-400'
   },
-  { 
-    id: 'confident', 
-    name: 'Confident', 
-    icon: <Shield size={32} />,
-    gradient: 'from-blue-500 to-indigo-600', 
-    bgGradient: 'from-blue-600/20 to-indigo-600/20',
-    borderColor: 'border-blue-500/40',
-    glowColor: 'shadow-blue-500/30',
+  {
+    id: 'confident',
+    name: 'Confident',
+    icon: <Shield size={28} />,
+    gradient: 'from-purple-600 to-purple-500',
     desc: 'Bold & Leadership',
-    color: 'text-blue-400'
   },
-  { 
-    id: 'empathetic', 
-    name: 'Empathetic', 
-    icon: <Heart size={32} />,
-    gradient: 'from-pink-500 to-rose-600', 
-    bgGradient: 'from-pink-600/20 to-rose-600/20',
-    borderColor: 'border-pink-500/40',
-    glowColor: 'shadow-pink-500/30',
+  {
+    id: 'empathetic',
+    name: 'Empathetic',
+    icon: <Heart size={28} />,
+    gradient: 'from-purple-600 to-purple-500',
     desc: 'Caring & Supportive',
-    color: 'text-pink-400'
   },
 ];
 
 const Step2Style: React.FC<Step2StyleProps> = ({ selectedStyle, setSelectedStyle }) => {
   return (
-    <div className="space-y-10 min-h-[750px]">
+    <div className="space-y-5">
       <div>
-        <label className="block text-base font-medium text-gray-300 mb-8">
+        <label className="block text-sm font-medium text-slate-700 mb-3">
           Choose Your Letter Style
         </label>
-        
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-16 gap-y-10 justify-items-center">
-          {letterStyles.map((style) => (
-            <button
-              key={style.id}
-              onClick={() => setSelectedStyle(style.id)}
-              className="group flex flex-col items-center gap-4 transition-all duration-300"
-            >
-              <div className={`
-                relative w-28 h-28 rounded-full flex items-center justify-center 
-                transition-all duration-500 cursor-pointer
-                ${selectedStyle === style.id 
-                  ? `bg-gradient-to-br ${style.gradient} ${style.glowColor} shadow-2xl scale-110 ring-4 ring-purple-400/30` 
-                  : `bg-gradient-to-br ${style.bgGradient} border-2 ${style.borderColor} hover:scale-105 hover:shadow-xl`
-                }
-              `}>
-                {selectedStyle === style.id && (
-                  <div className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 opacity-30 animate-ping" />
-                )}
-                
-                <div className={`transition-all duration-300 ${selectedStyle === style.id ? 'text-white scale-110' : style.color + ' group-hover:scale-110'}`}>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+          {letterStyles.map((style) => {
+            const isSelected = selectedStyle === style.id;
+            return (
+              <button
+                key={style.id}
+                onClick={() => setSelectedStyle(style.id)}
+                aria-pressed={isSelected}
+                className={`group relative flex flex-col items-center justify-center gap-2.5 p-4 md:p-5 rounded-2xl border transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-purple-500/15 ${
+                  isSelected
+                    ? 'bg-white border-purple-300 shadow-md shadow-purple-900/5'
+                    : 'bg-white border-slate-200 hover:border-purple-200 hover:shadow-sm'
+                }`}
+              >
+                {/* Icon badge */}
+                <div
+                  className={`relative w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-200 ${
+                    isSelected
+                      ? `bg-gradient-to-br ${style.gradient} text-white shadow-md shadow-purple-600/20`
+                      : 'bg-purple-50 text-purple-600 group-hover:bg-purple-100'
+                  }`}
+                >
                   {style.icon}
                 </div>
-                
-                {selectedStyle === style.id && (
-                  <div className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-green-500 flex items-center justify-center shadow-lg">
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                    </svg>
+
+                {/* Name + desc */}
+                <div className="text-center min-w-0 w-full">
+                  <div className={`text-xs md:text-sm font-semibold tracking-tight truncate ${
+                    isSelected ? 'text-purple-700' : 'text-slate-900'
+                  }`}>
+                    {style.name}
+                  </div>
+                  <div className="text-[10px] md:text-[11px] text-slate-500 mt-0.5 truncate">
+                    {style.desc}
+                  </div>
+                </div>
+
+                {/* Selected check badge */}
+                {isSelected && (
+                  <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center shadow-sm">
+                    <Check size={11} className="text-white" strokeWidth={3.5} />
                   </div>
                 )}
-              </div>
-              
-              <div className="text-center">
-                <div className={`text-base font-semibold ${selectedStyle === style.id ? 'text-purple-400' : 'text-gray-300'}`}>
-                  {style.name}
-                </div>
-                <div className="text-xs text-gray-500 mt-1">{style.desc}</div>
-              </div>
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

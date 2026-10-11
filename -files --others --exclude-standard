@@ -1,0 +1,374 @@
+warning: in the working copy of 'src/components/Landing/LandingPage.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/Onboarding.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/Templates/CVTemplatesPage.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/Workspace/WorkspacePage.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/cover-letter/components/ClassicPreview.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/cover-letter/components/ModernPreview.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/cover-letter/templates/ExecutiveTemplate.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/cv-builder/CVBuilder.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/cv-builder/components/AIEnhancerPanel.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/cv-builder/components/ATSDashboard.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/cv-builder/components/DownloadButtons.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/cv-builder/components/HeaderToolbar.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/cv-builder/components/Stepper.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/cv-builder/components/SuccessCard.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/cv-builder/handlers/downloadActions.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/cv-builder/preview/CVPreview.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/cv-builder/preview/CVPreviewMobile.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/cv-builder/preview/components/CircularProgress.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/cv-builder/preview/components/ClassicTemplate.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/cv-builder/preview/components/ModernTemplate.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/cv-builder/sections/AchievementsSection.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/cv-builder/sections/CertificationsSection.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/cv-builder/sections/EducationSection.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/cv-builder/sections/ExperienceSection.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/cv-builder/sections/LanguagesSection.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/cv-builder/sections/PersonalSection.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/cv-builder/sections/ProjectsSection.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/cv-builder/sections/SkillsSection.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/cv-builder/sections/SummarySection.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/cv-builder/utils/pdf/classicPdf.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/cv-builder/utils/pdf/minimalPdf.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/cv-builder/utils/pdf/modernPdf.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/founder/AboutSection.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/founder/FAQSection.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/founder/HeroSection.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/founder/QuoteSection.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/founder/SkillsSection.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/founder/TimelineSection.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/founder/VisionSection.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/pages/Founder.tsx', LF will be replaced by CRLF the next time Git touches it
+src/App.tsx:796: trailing whitespace.
+[32m+[m[32mThis ID is your key to restoring your CVs and Cover Letters on any[m[41m [m
+src/components/cover-letter/templates/ClassicTemplate.ts:182: trailing whitespace.
+[32m+[m[41m                [m
+src/components/cover-letter/templates/ClassicTemplate.ts:186: trailing whitespace.
+[32m+[m[41m                [m
+src/components/cover-letter/templates/ClassicTemplate.ts:196: trailing whitespace.
+[32m+[m[41m                [m
+src/components/cover-letter/templates/ClassicTemplate.ts:200: trailing whitespace.
+[32m+[m[41m                [m
+src/components/cover-letter/templates/ClassicTemplate.ts:205: trailing whitespace.
+[32m+[m[41m                [m
+src/components/cover-letter/templates/ClassicTemplate.ts:212: trailing whitespace.
+[32m+[m[41m                [m
+src/components/cover-letter/templates/ClassicTemplate.ts:218: trailing whitespace.
+[32m+[m[41m                [m
+src/components/cover-letter/templates/ExecutiveTemplate.ts:75: trailing whitespace.
+[32m+[m[32m            userName, email, phoneNumber, selectedCountryCode, address, linkedin,[m[41m [m
+src/components/cover-letter/utils/pdfHelpers.ts:134: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cover-letter/utils/pdfHelpers.ts:157: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cover-letter/utils/pdfHelpers.ts:166: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cover-letter/utils/pdfHelpers.ts:176: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cover-letter/utils/pdfHelpers.ts:189: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cover-letter/utils/pdfHelpers.ts:201: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cover-letter/utils/pdfHelpers.ts:211: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cover-letter/utils/pdfHelpers.ts:219: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cover-letter/utils/pdfHelpers.ts:228: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cover-letter/utils/pdfHelpers.ts:238: trailing whitespace.
+[32m+[m[41m            [m
+src/components/cover-letter/utils/pdfHelpers.ts:244: trailing whitespace.
+[32m+[m[41m            [m
+src/components/cover-letter/utils/pdfHelpers.ts:254: trailing whitespace.
+[32m+[m[41m            [m
+src/components/cv-builder/CVBuilder.tsx:1538: trailing whitespace.
+[32m+[m[32m                            w-full lg:w-1/2 overflow-auto[m[41m [m
+src/components/cv-builder/CVBuilder.tsx:1539: trailing whitespace.
+[32m+[m[32m                            p-3 sm:p-4 md:p-6 lg:p-8[m[41m [m
+src/components/cv-builder/components/ATSDashboard.tsx:143: trailing whitespace.
+[32m+[m[32m                                        ? 'text-amber-600 fill-yellow-400/30'[m[41m [m
+src/components/cv-builder/components/Stepper.tsx:86: trailing whitespace.
+[32m+[m[32m                                        ? 'bg-gradient-to-r from-purple-600 to-blue-500 text-white shadow-lg shadow-purple-500/40 scale-110 ring-2 ring-purple-400/30 ring-offset-2 ring-offset-white'[m[41m [m
+src/components/cv-builder/components/Stepper.tsx:101: trailing whitespace.
+[32m+[m[32m                                    isStepActive ? 'text-purple-600 font-semibold' :[m[41m [m
+src/components/cv-builder/handlers/aiActions.ts:29: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/handlers/aiActions.ts:31: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/handlers/aiActions.ts:38: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/handlers/aiActions.ts:40: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/handlers/aiActions.ts:44: trailing whitespace.
+[32m+[m[41m        [m
+src/components/cv-builder/handlers/aiActions.ts:49: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/handlers/aiActions.ts:490: trailing whitespace.
+[32m+[m[41m            [m
+src/components/cv-builder/handlers/aiActions.ts:721: trailing whitespace.
+[32m+[m[41m                [m
+src/components/cv-builder/handlers/aiActions.ts:723: trailing whitespace.
+[32m+[m[41m                [m
+src/components/cv-builder/handlers/aiActions.ts:725: trailing whitespace.
+[32m+[m[41m                [m
+src/components/cv-builder/handlers/aiActions.ts:753: trailing whitespace.
+[32m+[m[41m                [m
+src/components/cv-builder/handlers/aiActions.ts:757: trailing whitespace.
+[32m+[m[41m                [m
+src/components/cv-builder/handlers/aiActions.ts:758: trailing whitespace.
+[32m+[m[32m                toast.success('Content generated!', {[m[41m [m
+src/components/cv-builder/handlers/aiActions.ts:759: trailing whitespace.
+[32m+[m[32m                    id: 'desc',[m[41m [m
+src/components/cv-builder/handlers/aiActions.ts:784: trailing whitespace.
+[32m+[m[41m        [m
+src/components/cv-builder/handlers/aiActions.ts:797: trailing whitespace.
+[32m+[m[41m                [m
+src/components/cv-builder/handlers/aiActions.ts:801: trailing whitespace.
+[32m+[m[41m                [m
+src/components/cv-builder/handlers/aiActions.ts:802: trailing whitespace.
+[32m+[m[32m                toast.success('Content generated!', {[m[41m [m
+src/components/cv-builder/handlers/aiActions.ts:803: trailing whitespace.
+[32m+[m[32m                    id: 'desc',[m[41m [m
+src/components/cv-builder/handlers/aiActions.ts:828: trailing whitespace.
+[32m+[m[41m        [m
+src/components/cv-builder/handlers/aiActions.ts:841: trailing whitespace.
+[32m+[m[41m                [m
+src/components/cv-builder/handlers/aiActions.ts:845: trailing whitespace.
+[32m+[m[41m                [m
+src/components/cv-builder/handlers/aiActions.ts:846: trailing whitespace.
+[32m+[m[32m                toast.success('Content generated!', {[m[41m [m
+src/components/cv-builder/handlers/aiActions.ts:847: trailing whitespace.
+[32m+[m[32m                    id: 'desc',[m[41m [m
+src/components/cv-builder/handlers/aiActions.ts:872: trailing whitespace.
+[32m+[m[41m        [m
+src/components/cv-builder/utils/aiGenerators.ts:167: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/aiGenerators.ts:169: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/aiGenerators.ts:176: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/aiGenerators.ts:178: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/aiGenerators.ts:182: trailing whitespace.
+[32m+[m[41m        [m
+src/components/cv-builder/utils/aiGenerators.ts:187: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/aiGenerators.ts:236: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/aiGenerators.ts:240: trailing whitespace.
+[32m+[m[41m        [m
+src/components/cv-builder/utils/aiGenerators.ts:260: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/aiGenerators.ts:274: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/aiGenerators.ts:288: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/aiGenerators.ts:291: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/aiGenerators.ts:330: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/aiGenerators.ts:336: trailing whitespace.
+[32m+[m[41m        [m
+src/components/cv-builder/utils/aiGenerators.ts:340: trailing whitespace.
+[32m+[m[41m        [m
+src/components/cv-builder/utils/aiGenerators.ts:356: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/aiGenerators.ts:363: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/aiGenerators.ts:366: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/aiGenerators.ts:392: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/aiGenerators.ts:394: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/aiGenerators.ts:404: trailing whitespace.
+[32m+[m[41m        [m
+src/components/cv-builder/utils/aiGenerators.ts:407: trailing whitespace.
+[32m+[m[41m        [m
+src/components/cv-builder/utils/aiGenerators.ts:422: trailing whitespace.
+[32m+[m[32m//[m[41m [m
+src/components/cv-builder/utils/aiGenerators.ts:425: trailing whitespace.
+[32m+[m[32m//[m[41m [m
+src/components/cv-builder/utils/aiGenerators.ts:433: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/aiGenerators.ts:435: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/aiGenerators.ts:445: trailing whitespace.
+[32m+[m[41m        [m
+src/components/cv-builder/utils/aiGenerators.ts:448: trailing whitespace.
+[32m+[m[41m        [m
+src/components/cv-builder/utils/pdf/classicPdf.ts:2945: trailing whitespace.
+[32m+[m[32m  //[m[41m [m
+src/components/cv-builder/utils/pdf/classicPdf.ts:2948: trailing whitespace.
+[32m+[m[32m  //[m[41m [m
+src/components/cv-builder/utils/pdf/minimalPdf.ts:3132: trailing whitespace.
+[32m+[m[32m  //[m[41m [m
+src/components/cv-builder/utils/pdf/minimalPdf.ts:3135: trailing whitespace.
+[32m+[m[32m  //[m[41m [m
+src/components/cv-builder/utils/pdf/modernPdf.ts:3166: trailing whitespace.
+[32m+[m[32m  //[m[41m [m
+src/components/cv-builder/utils/pdf/modernPdf.ts:3169: trailing whitespace.
+[32m+[m[32m  //[m[41m [m
+src/components/cv-builder/utils/profession/detection.ts:5: trailing whitespace.
+[32m+[m[32m//[m[41m [m
+src/components/cv-builder/utils/profession/detection.ts:66: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/profession/detection.ts:96: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/profession/detection.ts:118: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/profession/detection.ts:134: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/profession/detection.ts:145: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/profession/detection.ts:163: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/profession/detection.ts:189: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/profession/detection.ts:199: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/profession/detection.ts:206: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/profession/detection.ts:214: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector.ts:146: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/detection/business.ts:31: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/detection/education.ts:25: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/detection/engineering.ts:28: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/detection/hospitality.ts:21: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/detection/it.ts:42: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/detection/medical.ts:35: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/detection/vocational.ts:37: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/mappings/categories.ts:48: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/mappings/categories.ts:69: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/mappings/categories.ts:107: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/mappings/categories.ts:133: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/mappings/categories.ts:165: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/mappings/categories.ts:273: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/mappings/categories.ts:292: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/mappings/categories.ts:306: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/mappings/categories.ts:313: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/mappings/labels.ts:36: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/mappings/labels.ts:69: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/mappings/labels.ts:100: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/mappings/labels.ts:126: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/mappings/labels.ts:153: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/mappings/labels.ts:263: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/mappings/labels.ts:273: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/mappings/labels.ts:292: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/mappings/labels.ts:306: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/mappings/labels.ts:313: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/types/professionTypes.ts:46: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/types/professionTypes.ts:67: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/types/professionTypes.ts:105: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/types/professionTypes.ts:131: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/types/professionTypes.ts:163: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/types/professionTypes.ts:272: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/types/professionTypes.ts:291: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/types/professionTypes.ts:305: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/types/professionTypes.ts:312: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:17: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:22: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:27: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:30: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:36: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:40: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:44: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:48: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:52: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:55: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:60: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:63: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:68: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:72: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:76: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:79: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:83: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:86: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:90: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:94: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:97: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:101: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:105: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:109: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:114: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:117: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:120: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:124: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:127: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:131: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:135: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:138: trailing whitespace.
+[32m+[m[41m    [m
+src/components/cv-builder/utils/professionDetector/utils/validation.ts:141: trailing whitespace.
+[32m+[m[41m    [m
+src/components/feedback/FeedbackWidget.tsx:21: trailing whitespace.
+[32m+[m[32m          relative bg-white[m[41m [m
+src/components/feedback/FeedbackWidget.tsx:22: trailing whitespace.
+[32m+[m[32m          border border-slate-200 rounded-2xl[m[41m [m

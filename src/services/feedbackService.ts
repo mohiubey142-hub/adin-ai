@@ -1,202 +1,225 @@
 // src/services/feedbackService.ts
-// ✅ Formspree Integration - No backend required
+// ✅ Apps Script integration (replaces Web3Forms)
+// ✅ Truly unlimited — no monthly quota
+// ✅ Data saved to Google Sheet "Feedback"
+// ✅ Smart cooldown based on user commitment
+// ✅ Email notification only for low ratings or reply requests
 
-const FORMSPREE_ENDPOINT = 'https://formspree.io/f/mojgdpda';
+import { SYNC_CONFIG } from './sync/config';
 
-// ✅ FEATURE-SPECIFIC KEYS - Each feature has its own keys
+// ============================================
+// STORAGE KEYS (per source)
+// ============================================
 const FEEDBACK_KEYS = {
   // CV Builder
   CV_COMPLETED: 'adin-feedback-completed-cv-builder',
   CV_LAST_SHOWN: 'adin-feedback-last-shown-cv-builder',
-  CV_SKIPPED: 'adin-feedback-skipped-cv-builder',
-  CV_WIDGET_VISIBLE: 'adin-feedback-widget-cv-builder', // ✅ NEW: Widget visibility
-  
+  CV_TIER: 'adin-feedback-tier-cv-builder',
+
   // Cover Letter
   CL_COMPLETED: 'adin-feedback-completed-cover-letter',
   CL_LAST_SHOWN: 'adin-feedback-last-shown-cover-letter',
-  CL_SKIPPED: 'adin-feedback-skipped-cover-letter',
-  CL_WIDGET_VISIBLE: 'adin-feedback-widget-cover-letter', // ✅ NEW: Widget visibility
+  CL_TIER: 'adin-feedback-tier-cover-letter',
+
+  // Global
+  GLOBAL_COMPLETED: 'adin-feedback-completed-global',
+  GLOBAL_LAST_SHOWN: 'adin-feedback-last-shown-global',
+  GLOBAL_TIER: 'adin-feedback-tier-global',
 };
 
-interface FeedbackData {
+// ============================================
+// COOLDOWN TIMINGS
+// ============================================
+const COOLDOWN = {
+  RATING_ONLY: 7 * 24 * 60 * 60 * 1000,      // 7 days
+  WITH_MESSAGE: 30 * 24 * 60 * 60 * 1000,    // 30 days
+  NEVER_ASKED: 14 * 24 * 60 * 60 * 1000,     // 14 days (if dismissed without rating)
+} as const;
+
+// ============================================
+// TYPES
+// ============================================
+export type FeedbackSource = 'cv-builder' | 'cover-letter' | 'global';
+
+export type FeedbackTier = 'rating-only' | 'with-message' | 'with-reply';
+
+export interface FeedbackPayload {
   rating: number;
-  name: string;
-  email: string;
-  message: string;
-  source: 'cv-builder' | 'cover-letter';
+  message?: string;
+  email?: string;
+  wantsReply?: boolean;
+  source: FeedbackSource;
   timestamp: string;
 }
 
-// ✅ Get the correct keys based on source
-const getKeys = (source: 'cv-builder' | 'cover-letter') => {
+// ============================================
+// HELPERS
+// ============================================
+const getKeys = (source: FeedbackSource) => {
   if (source === 'cv-builder') {
     return {
       completed: FEEDBACK_KEYS.CV_COMPLETED,
       lastShown: FEEDBACK_KEYS.CV_LAST_SHOWN,
-      skipped: FEEDBACK_KEYS.CV_SKIPPED,
-      widgetVisible: FEEDBACK_KEYS.CV_WIDGET_VISIBLE,
+      tier: FEEDBACK_KEYS.CV_TIER,
+    };
+  }
+  if (source === 'cover-letter') {
+    return {
+      completed: FEEDBACK_KEYS.CL_COMPLETED,
+      lastShown: FEEDBACK_KEYS.CL_LAST_SHOWN,
+      tier: FEEDBACK_KEYS.CL_TIER,
     };
   }
   return {
-    completed: FEEDBACK_KEYS.CL_COMPLETED,
-    lastShown: FEEDBACK_KEYS.CL_LAST_SHOWN,
-    skipped: FEEDBACK_KEYS.CL_SKIPPED,
-    widgetVisible: FEEDBACK_KEYS.CL_WIDGET_VISIBLE,
+    completed: FEEDBACK_KEYS.GLOBAL_COMPLETED,
+    lastShown: FEEDBACK_KEYS.GLOBAL_LAST_SHOWN,
+    tier: FEEDBACK_KEYS.GLOBAL_TIER,
   };
 };
 
-// ✅ Submit feedback to Formspree
-export const submitFeedback = async (data: FeedbackData): Promise<{ success: boolean; message: string }> => {
+// ============================================
+// SUBMIT
+// ============================================
+export const submitFeedback = async (
+  data: FeedbackPayload,
+): Promise<{ success: boolean; message: string }> => {
+  // Check config
+  if (!SYNC_CONFIG.endpoint || !SYNC_CONFIG.secret) {
+    console.error('[feedback] Sync endpoint not configured');
+    return { success: false, message: 'Feedback service unavailable' };
+  }
+
   try {
-    const response = await fetch(FORMSPREE_ENDPOINT, {
+    const response = await fetch(SYNC_CONFIG.endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
-        rating: data.rating,
-        name: data.name || 'Anonymous',
-        email: data.email || 'Not provided',
-        message: data.message,
-        source: data.source,
-        timestamp: data.timestamp,
+        secret: SYNC_CONFIG.secret,
+        action: 'submit_feedback',
+        payload: {
+          rating: data.rating,
+          message: data.message || '',
+          email: data.email || '',
+          wants_reply: data.wantsReply === true,
+          source: data.source,
+          timestamp: data.timestamp,
+        },
+        clientTimestamp: Date.now(),
       }),
     });
 
-    if (response.ok) {
-      return { success: true, message: 'Thank you for your feedback!' };
-    } else {
-      const errorData = await response.json();
-      return { success: false, message: errorData.error || 'Failed to submit feedback' };
+    if (!response.ok) {
+      return { success: false, message: `HTTP ${response.status}` };
     }
+
+    const result = await response.json();
+
+    if (result.ok) {
+      return { success: true, message: 'Thank you for your feedback!' };
+    }
+    return { success: false, message: result.message || 'Failed to submit feedback' };
   } catch (error) {
-    console.error('Feedback submission error:', error);
+    console.error('[feedback] submission error:', error);
     return { success: false, message: 'Network error. Please try again.' };
   }
 };
 
-// ✅ Check if feedback should be shown for a specific source
-export const shouldShowFeedback = (source: 'cv-builder' | 'cover-letter'): boolean => {
+// ============================================
+// SHOULD SHOW?
+// ============================================
+export const shouldShowFeedback = (source: FeedbackSource): boolean => {
   const keys = getKeys(source);
 
-  // 1️⃣ Check if user already submitted feedback for this feature (PERMANENT)
-  const completed = localStorage.getItem(keys.completed);
-  if (completed === 'true') {
+  // 1. Permanent completion
+  if (localStorage.getItem(keys.completed) === 'true') {
     return false;
   }
 
-  // 2️⃣ Check if modal was shown recently (24 hours cooldown)
+  // 2. Cooldown check
   const lastShown = localStorage.getItem(keys.lastShown);
   if (lastShown) {
     const lastShownTime = parseInt(lastShown, 10);
-    const hoursSince = (Date.now() - lastShownTime) / (1000 * 60 * 60);
-    if (hoursSince < 24) {
+    const tier = (localStorage.getItem(keys.tier) || 'rating-only') as FeedbackTier;
+    const elapsed = Date.now() - lastShownTime;
+
+    let requiredCooldown = COOLDOWN.NEVER_ASKED;
+
+    if (tier === 'with-message') {
+      requiredCooldown = COOLDOWN.WITH_MESSAGE;
+    } else if (tier === 'rating-only') {
+      requiredCooldown = COOLDOWN.RATING_ONLY;
+    }
+
+    if (elapsed < requiredCooldown) {
       return false;
     }
-  }
-
-  // 3️⃣ Check skip count (max 3 skips, then force show)
-  const skipCount = parseInt(localStorage.getItem(keys.skipped) || '0', 10);
-  if (skipCount >= 3) {
-    // Reset skip count after 3 skips
-    localStorage.setItem(keys.skipped, '0');
-    return true;
   }
 
   return true;
 };
 
-// ✅ Mark feedback as completed (PERMANENT - Never show again for this feature)
-export const markFeedbackCompleted = (source: 'cv-builder' | 'cover-letter'): void => {
-  const keys = getKeys(source);
-  localStorage.setItem(keys.completed, 'true');
-  // ✅ Also hide widget when feedback is completed
-  localStorage.setItem(keys.widgetVisible, 'false');
-};
-
-// ✅ Mark feedback as shown (for cooldown tracking)
-export const markFeedbackShown = (source: 'cv-builder' | 'cover-letter'): void => {
+// ============================================
+// MARKERS
+// ============================================
+export const markFeedbackShown = (source: FeedbackSource): void => {
   const keys = getKeys(source);
   localStorage.setItem(keys.lastShown, Date.now().toString());
 };
 
-// ✅ Mark feedback as skipped (Maybe Later / Close)
-export const markFeedbackSkipped = (source: 'cv-builder' | 'cover-letter'): void => {
+export const markFeedbackCompleted = (source: FeedbackSource): void => {
   const keys = getKeys(source);
-  const current = parseInt(localStorage.getItem(keys.skipped) || '0', 10);
-  localStorage.setItem(keys.skipped, (current + 1).toString());
-  // Also set last shown for cooldown
-  markFeedbackShown(source);
-  // ✅ Hide widget when skipped (applies cooldown)
-  localStorage.setItem(keys.widgetVisible, 'false');
+  localStorage.setItem(keys.completed, 'true');
 };
 
-// ✅ NEW: Get widget visibility state
-export const getWidgetVisibility = (source: 'cv-builder' | 'cover-letter'): boolean => {
+/**
+ * Called after successful submission.
+ * Determines whether this user should be asked again.
+ *
+ * - Rating + message + reply requested → permanent completion
+ * - Rating + message → 30-day cooldown (tier: with-message)
+ * - Rating only → 7-day cooldown (tier: rating-only)
+ */
+export const recordFeedbackTier = (
+  source: FeedbackSource,
+  hasMessage: boolean,
+  wantsReply: boolean,
+): void => {
   const keys = getKeys(source);
-  const visible = localStorage.getItem(keys.widgetVisible);
-  return visible === 'true';
-};
 
-// ✅ NEW: Set widget visibility state
-export const setWidgetVisibility = (source: 'cv-builder' | 'cover-letter', visible: boolean): void => {
-  const keys = getKeys(source);
-  localStorage.setItem(keys.widgetVisible, String(visible));
-};
-
-// ✅ NEW: Minimize modal to widget (NO COOLDOWN)
-export const minimizeToWidget = (source: 'cv-builder' | 'cover-letter'): void => {
-  // ✅ Check if feedback already completed
-  const keys = getKeys(source);
-  const completed = localStorage.getItem(keys.completed);
-  if (completed === 'true') {
+  // Full commitment → never ask again
+  if (hasMessage && wantsReply) {
+    markFeedbackCompleted(source);
     return;
   }
-  // Show widget
-  setWidgetVisibility(source, true);
+
+  // Message but no reply → 30-day cooldown
+  if (hasMessage) {
+    localStorage.setItem(keys.tier, 'with-message');
+    return;
+  }
+
+  // Rating only → 7-day cooldown
+  localStorage.setItem(keys.tier, 'rating-only');
 };
 
-// ✅ NEW: Close widget (applies 24h cooldown)
-export const closeWidget = (source: 'cv-builder' | 'cover-letter'): void => {
-  // Mark as skipped (applies 24h cooldown)
-  markFeedbackSkipped(source);
-  // Hide widget
-  setWidgetVisibility(source, false);
-};
-
-// ✅ Developer Mode: Reset ONLY feedback keys for a specific feature
-export const resetFeedbackModal = (source?: 'cv-builder' | 'cover-letter'): void => {
-  const allKeys = [
-    FEEDBACK_KEYS.CV_COMPLETED,
-    FEEDBACK_KEYS.CV_LAST_SHOWN,
-    FEEDBACK_KEYS.CV_SKIPPED,
-    FEEDBACK_KEYS.CV_WIDGET_VISIBLE,
-    FEEDBACK_KEYS.CL_COMPLETED,
-    FEEDBACK_KEYS.CL_LAST_SHOWN,
-    FEEDBACK_KEYS.CL_SKIPPED,
-    FEEDBACK_KEYS.CL_WIDGET_VISIBLE,
-  ];
-
-  // If source is provided, only reset that feature's keys
+// ============================================
+// DEVELOPER UTILITIES
+// ============================================
+export const resetFeedback = (source?: FeedbackSource): void => {
   if (source) {
     const keys = getKeys(source);
-    const keysToRemove = [keys.completed, keys.lastShown, keys.skipped, keys.widgetVisible];
-    keysToRemove.forEach(key => {
-      localStorage.removeItem(key);
-    });
-    console.log(`✅ Feedback modal reset complete for ${source}.`);
+    [keys.completed, keys.lastShown, keys.tier].forEach((k) =>
+      localStorage.removeItem(k),
+    );
+    console.log(`✅ Feedback reset for ${source}`);
     return;
   }
 
-  // Reset all feedback keys
-  allKeys.forEach(key => {
-    localStorage.removeItem(key);
-  });
-  console.log('✅ All feedback keys reset complete.');
+  Object.values(FEEDBACK_KEYS).forEach((k) => localStorage.removeItem(k));
+  console.log('✅ All feedback keys reset');
 };
 
-// ✅ Add to window for developer console access
+// Dev console access
 if (typeof window !== 'undefined') {
-  (window as any).resetFeedbackModal = resetFeedbackModal;
+  (window as any).resetFeedback = resetFeedback;
 }

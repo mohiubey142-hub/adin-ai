@@ -1,54 +1,64 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+// src/components/cv-builder/CVBuilder.tsx
+// ✅ UPDATED: FeedbackFullScreen (single-screen, Design C)
+// ✅ FIX: Removed local GlobalSidebar render
+// ✅ FIX: Removed widget visibility tracking
+// ✅ NEW: BackupReminderPopup on first Skills section open
+// ✅ NEW: onDownloadId + onSetPin props from App.tsx
+// ✅ KICKRESUME STYLE: previewData debounced state (800ms)
+// ✅ KICKRESUME STYLE: useAutoSave debounce 1000ms
+// ✅ KICKRESUME STYLE: Sheet sync effects throttled
+
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { Toaster } from 'react-hot-toast';
-import { 
-  ChevronLeft, ChevronRight, Maximize2, Minimize2,
-  AlertCircle, X
+import {
+  AlertCircle, X, Pencil, Eye,
+  User, Briefcase, GraduationCap, Languages as LanguagesIcon,
+  Zap, Award, FolderGit2, Trophy, FileText, Download,
 } from 'lucide-react';
 
-// Types
 import { CVBuilderProps } from './types/cvTypes';
 
-// Constants
 import { countryCodes } from './constants/cvDefaults';
 import { defaultPersonalInfo } from './constants/cvDefaults';
 
-// Utils (cv-builder ke andar wale)
-import { loadSavedData } from './utils/storageUtils';
+import { loadSavedData, loadDocumentData, saveDocumentData, safeSaveDocument } from './utils/storageUtils';
 import { validatePhoneNumber } from './utils/phoneValidation';
 import { initializeAI } from './utils/aiGenerators';
 import { getStrengthStatus } from './utils/atsCalculator';
-
-// ✅ FIXED: pdfGeneratorText cv-builder/utils/ se import (local)
 import { generateTextPDF } from './utils/pdfGeneratorText';
 
-// ✅ SEO Imports
+import {
+  loadImageFromIDB,
+  saveImageToIDB,
+  deleteImageFromIDB,
+  getPhotoKey,
+  getDraftPhotoKey,
+} from './utils/imageUtils';
+
 import { SEOHead } from '../../components/SEO/SEOHead';
 import { generatePageSchemas, generateJSONLDScript } from '../../utils/seo';
 import { getSEOConfig } from '../../utils/seoPages';
 
-// Hooks
-// ⚠️ useSections REMOVED - replaced with direct useState for localStorage persistence
 import { useAutoSave } from './hooks/useAutoSave';
 import { useValidation } from './hooks/useValidation';
 import { useScoreCalculation } from './hooks/useScoreCalculation';
+import { useScrollSync } from './hooks/useScrollSync';
+import { useActiveSection } from './hooks/useActiveSection';
 
-// Handlers
-import { createNavigationActions } from './handlers/navigationActions';
+// ✅ Sidebar toggle only — sidebar rendered in App.tsx
+import { useSidebar } from '../../hooks/useSidebar';
+
 import { createCVActions } from './handlers/cvActions';
 import { createAIActions } from './handlers/aiActions';
 import { createDownloadActions } from './handlers/downloadActions';
 
-// Components
 import HeaderToolbar from './components/HeaderToolbar';
 import TemplateSelector from './components/TemplateSelector';
-import Stepper from './components/Stepper';
-import ATSDashboard from './components/ATSDashboard';
-import AIEnhancerPanel from './components/AIEnhancerPanel';
+import AccordionSection from './components/AccordionSection';
 import DownloadButtons from './components/DownloadButtons';
 import SuccessCard from './components/SuccessCard';
 
-// Sections
 import PersonalSection from './sections/PersonalSection';
 import ExperienceSection from './sections/ExperienceSection';
 import EducationSection from './sections/EducationSection';
@@ -59,107 +69,527 @@ import LanguagesSection from './sections/LanguagesSection';
 import AchievementsSection from './sections/AchievementsSection';
 import SummarySection from './sections/SummarySection';
 
-// Preview
-import CVPreview from './preview/CVPreview';
+import CVPreview, { CVPreviewHandle } from './preview/CVPreview';
 import CVPreviewMobile from './preview/CVPreviewMobile';
 
-// ✅ NEW: Feedback Modal & Widget
-import FeedbackModal from '../../components/feedback/FeedbackModal';
-import FeedbackWidget from '../../components/feedback/FeedbackWidget';
-import { 
-  shouldShowFeedback, 
-  markFeedbackCompleted, 
-  markFeedbackShown, 
-  markFeedbackSkipped, 
-  resetFeedbackModal,
-  getWidgetVisibility,
-  setWidgetVisibility,
-  minimizeToWidget,
-  closeWidget
+// ✅ FeedbackFullScreen (Design C — single-screen feedback)
+import FeedbackFullScreen from '../../components/feedback/FeedbackFullScreen';
+import {
+  shouldShowFeedback,
+  markFeedbackShown,
 } from '../../services/feedbackService';
+import { syncService } from '../../services/sync/syncService';
+import { SYNC_CONFIG } from '../../services/sync/config';
 
-// ✅ Helper: Create default section item
+// ✅ NEW: Backup reminder popup
+import BackupReminderPopup from '../../components/BackupReminderPopup';
+
+// ✅ Click-to-focus scroll offsets
+const EDITOR_SCROLL_OFFSET_PX = 12;
+const PREVIEW_SCROLL_OFFSET_PX = 80;
+
+// ✅ Throttle window — same section par itne ms ke andar dobara trigger nahi
+const FIELD_INTERACT_THROTTLE_MS = 600;
+
+// ✅ LocalStorage flag for backup reminder
+const BACKUP_REMINDER_FLAG = 'adin-backup-reminder-shown';
+
+// ✅ KICKRESUME STYLE: Preview debounce time
+const PREVIEW_DEBOUNCE_MS = 800;
+
+// ✅ KICKRESUME STYLE: Sheet sync throttle time
+const SHEET_SYNC_THROTTLE_MS = 5000;
+
+const isRealPhoto = (p: string | null | undefined): boolean => {
+    return !!p && typeof p === 'string' && p.length > 500;
+};
+
 const createDefaultExperience = () => ({
     id: Date.now().toString(),
-    title: '',
-    company: '',
-    startDate: '',
-    endDate: '',
-    description: '',
-    location: '',
-    currentlyWorking: false,
-    highlights: []
+    title: '', company: '', startDate: '', endDate: '',
+    description: '', location: '', currentlyWorking: false, highlights: []
 });
 
 const createDefaultEducation = () => ({
     id: Date.now().toString(),
-    degree: '',
-    institution: '',
-    startDate: '',
-    endDate: '',
-    description: '',
-    location: '',
-    currentlyStudying: false
+    degree: '', institution: '', startDate: '', endDate: '',
+    description: '', location: '', currentlyStudying: false
 });
 
 const createDefaultProject = () => ({
     id: Date.now().toString(),
-    name: '',
-    description: '',
-    technologies: [],
-    link: '',
-    startDate: '',
-    endDate: ''
+    name: '', description: '', technologies: [],
+    link: '', startDate: '', endDate: ''
 });
 
 const createDefaultCertification = () => ({
     id: Date.now().toString(),
-    name: '',
-    issuer: '',
-    date: '',
-    link: '',
-    credentialId: ''
+    name: '', issuer: '', date: '', link: '', credentialId: ''
 });
 
 const createDefaultLanguage = () => ({
     id: Date.now().toString(),
-    language: '',
-    proficiency: ''
+    language: '', proficiency: ''
 });
 
 const createDefaultAchievement = () => ({
     id: Date.now().toString(),
-    title: '',
-    description: '',
-    date: ''
+    title: '', date: '', shortDescription: '', description: ''
 });
 
-// ✅ UPDATED: Props now include initialTemplateId and onBackToHome
-const CVBuilder: React.FC<CVBuilderProps> = ({ userId, initialTemplateId, onBackToHome }) => {
-    // ============================================
-    // 1. LOAD SAVED DATA
-    // ============================================
-    const savedData = loadSavedData(userId);
-    
-    // ============================================
-    // 2. LOCAL STATE
-    // ============================================
-    const [step, setStep] = useState(() => savedData?.step || 1);
-    
-    // ✅ FIXED: Template state with initialTemplateId override
-    const validTemplates = ['modern', 'classic', 'minimal', 'executive', 'creative', 'academic'];
-    
-    const [template, setTemplate] = useState<'modern' | 'classic' | 'minimal' | 'executive' | 'creative' | 'academic'>(() => {
+type SectionKey =
+    | 'personal' | 'experience' | 'education' | 'languages'
+    | 'skills' | 'certifications' | 'projects' | 'achievements'
+    | 'summary' | 'export';
+
+const DEFAULT_OPEN_STATE: Record<SectionKey, boolean> = {
+    personal: true,
+    experience: false,
+    education: false,
+    languages: false,
+    skills: false,
+    certifications: false,
+    projects: false,
+    achievements: false,
+    summary: false,
+    export: false,
+};
+
+type MobileTab = 'edit' | 'preview';
+
+const PREVIEW_TO_EDITOR_SECTION: Record<string, SectionKey> = {
+    summary: 'summary',
+    experience: 'experience',
+    education: 'education',
+    skills: 'skills',
+    languages: 'languages',
+    certifications: 'certifications',
+    projects: 'projects',
+    achievements: 'achievements',
+    personal: 'personal',
+};
+
+// ============================================================
+// ✅ BUTTER-SMOOTH AUTO SCROLL
+// ============================================================
+interface ChaseHooks {
+    onStart?: () => void;
+    onEnd?: () => void;
+}
+
+const activeChases = new WeakMap<HTMLElement, () => void>();
+
+const chaseScroll = (
+    scroller: HTMLElement,
+    getTarget: () => number | null,
+    opts: { minMs?: number; maxMs?: number; hooks?: ChaseHooks } = {}
+) => {
+    const { minMs = 0, maxMs = 1400, hooks } = opts;
+
+    activeChases.get(scroller)?.();
+
+    const initial = getTarget();
+    if (initial == null) return;
+
+    const clampTarget = (t: number) =>
+        Math.max(0, Math.min(t, scroller.scrollHeight - scroller.clientHeight));
+
+    if (minMs === 0 && Math.abs(clampTarget(initial) - scroller.scrollTop) < 1) return;
+
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+        scroller.scrollTop = clampTarget(initial);
+        return;
+    }
+
+    const prevBehavior = scroller.style.scrollBehavior;
+    scroller.style.scrollBehavior = 'auto';
+
+    const distance = Math.abs(clampTarget(initial) - scroller.scrollTop);
+    const omega = distance > 800 ? 8 : distance > 400 ? 10 : 12;
+
+    let pos = scroller.scrollTop;
+    let vel = 0;
+    let lastActual = pos;
+    let raf = 0;
+    let done = false;
+    const start = performance.now();
+    let last = start;
+
+    const userEvents: Array<keyof HTMLElementEventMap> = ['wheel', 'touchstart', 'keydown'];
+    const onUser = () => finish();
+    const onPointer = (e: Event) => {
+        if (e.target === scroller) finish();
+    };
+
+    function finish() {
+        if (done) return;
+        done = true;
+        cancelAnimationFrame(raf);
+        userEvents.forEach(ev => scroller.removeEventListener(ev, onUser));
+        scroller.removeEventListener('pointerdown', onPointer);
+        scroller.style.scrollBehavior = prevBehavior;
+        if (activeChases.get(scroller) === finish) activeChases.delete(scroller);
+        hooks?.onEnd?.();
+    }
+
+    userEvents.forEach(ev => scroller.addEventListener(ev, onUser, { passive: true }));
+    scroller.addEventListener('pointerdown', onPointer);
+    activeChases.set(scroller, finish);
+    hooks?.onStart?.();
+
+    const step = (now: number) => {
+        if (done) return;
+
+        const actual = scroller.scrollTop;
+        if (Math.abs(actual - lastActual) > 1.5) {
+            pos = actual;
+            vel = 0;
+        }
+
+        let remaining = Math.min(now - last, 64) / 1000;
+        last = now;
+
+        const t = getTarget();
+        const target = t == null ? pos : clampTarget(t);
+
+        while (remaining > 0) {
+            const h = Math.min(remaining, 1 / 120);
+            remaining -= h;
+            vel += (omega * omega * (target - pos) - 2 * omega * vel) * h;
+            pos += vel * h;
+        }
+        scroller.scrollTop = pos;
+        lastActual = scroller.scrollTop;
+
+        const elapsed = now - start;
+        const settled = Math.abs(target - pos) < 0.5 && Math.abs(vel) < 8;
+        if ((settled && elapsed >= minMs) || elapsed >= maxMs) {
+            if (t != null) scroller.scrollTop = target;
+            finish();
+            return;
+        }
+        raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+};
+
+const scrollEditorToSection = (
+    paneRef: React.RefObject<HTMLElement>,
+    sectionKey: string,
+    mode: 'fit' | 'reveal' | 'top',
+    hooks?: ChaseHooks
+) => {
+    const pane = paneRef.current;
+    if (!pane) return;
+    const el = document.getElementById(`section-${sectionKey}`);
+    if (!el) return;
+
+    const M = EDITOR_SCROLL_OFFSET_PX;
+
+    const getTarget = (): number | null => {
+        const paneRect = pane.getBoundingClientRect();
+        const rect = el.getBoundingClientRect();
+        const topAbs = rect.top - paneRect.top + pane.scrollTop;
+
+        const header = el.querySelector<HTMLElement>('button[aria-expanded]');
+        const inner = document.getElementById(`section-${sectionKey}-content`)
+            ?.firstElementChild as HTMLElement | null | undefined;
+        const isOpen = header?.getAttribute('aria-expanded') === 'true';
+        const height = header
+            ? header.offsetHeight + (isOpen && inner ? inner.scrollHeight : 0) + 2
+            : rect.height;
+
+        const viewH = pane.clientHeight;
+        const fits = height <= viewH - 2 * M;
+
+        if (mode === 'top' || (mode === 'reveal' && !fits)) return topAbs - M;
+        if (!fits) return null;
+
+        const cur = pane.scrollTop;
+        if (topAbs < cur + M) return topAbs - M;
+        if (topAbs + height > cur + viewH - M) return topAbs + height - viewH + M;
+        return cur;
+    };
+
+    chaseScroll(pane, getTarget, {
+        minMs: mode === 'fit' ? 0 : 360,
+        hooks,
+    });
+};
+
+const scrollPreviewToSection = (
+    previewPaneRef: React.RefObject<HTMLElement>,
+    sectionKey: string,
+    _offsetPx: number = PREVIEW_SCROLL_OFFSET_PX,
+    hooks?: ChaseHooks
+) => {
+    if (!previewPaneRef.current) return;
+
+    const candidates = document.querySelectorAll<HTMLElement>(
+        `[data-section="${sectionKey}"]`
+    );
+    const visibleEl = Array.from(candidates).find((el) => {
+        if (el.closest('[aria-hidden="true"]')) return false;
+        const cs = window.getComputedStyle(el);
+        if (cs.visibility === 'hidden' || cs.display === 'none') return false;
+        const rect = el.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0 && rect.left > -1000;
+    });
+    if (!visibleEl) return;
+
+    let scroller: HTMLElement | null = visibleEl.parentElement;
+    while (scroller && scroller !== previewPaneRef.current.parentElement) {
+        const cs = window.getComputedStyle(scroller);
+        const isScrollY = cs.overflowY === 'auto' || cs.overflowY === 'scroll';
+        if (isScrollY && scroller.scrollHeight > scroller.clientHeight + 1) break;
+        scroller = scroller.parentElement;
+    }
+    if (!scroller) scroller = previewPaneRef.current;
+
+    const containerRect = scroller.getBoundingClientRect();
+    const elRect = visibleEl.getBoundingClientRect();
+    const containerHeight = containerRect.height;
+
+    const elTopInView = elRect.top - containerRect.top;
+
+    const COMFY_TOP = containerHeight * 0.12;
+    const COMFY_BOTTOM = containerHeight * 0.60;
+
+    if (elTopInView >= COMFY_TOP && elTopInView <= COMFY_BOTTOM) {
+        return;
+    }
+
+    const TARGET_TOP = Math.round(containerHeight * 0.18);
+
+    const absoluteElTop =
+        elRect.top - containerRect.top + scroller.scrollTop;
+
+    let nextScrollTop = absoluteElTop - TARGET_TOP;
+
+    const maxScrollTop = scroller.scrollHeight - scroller.clientHeight;
+    nextScrollTop = Math.max(0, Math.min(nextScrollTop, maxScrollTop));
+
+    if (Math.abs(nextScrollTop - scroller.scrollTop) < 4) return;
+
+    chaseScroll(scroller, () => nextScrollTop, { hooks });
+};
+
+const CVBuilder: React.FC<CVBuilderProps> = ({
+    userId,
+    initialTemplateId,
+    onBackToHome,
+    documentId,
+    onBackToDocuments,
+    onDocumentCreated,
+    onDownloadId,
+    onSetPin,
+}) => {
+    const { open: openSidebar } = useSidebar();
+
+    const editorPaneRef = useRef<HTMLDivElement>(null);
+    const previewPaneRef = useRef<HTMLDivElement>(null);
+
+    const previewHandleRef = useRef<CVPreviewHandle>(null);
+
+    const lastFieldScrollRef = useRef<{ key: string; time: number }>({ key: '', time: 0 });
+
+    const [isDesktop, setIsDesktop] = useState(
+        typeof window !== 'undefined' ? window.innerWidth >= 1024 : false
+    );
+    useEffect(() => {
+        const onResize = () => setIsDesktop(window.innerWidth >= 1024);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
+
+    const [savedData] = useState(() => {
+        if (documentId) {
+            const docData = loadDocumentData(userId, documentId);
+            if (docData) {
+                console.log('✅ CVBuilder: Loaded from document', documentId);
+                return docData;
+            }
+            console.warn('⚠️ CVBuilder: Document not found, falling back to legacy key', documentId);
+        }
+        const legacyData = loadSavedData(userId);
+        if (legacyData) {
+            console.log('✅ CVBuilder: Loaded from legacy key');
+        } else {
+            console.log('ℹ️ CVBuilder: No saved data found — starting fresh');
+        }
+        return legacyData;
+    });
+
+    const validTemplates = ['modern', 'classic', 'minimal', 'executive', 'creative', 'academic', 'teal-curve', 'standard', 'ats-pro'];
+
+    const [template, setTemplate] = useState<'modern' | 'classic' | 'minimal' | 'executive' | 'creative' | 'academic' | 'teal-curve' | 'standard' | 'corporate' | 'ats-pro'>(() => {
         if (initialTemplateId && validTemplates.includes(initialTemplateId)) {
             return initialTemplateId as any;
+        }
+        if (documentId && savedData?.template && validTemplates.includes(savedData.template)) {
+            return savedData.template;
         }
         if (savedData?.template && validTemplates.includes(savedData.template)) {
             return savedData.template;
         }
         return 'modern';
     });
-    
-    const [isFullscreen, setIsFullscreen] = useState(false);
+
+    const [mobileTab, setMobileTab] = useState<MobileTab>('edit');
+
+    const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>(() => {
+        if (savedData?.openSections && typeof savedData.openSections === 'object') {
+            const merged: any = { ...DEFAULT_OPEN_STATE, ...savedData.openSections };
+            if (savedData.openSections.insights !== undefined && savedData.openSections.export === undefined) {
+                merged.export = savedData.openSections.insights;
+            }
+            return merged;
+        }
+        return { ...DEFAULT_OPEN_STATE };
+    });
+
+    const [activeSection, setActiveSection] = useState<string | null>(null);
+
+    const [isExportingPNG, setIsExportingPNG] = useState(false);
+
+    // ✅ KICKRESUME STYLE: Sheet sync throttle ref
+    const lastSheetSyncTimeRef = useRef(0);
+
+    // ------------------------------------------------------------
+    // ✅ Auto-scroll bookkeeping.
+    // ------------------------------------------------------------
+    const autoScrollPausedRef = useRef(false);
+    const autoScrollCountRef = useRef(0);
+    const autoScrollOffTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const autoScrollHooks = useMemo<ChaseHooks>(() => ({
+        onStart: () => {
+            autoScrollCountRef.current += 1;
+            if (autoScrollOffTimerRef.current) {
+                clearTimeout(autoScrollOffTimerRef.current);
+                autoScrollOffTimerRef.current = null;
+            }
+            autoScrollPausedRef.current = true;
+        },
+        onEnd: () => {
+            autoScrollCountRef.current = Math.max(0, autoScrollCountRef.current - 1);
+            if (autoScrollCountRef.current > 0) return;
+            if (autoScrollOffTimerRef.current) clearTimeout(autoScrollOffTimerRef.current);
+            autoScrollOffTimerRef.current = setTimeout(() => {
+                autoScrollOffTimerRef.current = null;
+                autoScrollPausedRef.current = false;
+            }, 120);
+        },
+    }), []);
+
+    useEffect(() => () => {
+        if (autoScrollOffTimerRef.current) clearTimeout(autoScrollOffTimerRef.current);
+    }, []);
+
+    const pointerDownRef = useRef(false);
+    useEffect(() => {
+        const down = () => { pointerDownRef.current = true; };
+        const up = () => { pointerDownRef.current = false; };
+        window.addEventListener('pointerdown', down, true);
+        window.addEventListener('pointerup', up, true);
+        window.addEventListener('pointercancel', up, true);
+        return () => {
+            window.removeEventListener('pointerdown', down, true);
+            window.removeEventListener('pointerup', up, true);
+            window.removeEventListener('pointercancel', up, true);
+        };
+    }, []);
+
+    const handleToggleSection = useCallback((key: SectionKey, willBeOpen: boolean) => {
+        setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
+
+        if (key === 'skills' && willBeOpen) {
+            const shown = localStorage.getItem(BACKUP_REMINDER_FLAG);
+            if (shown !== 'true') {
+                setTimeout(() => setShowBackupReminder(true), 500);
+            }
+        }
+
+        if (!willBeOpen || !isDesktop) return;
+
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                scrollEditorToSection(editorPaneRef, key, 'reveal', autoScrollHooks);
+                scrollPreviewToSection(previewPaneRef, key, PREVIEW_SCROLL_OFFSET_PX, autoScrollHooks);
+            });
+        });
+    }, [isDesktop, autoScrollHooks]);
+
+    const handleFieldInteraction = useCallback((sectionKey: string) => {
+        if (!isDesktop) return;
+
+        const now = Date.now();
+        if (
+            lastFieldScrollRef.current.key === sectionKey &&
+            now - lastFieldScrollRef.current.time < FIELD_INTERACT_THROTTLE_MS
+        ) {
+            return;
+        }
+        lastFieldScrollRef.current = { key: sectionKey, time: now };
+
+        const run = () => {
+            scrollEditorToSection(editorPaneRef, sectionKey, 'fit', autoScrollHooks);
+            scrollPreviewToSection(previewPaneRef, sectionKey, PREVIEW_SCROLL_OFFSET_PX, autoScrollHooks);
+        };
+
+        if (pointerDownRef.current) {
+            const onUp = () => {
+                window.removeEventListener('pointerup', onUp, true);
+                window.removeEventListener('pointercancel', onUp, true);
+                window.setTimeout(run, 60);
+            };
+            window.addEventListener('pointerup', onUp, true);
+            window.addEventListener('pointercancel', onUp, true);
+        } else {
+            run();
+        }
+    }, [isDesktop, autoScrollHooks]);
+
+    const handleEditSection = useCallback((previewSectionKey: string) => {
+        const editorKey = PREVIEW_TO_EDITOR_SECTION[previewSectionKey];
+        if (!editorKey) return;
+
+        setActiveSection(previewSectionKey);
+
+        setOpenSections(() => {
+            const next: Record<SectionKey, boolean> = {
+                personal: false,
+                experience: false,
+                education: false,
+                languages: false,
+                skills: false,
+                certifications: false,
+                projects: false,
+                achievements: false,
+                summary: false,
+                export: false,
+            };
+            next[editorKey] = true;
+            return next;
+        });
+
+        requestAnimationFrame(() => {
+            scrollEditorToSection(editorPaneRef, editorKey, 'top', autoScrollHooks);
+        });
+
+        requestAnimationFrame(() => {
+            scrollPreviewToSection(previewPaneRef, previewSectionKey, PREVIEW_SCROLL_OFFSET_PX, autoScrollHooks);
+        });
+
+        if (window.innerWidth < 1024) {
+            setMobileTab('edit');
+        }
+    }, [autoScrollHooks]);
+
+    useScrollSync(editorPaneRef, previewPaneRef, { enabled: isDesktop, pausedRef: autoScrollPausedRef });
+
+    useActiveSection(previewPaneRef, isDesktop, isExportingPNG);
+
     const [hasReachedPreview, setHasReachedPreview] = useState(() => savedData?.hasReachedPreview || false);
     const [showSuccessCard, setShowSuccessCard] = useState(false);
     const [generating, setGenerating] = useState(false);
@@ -168,456 +598,514 @@ const CVBuilder: React.FC<CVBuilderProps> = ({ userId, initialTemplateId, onBack
     const [originalSummary, setOriginalSummary] = useState<string>('');
     const [isEnhancerUsed, setIsEnhancerUsed] = useState<boolean>(false);
     const [selectedProvider, setSelectedProvider] = useState<string>(() => savedData?.selectedProvider || 'openrouter');
-    
-    // ✅ NEW: Feedback Modal & Widget State
+
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [feedbackSourceKey, setFeedbackSourceKey] = useState('cv-builder');
-    
-    // ✅ NEW: Widget visibility state (restore from localStorage)
-    const [showWidget, setShowWidget] = useState(() => {
-        return getWidgetVisibility('cv-builder');
-    });
-    
-    // Personal Info State
+
+    const [showBackupReminder, setShowBackupReminder] = useState(false);
+
     const [personalInfo, setPersonalInfo] = useState(() => {
         if (savedData?.personalInfo) {
             return { ...defaultPersonalInfo, ...savedData.personalInfo };
         }
         return { ...defaultPersonalInfo };
     });
-    
+
     const [professionalSummary, setProfessionalSummary] = useState(() => savedData?.professionalSummary || '');
     const [selectedCountryCode, setSelectedCountryCode] = useState(() => savedData?.selectedCountryCode || 'PK');
     const [phoneNumber, setPhoneNumber] = useState(() => savedData?.phoneNumber || '');
-    const [profilePhoto, setProfilePhoto] = useState<string | null>(() => savedData?.profilePhoto || null);
-    
-    // Refs
+
+    const [profilePhoto, setProfilePhoto] = useState<string | null>(() => {
+        if (savedData?.profilePhoto && typeof savedData.profilePhoto === 'string') {
+            return savedData.profilePhoto;
+        }
+        return null;
+    });
+
     const containerRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const previewRef = useRef<HTMLDivElement>(null);
-    
-    // ============================================
-    // 3. SECTIONS STATE - ✅ FIXED: Direct useState with savedData
-    // ✅ FIXED: Default to ONE item when savedData is empty
-    // ============================================
-    
-    // Experiences - ✅ FIXED: Default to ONE item
+
     const [experiences, setExperiences] = useState(() => {
         if (savedData?.experiences && Array.isArray(savedData.experiences) && savedData.experiences.length > 0) {
             return savedData.experiences;
         }
-        // ✅ Return ONE default item instead of empty array
         return [createDefaultExperience()];
     });
-    
-    const addExperience = () => {
-        const newExp = createDefaultExperience();
-        setExperiences(prev => [...prev, newExp]);
-    };
-    
-    const removeExperience = (index: number) => {
-        setExperiences(prev => prev.filter((_, i) => i !== index));
-    };
-    
-    const updateExperience = (index: number, field: string, value: any) => {
-        setExperiences(prev => prev.map((exp, i) => 
-            i === index ? { ...exp, [field]: value } : exp
-        ));
-    };
-    
-    // Educations - ✅ FIXED: Default to ONE item
+
+    const addExperience = useCallback(() => setExperiences(prev => [...prev, createDefaultExperience()]), []);
+    const removeExperience = useCallback((index: number) => setExperiences(prev => prev.filter((_, i) => i !== index)), []);
+    const updateExperience = useCallback((index: number, field: string, value: any) => {
+        setExperiences(prev => prev.map((exp, i) => i === index ? { ...exp, [field]: value } : exp));
+    }, []);
+
     const [educations, setEducations] = useState(() => {
         if (savedData?.educations && Array.isArray(savedData.educations) && savedData.educations.length > 0) {
             return savedData.educations;
         }
         return [createDefaultEducation()];
     });
-    
-    const addEducation = () => {
-        const newEdu = createDefaultEducation();
-        setEducations(prev => [...prev, newEdu]);
-    };
-    
-    const removeEducation = (index: number) => {
-        setEducations(prev => prev.filter((_, i) => i !== index));
-    };
-    
-    const updateEducation = (index: number, field: string, value: any) => {
-        setEducations(prev => prev.map((edu, i) => 
-            i === index ? { ...edu, [field]: value } : edu
-        ));
-    };
-    
-    // Projects - ✅ FIXED: Default to ONE item
+
+    const addEducation = useCallback(() => setEducations(prev => [...prev, createDefaultEducation()]), []);
+    const removeEducation = useCallback((index: number) => setEducations(prev => prev.filter((_, i) => i !== index)), []);
+    const updateEducation = useCallback((index: number, field: string, value: any) => {
+        setEducations(prev => prev.map((edu, i) => i === index ? { ...edu, [field]: value } : edu));
+    }, []);
+
     const [projects, setProjects] = useState(() => {
         if (savedData?.projects && Array.isArray(savedData.projects) && savedData.projects.length > 0) {
             return savedData.projects;
         }
         return [createDefaultProject()];
     });
-    
-    const addProject = () => {
-        const newProject = createDefaultProject();
-        setProjects(prev => [...prev, newProject]);
-    };
-    
-    const removeProject = (index: number) => {
-        setProjects(prev => prev.filter((_, i) => i !== index));
-    };
-    
-    const updateProject = (index: number, field: string, value: any) => {
-        setProjects(prev => prev.map((proj, i) => 
-            i === index ? { ...proj, [field]: value } : proj
-        ));
-    };
-    
-    // Certifications - ✅ FIXED: Default to ONE item
+
+    const addProject = useCallback(() => setProjects(prev => [...prev, createDefaultProject()]), []);
+    const removeProject = useCallback((index: number) => setProjects(prev => prev.filter((_, i) => i !== index)), []);
+    const updateProject = useCallback((index: number, field: string, value: any) => {
+        setProjects(prev => prev.map((proj, i) => i === index ? { ...proj, [field]: value } : proj));
+    }, []);
+
     const [certifications, setCertifications] = useState(() => {
         if (savedData?.certifications && Array.isArray(savedData.certifications) && savedData.certifications.length > 0) {
             return savedData.certifications;
         }
         return [createDefaultCertification()];
     });
-    
-    const addCertification = () => {
-        const newCert = createDefaultCertification();
-        setCertifications(prev => [...prev, newCert]);
-    };
-    
-    const removeCertification = (index: number) => {
-        setCertifications(prev => prev.filter((_, i) => i !== index));
-    };
-    
-    const updateCertification = (index: number, field: string, value: any) => {
-        setCertifications(prev => prev.map((cert, i) => 
-            i === index ? { ...cert, [field]: value } : cert
-        ));
-    };
-    
-    // Languages - ✅ FIXED: Default to ONE item
+
+    const addCertification = useCallback(() => setCertifications(prev => [...prev, createDefaultCertification()]), []);
+    const removeCertification = useCallback((index: number) => setCertifications(prev => prev.filter((_, i) => i !== index)), []);
+    const updateCertification = useCallback((index: number, field: string, value: any) => {
+        setCertifications(prev => prev.map((cert, i) => i === index ? { ...cert, [field]: value } : cert));
+    }, []);
+
     const [languages, setLanguages] = useState(() => {
         if (savedData?.languages && Array.isArray(savedData.languages) && savedData.languages.length > 0) {
             return savedData.languages;
         }
         return [createDefaultLanguage()];
     });
-    
-    const addLanguage = () => {
-        const newLang = createDefaultLanguage();
-        setLanguages(prev => [...prev, newLang]);
-    };
-    
-    const removeLanguage = (index: number) => {
-        setLanguages(prev => prev.filter((_, i) => i !== index));
-    };
-    
-    const updateLanguage = (index: number, field: string, value: any) => {
-        setLanguages(prev => prev.map((lang, i) => 
-            i === index ? { ...lang, [field]: value } : lang
-        ));
-    };
-    
-    // Achievements - ✅ FIXED: Default to ONE item
+
+    const addLanguage = useCallback(() => setLanguages(prev => [...prev, createDefaultLanguage()]), []);
+    const removeLanguage = useCallback((index: number) => setLanguages(prev => prev.filter((_, i) => i !== index)), []);
+    const updateLanguage = useCallback((index: number, field: string, value: any) => {
+        setLanguages(prev => prev.map((lang, i) => i === index ? { ...lang, [field]: value } : lang));
+    }, []);
+
     const [achievements, setAchievements] = useState(() => {
         if (savedData?.achievements && Array.isArray(savedData.achievements) && savedData.achievements.length > 0) {
             return savedData.achievements;
         }
         return [createDefaultAchievement()];
     });
-    
-    const addAchievement = () => {
-        const newAch = createDefaultAchievement();
-        setAchievements(prev => [...prev, newAch]);
-    };
-    
-    const removeAchievement = (index: number) => {
-        setAchievements(prev => prev.filter((_, i) => i !== index));
-    };
-    
-    const updateAchievement = (index: number, field: string, value: any) => {
-        setAchievements(prev => prev.map((ach, i) => 
-            i === index ? { ...ach, [field]: value } : ach
-        ));
-    };
-    
-    // Skills
+
+    const addAchievement = useCallback(() => setAchievements(prev => [...prev, createDefaultAchievement()]), []);
+    const removeAchievement = useCallback((index: number) => setAchievements(prev => prev.filter((_, i) => i !== index)), []);
+    const updateAchievement = useCallback((index: number, field: string, value: any) => {
+        setAchievements(prev => prev.map((ach, i) => i === index ? { ...ach, [field]: value } : ach));
+    }, []);
+
     const [skills, setSkills] = useState(() => savedData?.skills || '');
-    
+
+    const [internalDocumentId, setInternalDocumentId] = useState<string | null>(documentId || null);
+    const documentCreationAttempted = useRef(false);
+    const documentCreationTimer = useRef<NodeJS.Timeout | null>(null);
+    const internalDocumentIdRef = useRef<string | null>(documentId || null);
+
     // ============================================
-    // ✅ NEW: Filter complete experiences for PDF/ATS
+    // ✅ KICKRESUME STYLE: Preview Debounced State
     // ============================================
-    const isExperienceComplete = (exp: any): boolean => {
+    // Editor instant rahe, preview 800ms baad update ho
+    // ============================================
+    const [previewData, setPreviewData] = useState({
+        personalInfo,
+        phoneNumber,
+        selectedCountryCode,
+        professionalSummary,
+        experiences,
+        educations,
+        projects,
+        certifications,
+        languages,
+        achievements,
+        skills,
+        profilePhoto,
+        template,
+    });
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setPreviewData({
+                personalInfo,
+                phoneNumber,
+                selectedCountryCode,
+                professionalSummary,
+                experiences,
+                educations,
+                projects,
+                certifications,
+                languages,
+                achievements,
+                skills,
+                profilePhoto,
+                template,
+            });
+        }, PREVIEW_DEBOUNCE_MS);
+
+        return () => clearTimeout(timer);
+    }, [
+        personalInfo, phoneNumber, selectedCountryCode, professionalSummary,
+        experiences, educations, projects, certifications, languages,
+        achievements, skills, profilePhoto, template,
+    ]);
+
+    useEffect(() => {
+        if (documentId) {
+            internalDocumentIdRef.current = documentId;
+            setInternalDocumentId(documentId);
+            documentCreationAttempted.current = true;
+        }
+    }, [documentId]);
+
+    useEffect(() => {
+        internalDocumentIdRef.current = internalDocumentId;
+    }, [internalDocumentId]);
+
+    useEffect(() => {
+        if (!documentId) return;
+        if (profilePhoto && profilePhoto.length > 500) return;
+        if (!savedData?.hasPhoto && !savedData?.profilePhoto) return;
+
+        let cancelled = false;
+        (async () => {
+            try {
+                const img = await loadImageFromIDB(getPhotoKey(documentId));
+                if (!cancelled && img) {
+                    setProfilePhoto(img);
+                }
+            } catch (e) {
+                console.error('❌ CVBuilder: Failed to load photo from IDB:', e);
+            }
+        })();
+
+        return () => { cancelled = true; };
+    }, [documentId, savedData?.hasPhoto, savedData?.profilePhoto, profilePhoto]);
+
+    const hasMeaningfulData = useMemo(() => {
+        const hasName = !!personalInfo?.name?.trim();
+        const hasTitle = !!personalInfo?.title?.trim();
+        const hasContact = !!(personalInfo?.email?.trim() || phoneNumber?.trim());
+        const hasSection =
+            (professionalSummary?.trim()?.length || 0) > 20 ||
+            (skills?.trim()?.length || 0) > 10 ||
+            experiences.some((e: any) => e.title?.trim() && e.company?.trim()) ||
+            educations.some((e: any) => e.degree?.trim() && e.institution?.trim());
+
+        return hasName && (hasTitle || hasContact || hasSection);
+    }, [
+        personalInfo?.name, personalInfo?.title, personalInfo?.email,
+        phoneNumber, professionalSummary, skills,
+        experiences, educations,
+    ]);
+
+    useEffect(() => {
+        if (internalDocumentIdRef.current) return;
+        if (documentCreationAttempted.current) return;
+        if (!hasMeaningfulData) return;
+
+        if (documentCreationTimer.current) {
+            clearTimeout(documentCreationTimer.current);
+        }
+
+        documentCreationTimer.current = setTimeout(async () => {
+            if (documentCreationAttempted.current) return;
+            if (internalDocumentIdRef.current) return;
+
+            documentCreationAttempted.current = true;
+
+            try {
+                const { localStorageDocumentService } = await import('./services/documentService');
+                const meta = await localStorageDocumentService.createEmpty(userId);
+
+                const dataToSave = {
+                    personalInfo, professionalSummary, experiences, educations, skills,
+                    selectedCountryCode, phoneNumber, template, projects, certifications,
+                    languages, achievements,
+                    hasPhoto: isRealPhoto(profilePhoto),
+                    hasReachedPreview,
+                    selectedProvider, openSections, lastUpdated: Date.now(),
+                };
+                const saveResult = safeSaveDocument(userId, meta.id, dataToSave);
+                if (!saveResult.ok) {
+                    console.warn('[CVBuilder] Save failed:', saveResult.error);
+                }
+
+                if (isRealPhoto(profilePhoto)) {
+                    try {
+                        await saveImageToIDB(getPhotoKey(meta.id), profilePhoto!);
+                        await deleteImageFromIDB(getDraftPhotoKey(userId));
+                    } catch (imgErr) {
+                        console.error('Failed to move draft photo:', imgErr);
+                    }
+                }
+
+                setInternalDocumentId(meta.id);
+                internalDocumentIdRef.current = meta.id;
+                onDocumentCreated?.(meta.id);
+            } catch (e: any) {
+                console.error('Failed to create document on first save:', e);
+                documentCreationAttempted.current = false;
+            }
+        }, 1000);
+
+        return () => {
+            if (documentCreationTimer.current) {
+                clearTimeout(documentCreationTimer.current);
+            }
+        };
+    }, [
+        hasMeaningfulData, userId, onDocumentCreated,
+        personalInfo, professionalSummary, experiences, educations, skills,
+        selectedCountryCode, phoneNumber,
+        languages, achievements, hasReachedPreview, selectedProvider,
+        openSections
+    ]);
+
+    useEffect(() => {
+        return () => {
+            if (documentCreationTimer.current) {
+                clearTimeout(documentCreationTimer.current);
+            }
+        };
+    }, []);
+
+    const isExperienceComplete = useCallback((exp: any): boolean => {
         return !!(exp.title?.trim() && exp.company?.trim() && exp.startDate?.trim() && exp.endDate?.trim() && exp.description?.trim());
-    };
-    
+    }, []);
+
     const getCompleteExperiences = useMemo(() => {
         return experiences.filter(exp => isExperienceComplete(exp));
-    }, [experiences]);
-    
-    // ============================================
-    // 4. VALIDATION HOOK - Use complete experiences
-    // ============================================
+    }, [experiences, isExperienceComplete]);
+
     const validation = useValidation(
-        personalInfo,
-        phoneNumber,
-        selectedCountryCode,
-        getCompleteExperiences,
-        educations,
-        projects,
-        skills,
-        certifications,
-        languages,
-        achievements,
-        professionalSummary
+        personalInfo, phoneNumber, selectedCountryCode,
+        getCompleteExperiences, educations, projects, skills,
+        certifications, languages, achievements, professionalSummary
     );
     const {
-        sectionStatuses,
-        phoneError,
-        errors,
-        setErrors,
-        validationErrors,
-        setValidationErrors,
-        clearValidationErrors,
-        areRequiredSectionsComplete,
-        validateStep
+        sectionStatuses, phoneError, errors, setErrors,
+        validationErrors, setValidationErrors, clearValidationErrors,
+        areRequiredSectionsComplete
     } = validation;
-    
-    // ============================================
-    // 5. SCORE CALCULATION HOOK - Use complete experiences
-    // ============================================
+
     const scores = useScoreCalculation(
-        personalInfo,
-        phoneNumber,
-        getCompleteExperiences,
-        educations,
-        projects,
-        skills,
-        languages,
-        certifications,
-        achievements,
-        professionalSummary,
-        selectedCountryCode
+        personalInfo, phoneNumber, getCompleteExperiences,
+        educations, projects, skills, languages, certifications,
+        achievements, professionalSummary, selectedCountryCode
     );
     const {
-        realWeightedAverage,
-        realCompletionPercentage,
-        realBreakdown,
-        realQuality,
-        realSuggestions,
-        getScoreColor,
-        getScoreBg
+        realWeightedAverage, realCompletionPercentage, realBreakdown,
+        realQuality, realSuggestions, getScoreColor, getScoreBg
     } = scores;
-    
-    // ============================================
-    // 6. AUTO-SAVE HOOK
-    // ============================================
+
+    const shouldSkipSave = !internalDocumentIdRef.current && !internalDocumentId;
     const { saveStatus } = useAutoSave(userId, {
-        personalInfo,
-        professionalSummary,
-        experiences,
-        educations,
-        skills,
-        selectedCountryCode,
-        phoneNumber,
-        step,
-        template,
-        projects,
-        certifications,
-        languages,
-        achievements,
-        profilePhoto,
-        hasReachedPreview,
-        selectedProvider
+        personalInfo, professionalSummary, experiences, educations, skills,
+        selectedCountryCode, phoneNumber, template, projects, certifications,
+        languages, achievements,
+        hasPhoto: isRealPhoto(profilePhoto),
+        hasReachedPreview, selectedProvider,
+        openSections,
     }, [
-        personalInfo,
-        professionalSummary,
-        experiences,
-        educations,
-        skills,
-        selectedCountryCode,
-        phoneNumber,
-        step,
-        template,
-        projects,
-        certifications,
-        languages,
-        achievements,
-        profilePhoto,
-        hasReachedPreview,
-        selectedProvider
-    ]);
-    
+        personalInfo, professionalSummary, experiences, educations, skills,
+        selectedCountryCode, phoneNumber, template, projects, certifications,
+        languages, achievements,
+        hasReachedPreview, selectedProvider,
+        openSections,
+    ], 1000, internalDocumentId || undefined, shouldSkipSave);
+
     // ============================================
-    // 7. NAVIGATION ACTIONS
+    // ✅ KICKRESUME STYLE: Sheet sync with THROTTLE
     // ============================================
-    const navigation = createNavigationActions(
-        step,
-        setStep,
-        setHasReachedPreview,
-        personalInfo,
-        phoneNumber,
-        selectedCountryCode,
-        educations,
-        skills,
-        getCompleteExperiences,
-        hasReachedPreview,
-        areRequiredSectionsComplete,
-        validateStep
-    );
-    const { navigateToStep, nextStep, prevStep } = navigation;
-    
-    // ============================================
-    // 8. CV ACTIONS
-    // ============================================
-    const cvActions = createCVActions(
+    useEffect(() => {
+        const docId = internalDocumentIdRef.current;
+        if (!docId) return;
+        if (!userId) return;
+
+        // ✅ THROTTLE: 5 seconds mein sirf 1 baar sync
+        const now = Date.now();
+        if (now - lastSheetSyncTimeRef.current < SHEET_SYNC_THROTTLE_MS) {
+            return;
+        }
+
+        const timer = setTimeout(() => {
+            lastSheetSyncTimeRef.current = Date.now();
+            const syncNow = Date.now();
+            syncService.syncCV({
+                userId,
+                cvId: docId,
+                data: {
+                    personalInfo, professionalSummary, experiences, educations,
+                    skills, selectedCountryCode, phoneNumber, template,
+                    projects, certifications, languages, achievements,
+                    hasPhoto: isRealPhoto(profilePhoto),
+                    openSections,
+                },
+                title: personalInfo?.name ? `${personalInfo.name}'s CV` : 'Untitled CV',
+                template,
+                createdAt: syncNow,
+                updatedAt: syncNow,
+            }).catch(err => {
+                console.warn('[CVBuilder] Sheet sync failed (queued for retry):', err);
+            });
+        }, SYNC_CONFIG.idleDebounceMs);
+
+        return () => clearTimeout(timer);
+    }, [
         userId,
-        setPersonalInfo,
-        setProfessionalSummary,
-        setExperiences,
-        setEducations,
-        setSkills,
-        setProjects,
-        setCertifications,
-        setLanguages,
-        setAchievements,
-        setProfilePhoto,
-        setSelectedCountryCode,
-        setPhoneNumber,
-        setStep,
-        setTemplate,
-        setHasReachedPreview,
-        setShowSuccessCard,
-        setErrors,
-        setValidationErrors,
-        setIsEnhancerUsed,
-        setOriginalSummary,
-        professionalSummary,
-        originalSummary,
-        isEnhancerUsed
+        personalInfo, professionalSummary, experiences, educations,
+        skills, selectedCountryCode, phoneNumber, template,
+        projects, certifications, languages, achievements,
+        profilePhoto, openSections,
+    ]);
+
+    useEffect(() => {
+        const forceSync = (label: string, warnLabel: string) => {
+            const docId = internalDocumentIdRef.current;
+            if (!docId) return;
+            if (!userId) return;
+
+            const now = Date.now();
+            console.log(`[CVBuilder] ${label} — force syncing CV to Sheet`);
+
+            syncService.syncCV({
+                userId,
+                cvId: docId,
+                data: {
+                    personalInfo, professionalSummary, experiences, educations,
+                    skills, selectedCountryCode, phoneNumber, template,
+                    projects, certifications, languages, achievements,
+                    hasPhoto: isRealPhoto(profilePhoto),
+                    openSections,
+                },
+                title: personalInfo?.name ? `${personalInfo.name}'s CV` : 'Untitled CV',
+                template,
+                createdAt: now,
+                updatedAt: now,
+            }).catch(err => {
+                console.warn(`[CVBuilder] ${warnLabel}-triggered sync failed (queued):`, err);
+            });
+        };
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState !== 'hidden') return;
+            forceSync('visibility hidden', 'visibility');
+        };
+
+        const handlePageHide = () => {
+            forceSync('pagehide', 'pagehide');
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('pagehide', handlePageHide);
+        window.addEventListener('beforeunload', handlePageHide);
+
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('pagehide', handlePageHide);
+            window.removeEventListener('beforeunload', handlePageHide);
+        };
+    }, [
+        userId,
+        personalInfo, professionalSummary, experiences, educations,
+        skills, selectedCountryCode, phoneNumber, template,
+        projects, certifications, languages, achievements,
+        profilePhoto, openSections,
+    ]);
+
+    const cvActions = createCVActions(
+        userId, setPersonalInfo, setProfessionalSummary, setExperiences,
+        setEducations, setSkills, setProjects, setCertifications, setLanguages,
+        setAchievements, setProfilePhoto, setSelectedCountryCode, setPhoneNumber,
+        setTemplate, setHasReachedPreview, setShowSuccessCard, setErrors,
+        setValidationErrors, setIsEnhancerUsed, setOriginalSummary,
+        professionalSummary, originalSummary, isEnhancerUsed
     );
-    const { clearAllData, restoreOriginalSummary, updatePersonalInfo, handlePhoneChange, handlePhotoUpload } = cvActions;
-    
-    // ============================================
-    // 9. AI ACTIONS
-    // ============================================
+    const { clearAllData, restoreOriginalSummary, updatePersonalInfo, handlePhoneChange } = cvActions;
+
     const aiActions = createAIActions(
-        personalInfo,
-        experiences,
-        educations,
-        projects,
-        skills,
-        certifications,
-        achievements,
-        professionalSummary,
-        setProfessionalSummary,
-        setExperiences,
-        setSkills,
-        setProjects,
-        setAchievements,
-        setGenerating,
-        setAiGenerating,
-        setAiEnhancerLoading,
-        setIsEnhancerUsed,
-        setOriginalSummary,
-        originalSummary,
-        isEnhancerUsed
+        personalInfo, experiences, educations, projects, skills, certifications,
+        achievements, professionalSummary, setProfessionalSummary, setExperiences,
+        setSkills, setProjects, setAchievements, setGenerating, setAiGenerating,
+        setAiEnhancerLoading, setIsEnhancerUsed, setOriginalSummary,
+        originalSummary, isEnhancerUsed
     );
     const {
-        enhanceSkills,
-        expandSkills,
-        handleAIGenerateSummary,
-        handleAIGenerateExperience,
-        generateDescriptionForField,
+        enhanceSkills, expandSkills, handleAIGenerateSummary,
+        handleAIGenerateExperience, handleAIGenerateProject,
+        handleAIGenerateAchievement, generateDescriptionForField,
         applyAIEnhancement
     } = aiActions;
-    
-    // ============================================
-    // 10. DOWNLOAD ACTIONS - WITH FEEDBACK TRIGGER
-    // ============================================
-    
-    // ✅ STEP 1: Define downloadActions using complete experiences
+
     const downloadActions = createDownloadActions(
-        personalInfo,
-        phoneNumber,
-        selectedCountryCode,
-        professionalSummary,
-        getCompleteExperiences,
-        educations,
-        projects,
-        certifications,
-        languages,
-        achievements,
-        skills,
-        template,
-        profilePhoto
+        personalInfo, phoneNumber, selectedCountryCode, professionalSummary,
+        getCompleteExperiences, educations, projects, certifications,
+        languages, achievements, skills, template, profilePhoto
     );
-    
-    // ✅ STEP 2: Extract functions from downloadActions
-    const { downloadPDF, downloadTXT, copyCV } = downloadActions;
-    
-    // ✅ STEP 3: Create wrapper functions with feedback - FEATURE-SPECIFIC
+    const {
+        downloadPDF, downloadClassicPDF, downloadMinimalPDF, downloadModernPDF,
+        downloadAcademicPDF, downloadCreativePDF, downloadTealCurvePDF,
+        downloadExecutivePDF, downloadStandardPDF,
+        downloadTXT, copyCV
+    } = downloadActions;
+
     const handleDownloadPDF = async () => {
         const shouldShow = shouldShowFeedback('cv-builder');
-        await downloadPDF();
+        switch (template) {
+            case 'classic': await downloadClassicPDF(); break;
+            case 'minimal': await downloadMinimalPDF(); break;
+            case 'modern': await downloadModernPDF(); break;
+            case 'academic': await downloadAcademicPDF(); break;
+            case 'creative': await downloadCreativePDF(); break;
+            case 'teal-curve': await downloadTealCurvePDF(); break;
+            case 'executive': await downloadExecutivePDF(); break;
+            case 'standard': await downloadStandardPDF(); break;
+            default: await downloadPDF(); break;
+        }
         if (shouldShow) {
             setFeedbackSourceKey('cv-builder');
-            setTimeout(() => {
-                setShowFeedbackModal(true);
-            }, 500);
+            setTimeout(() => setShowFeedbackModal(true), 500);
         }
     };
-    
-    const handleDownloadTXT = async () => {
-        await downloadTXT();
-    };
-    
-    const handleCopyCV = async () => {
-        await copyCV();
-    };
-    
-    // ✅ NEW: Feedback Widget Handlers
-    const handleMinimize = () => {
+
+    const handleDownloadTXT = async () => { await downloadTXT(); };
+    const handleCopyCV = async () => { await copyCV(); };
+
+    const handleFeedbackModalClose = useCallback(() => {
         setShowFeedbackModal(false);
-        minimizeToWidget('cv-builder');
-        setShowWidget(true);
-    };
-    
-    const handleOpenFromWidget = () => {
-        setShowWidget(false);
-        setShowFeedbackModal(true);
-    };
-    
-    const handleCloseWidget = () => {
-        closeWidget('cv-builder');
-        setShowWidget(false);
-    };
-    
-    // ============================================
-    // 11. FULLSCREEN TOGGLE
-    // ============================================
-    const toggleFullscreen = async () => {
-        try {
-            if (!isFullscreen) {
-                await containerRef.current?.requestFullscreen();
-                setIsFullscreen(true);
-            } else {
-                await document.exitFullscreen();
-                setIsFullscreen(false);
-            }
-        } catch (err) {
-            toast.error('Fullscreen not supported');
-        }
-    };
-    
-    useEffect(() => {
-        const handleFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
-        document.addEventListener('fullscreenchange', handleFullscreenChange);
-        return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+        markFeedbackShown('cv-builder');
+
+        window.dispatchEvent(new CustomEvent('adin-feedback-closed', {
+            detail: { source: 'cv-builder' }
+        }));
     }, []);
-    
-    // ============================================
-    // 12. INIT AI
-    // ============================================
+
+    const handleBackupReminderClose = useCallback(() => {
+        setShowBackupReminder(false);
+        localStorage.setItem(BACKUP_REMINDER_FLAG, 'true');
+    }, []);
+
+    const handleBackupReminderDownloadId = useCallback(() => {
+        setShowBackupReminder(false);
+        localStorage.setItem(BACKUP_REMINDER_FLAG, 'true');
+        onDownloadId?.();
+    }, [onDownloadId]);
+
+    const handleBackupReminderSetPin = useCallback(() => {
+        setShowBackupReminder(false);
+        localStorage.setItem(BACKUP_REMINDER_FLAG, 'true');
+        onSetPin?.();
+    }, [onSetPin]);
+
     useEffect(() => {
         try {
             initializeAI();
@@ -625,79 +1113,130 @@ const CVBuilder: React.FC<CVBuilderProps> = ({ userId, initialTemplateId, onBack
             console.error('AI initialization failed:', error);
         }
     }, []);
-    
-    // ============================================
-    // 13. HELPER FUNCTIONS
-    // ============================================
-    const hasSectionData = (stepNum: number): boolean => {
-        switch(stepNum) {
-            case 1: return !!(personalInfo.name?.trim() && personalInfo.title?.trim() && personalInfo.email?.trim() && phoneNumber);
-            case 2: return experiences.some(e => e.title?.trim() && e.company?.trim());
-            case 3: return educations.some(e => e.degree?.trim() && e.institution?.trim());
-            case 4: return languages.some(l => l.language?.trim() && l.proficiency?.trim());
-            case 5: return !!skills.trim();
-            case 6: return certifications.some(c => c.name?.trim());
-            case 7: return projects.some(p => p.name?.trim() && p.description?.trim());
-            case 8: return achievements.some(a => a.title?.trim() && a.description?.trim());
-            case 9: return !!professionalSummary.trim();
-            case 10: return areRequiredSectionsComplete();
-            default: return false;
-        }
-    };
-    
-    const isSectionComplete = (stepNum: number): boolean => {
-        if (stepNum === 10) return areRequiredSectionsComplete();
-        if (stepNum === 6) return certifications.some(c => c.name?.trim());
-        return sectionStatuses[stepNum]?.isComplete || false;
-    };
-    
-    const getSectionScore = (stepNum: number): number => {
-        if (stepNum === 10) return 100;
-        return sectionStatuses[stepNum]?.score || 0;
-    };
-    
-    // ============================================
-    // 14. SECTION PROPS
-    // ============================================
+
     const skillsSectionProps = {
-        skills,
-        setSkills,
-        enhanceSkills,
-        expandSkills,
-        generating,
-        personalInfo
+        skills, setSkills, enhanceSkills, expandSkills, generating, personalInfo
     };
-    
+
     const experienceSectionProps = {
-        experiences,
-        addExperience,
-        removeExperience,
-        updateExperience,
+        experiences, addExperience, removeExperience, updateExperience,
         generateDescription: (index: number, exp: any) => generateDescriptionForField('experience', index, exp),
         generateAI: (index: number, exp: any) => handleAIGenerateExperience(index, exp),
-        aiGenerating,
-        generating
+        aiGenerating, generating
     };
-    
+
     const projectSectionProps = {
-        projects,
-        addProject,
-        removeProject,
-        updateProject,
+        projects, addProject, removeProject, updateProject,
         generateDescription: (index: number, proj: any) => generateDescriptionForField('project', index, proj),
-        generating
+        generateAI: (index: number, proj: any) => handleAIGenerateProject(index, proj),
+        generating, aiGenerating
     };
-    
+
     const achievementSectionProps = {
-        achievements,
-        addAchievement,
-        removeAchievement,
-        updateAchievement,
+        achievements, addAchievement, removeAchievement, updateAchievement,
         generateDescription: (index: number, ach: any) => generateDescriptionForField('achievement', index, ach),
-        generating
+        generateAI: (index: number, ach: any) => handleAIGenerateAchievement(index, ach),
+        generating, aiGenerating
     };
-    
-    const personalSectionProps = {
+
+    const handlePhotoUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            const dataUrl = event.target?.result as string;
+
+            setProfilePhoto(dataUrl);
+            setPersonalInfo(prev => ({ ...prev, photo: dataUrl }));
+
+            try {
+                let docId = internalDocumentIdRef.current;
+
+                if (!docId) {
+                    const { localStorageDocumentService } = await import('./services/documentService');
+                    const meta = await localStorageDocumentService.createEmpty(userId);
+                    docId = meta.id;
+                    internalDocumentIdRef.current = meta.id;
+                    setInternalDocumentId(meta.id);
+                    documentCreationAttempted.current = true;
+
+                    if (documentCreationTimer.current) {
+                        clearTimeout(documentCreationTimer.current);
+                        documentCreationTimer.current = null;
+                    }
+
+                    onDocumentCreated?.(meta.id);
+                }
+
+                await saveImageToIDB(getPhotoKey(docId), dataUrl);
+
+                const saveResult = safeSaveDocument(userId, docId, {
+                    personalInfo: { ...personalInfo, photo: dataUrl },
+                    professionalSummary, experiences, educations, skills,
+                    selectedCountryCode, phoneNumber, template, projects, certifications,
+                    languages, achievements,
+                    hasPhoto: true,
+                    hasReachedPreview,
+                    selectedProvider, openSections, lastUpdated: Date.now(),
+                });
+
+                if (saveResult.ok) {
+                    console.log('💾 Document updated with hasPhoto: true');
+                }
+
+                toast.success('Photo uploaded successfully');
+            } catch (err) {
+                console.error('❌ Failed to save photo:', err);
+                toast.error('Failed to save photo — please try again');
+            }
+        };
+        reader.readAsDataURL(file);
+    }, [
+        userId,
+        personalInfo, professionalSummary, experiences, educations, skills,
+        selectedCountryCode, phoneNumber, template, projects, certifications,
+        languages, achievements, hasReachedPreview, selectedProvider, openSections,
+        onDocumentCreated,
+    ]);
+
+    const handlePhotoRemove = useCallback(async () => {
+        setProfilePhoto(null);
+        setPersonalInfo(prev => ({ ...prev, photo: null as any }));
+
+        try {
+            if (internalDocumentIdRef.current) {
+                await deleteImageFromIDB(getPhotoKey(internalDocumentIdRef.current));
+
+                safeSaveDocument(userId, internalDocumentIdRef.current, {
+                    personalInfo: { ...personalInfo, photo: null },
+                    professionalSummary, experiences, educations, skills,
+                    selectedCountryCode, phoneNumber, template, projects, certifications,
+                    languages, achievements,
+                    hasPhoto: false,
+                    hasReachedPreview,
+                    selectedProvider, openSections, lastUpdated: Date.now(),
+                });
+            } else {
+                await deleteImageFromIDB(getDraftPhotoKey(userId));
+            }
+        } catch (err) {
+            console.error('❌ Failed to delete photo from IndexedDB:', err);
+        }
+
+        toast.success('Photo removed');
+    }, [
+        userId,
+        personalInfo, professionalSummary, experiences, educations, skills,
+        selectedCountryCode, phoneNumber, template, projects, certifications,
+        languages, achievements, hasReachedPreview, selectedProvider, openSections,
+    ]);
+
+    const handleChangePhoto = useCallback(() => {
+        fileInputRef.current?.click();
+    }, []);
+
+    const personalSectionProps = useMemo(() => ({
         personalInfo,
         updatePersonalInfo: (field: string, value: string) => updatePersonalInfo(field, value, setErrors, errors),
         selectedCountryCode,
@@ -706,31 +1245,193 @@ const CVBuilder: React.FC<CVBuilderProps> = ({ userId, initialTemplateId, onBack
         handlePhoneChange: (value: string) => handlePhoneChange(value, setErrors, errors),
         profilePhoto,
         fileInputRef,
-        handlePhotoUpload: (e: React.ChangeEvent<HTMLInputElement>) => handlePhotoUpload(e, setProfilePhoto),
-        handleChangePhoto: () => fileInputRef.current?.click(),
+        handlePhotoUpload,
+        handleChangePhoto,
+        onRemovePhoto: handlePhotoRemove,
         errors,
         phoneError
-    };
-    
-    // ============================================
-    // 15. RENDER
-    // ============================================
-    
-    // ✅ Mobile: Check if mobile viewport
+    }), [
+        personalInfo, selectedCountryCode, phoneNumber, profilePhoto,
+        errors, phoneError,
+        updatePersonalInfo, handlePhoneChange, handlePhotoUpload, handleChangePhoto, handlePhotoRemove
+    ]);
+
     const [isMobile, setIsMobile] = useState(false);
-    
+
     useEffect(() => {
-        const checkMobile = () => {
-            setIsMobile(window.innerWidth < 640);
-        };
+        const checkMobile = () => setIsMobile(window.innerWidth < 1024);
         checkMobile();
         window.addEventListener('resize', checkMobile);
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
-    
+
+    const renderAllSections = () => (
+        <div className="space-y-3">
+            <AccordionSection
+                id="personal"
+                title="Personal Information"
+                subtitle="Name, contact details, and links"
+                icon={<User size={16} strokeWidth={2.4} />}
+                isOpen={openSections.personal}
+                onToggle={() => handleToggleSection('personal', !openSections.personal)}
+                onContentInteract={handleFieldInteraction}
+                badge="Required"
+            >
+                <PersonalSection {...personalSectionProps} />
+            </AccordionSection>
+
+            <AccordionSection
+                id="experience"
+                title="Work Experience"
+                subtitle="Your professional background"
+                icon={<Briefcase size={16} strokeWidth={2.4} />}
+                isOpen={openSections.experience}
+                onToggle={() => handleToggleSection('experience', !openSections.experience)}
+                onContentInteract={handleFieldInteraction}
+            >
+                <ExperienceSection {...experienceSectionProps} />
+            </AccordionSection>
+
+            <AccordionSection
+                id="education"
+                title="Education"
+                subtitle="Degrees and academic background"
+                icon={<GraduationCap size={16} strokeWidth={2.4} />}
+                isOpen={openSections.education}
+                onToggle={() => handleToggleSection('education', !openSections.education)}
+                onContentInteract={handleFieldInteraction}
+            >
+                <EducationSection
+                    educations={educations}
+                    addEducation={addEducation}
+                    removeEducation={removeEducation}
+                    updateEducation={updateEducation}
+                />
+            </AccordionSection>
+
+            <AccordionSection
+                id="languages"
+                title="Languages"
+                subtitle="Spoken languages and proficiency"
+                icon={<LanguagesIcon size={16} strokeWidth={2.4} />}
+                isOpen={openSections.languages}
+                onToggle={() => handleToggleSection('languages', !openSections.languages)}
+                onContentInteract={handleFieldInteraction}
+            >
+                <LanguagesSection
+                    languages={languages}
+                    addLanguage={addLanguage}
+                    removeLanguage={removeLanguage}
+                    updateLanguage={updateLanguage}
+                />
+            </AccordionSection>
+
+            <AccordionSection
+                id="skills"
+                title="Skills"
+                subtitle="Technical and soft skills"
+                icon={<Zap size={16} strokeWidth={2.4} />}
+                isOpen={openSections.skills}
+                onToggle={() => handleToggleSection('skills', !openSections.skills)}
+                onContentInteract={handleFieldInteraction}
+            >
+                <SkillsSection {...skillsSectionProps} />
+            </AccordionSection>
+
+            <AccordionSection
+                id="certifications"
+                title="Certifications"
+                subtitle="Professional certificates and credentials"
+                icon={<Award size={16} strokeWidth={2.4} />}
+                isOpen={openSections.certifications}
+                onToggle={() => handleToggleSection('certifications', !openSections.certifications)}
+                onContentInteract={handleFieldInteraction}
+            >
+                <CertificationsSection
+                    certifications={certifications}
+                    addCertification={addCertification}
+                    removeCertification={removeCertification}
+                    updateCertification={updateCertification}
+                />
+            </AccordionSection>
+
+            <AccordionSection
+                id="projects"
+                title="Projects"
+                subtitle="Personal, academic, or freelance work"
+                icon={<FolderGit2 size={16} strokeWidth={2.4} />}
+                isOpen={openSections.projects}
+                onToggle={() => handleToggleSection('projects', !openSections.projects)}
+                onContentInteract={handleFieldInteraction}
+            >
+                <ProjectsSection {...projectSectionProps} />
+            </AccordionSection>
+
+            <AccordionSection
+                id="achievements"
+                title="Achievements & Awards"
+                subtitle="Recognition and notable accomplishments"
+                icon={<Trophy size={16} strokeWidth={2.4} />}
+                isOpen={openSections.achievements}
+                onToggle={() => handleToggleSection('achievements', !openSections.achievements)}
+                onContentInteract={handleFieldInteraction}
+            >
+                <AchievementsSection {...achievementSectionProps} />
+            </AccordionSection>
+
+            <AccordionSection
+                id="summary"
+                title="Professional Summary"
+                subtitle="Your career overview and goals"
+                icon={<FileText size={16} strokeWidth={2.4} />}
+                isOpen={openSections.summary}
+                onToggle={() => handleToggleSection('summary', !openSections.summary)}
+                onContentInteract={handleFieldInteraction}
+            >
+                <SummarySection
+                    professionalSummary={professionalSummary}
+                    setProfessionalSummary={setProfessionalSummary}
+                    generateSummary={() => generateDescriptionForField('summary')}
+                    generateAISummary={handleAIGenerateSummary}
+                    generating={generating}
+                    aiGenerating={aiGenerating}
+                    personalInfo={personalInfo}
+                    experiences={experiences}
+                    skills={skills}
+                />
+            </AccordionSection>
+
+            <AccordionSection
+                id="export"
+                title="Export & Download"
+                subtitle="Download your CV and save your progress"
+                icon={<Download size={16} strokeWidth={2.4} />}
+                isOpen={openSections.export}
+                onToggle={() => handleToggleSection('export', !openSections.export)}
+            >
+                <div className="space-y-5">
+                    {areRequiredSectionsComplete() && (
+                        <SuccessCard
+                            realWeightedAverage={realWeightedAverage}
+                            realCompletionPercentage={realCompletionPercentage}
+                            realQuality={realQuality}
+                        />
+                    )}
+
+                    <DownloadButtons
+                        onCopy={handleCopyCV}
+                        onDownloadPDF={handleDownloadPDF}
+                        onDownloadTXT={handleDownloadTXT}
+                        onDownloadPNG={() => previewHandleRef.current?.downloadPNG()}
+                        onClear={clearAllData}
+                    />
+                </div>
+            </AccordionSection>
+        </div>
+    );
+
     return (
         <>
-            {/* ✅ SEO: CV Builder Page */}
             <SEOHead
                 title={getSEOConfig('cv-builder').title}
                 description={getSEOConfig('cv-builder').description}
@@ -739,96 +1440,74 @@ const CVBuilder: React.FC<CVBuilderProps> = ({ userId, initialTemplateId, onBack
                 ogType="website"
             />
 
-            {/* ✅ JSON-LD: CV Builder Schema */}
             <script type="application/ld+json">
                 {generateJSONLDScript(generatePageSchemas('cv-builder'))}
             </script>
 
-            <div ref={containerRef} className="h-full flex flex-col bg-black">
-                {/* Toaster */}
+            <div ref={containerRef} className="h-full flex flex-col bg-slate-100 text-slate-900">
                 <Toaster
                     position="top-center"
                     reverseOrder={false}
                     gutter={8}
                     containerStyle={{
-                        position: 'fixed',
-                        top: '20px',
-                        left: '50%',
-                        transform: 'translateX(-50%)',
-                        zIndex: 999999,
+                        position: 'fixed', top: '20px', left: '50%',
+                        transform: 'translateX(-50%)', zIndex: 999999,
                         pointerEvents: 'none',
                     }}
                     toastOptions={{
                         duration: 4000,
                         style: {
-                            background: '#1a1a2e',
-                            color: '#fff',
-                            border: '1px solid rgba(168, 85, 247, 0.3)',
-                            padding: '16px 24px',
-                            borderRadius: '12px',
-                            boxShadow: '0 20px 60px rgba(0,0,0,0.8)',
-                            backdropFilter: 'blur(10px)',
-                            pointerEvents: 'auto',
-                            maxWidth: '500px',
-                            width: 'auto',
+                            background: '#ffffff', color: '#0f172a',
+                            border: '1px solid rgba(168, 85, 247, 0.25)',
+                            padding: '16px 24px', borderRadius: '12px',
+                            boxShadow: '0 20px 60px -10px rgba(2, 6, 23, 0.15)',
+                            pointerEvents: 'auto', maxWidth: '500px', width: 'auto',
                         },
-                        success: {
-                            style: {
-                                border: '1px solid rgba(34, 197, 94, 0.3)',
-                            },
-                        },
-                        error: {
-                            style: {
-                                border: '1px solid rgba(239, 68, 68, 0.3)',
-                            },
-                        },
-                        loading: {
-                            style: {
-                                border: '1px solid rgba(168, 85, 247, 0.3)',
-                            },
-                        },
+                        success: { style: { border: '1px solid rgba(34, 197, 94, 0.3)' } },
+                        error: { style: { border: '1px solid rgba(239, 68, 68, 0.3)' } },
+                        loading: { style: { border: '1px solid rgba(168, 85, 247, 0.3)' } },
                     }}
                 />
-                
-                {/* Scrollbar Styles */}
+
                 <style>{`
                     ::-webkit-scrollbar {
                         width: 6px;
                         height: 6px;
                     }
                     ::-webkit-scrollbar-track {
-                        background: rgba(31, 41, 55, 0.5);
-                        border-radius: 10px;
+                        background: transparent;
                     }
                     ::-webkit-scrollbar-thumb {
-                        background: linear-gradient(to bottom, rgba(168, 85, 247, 0.6), rgba(59, 130, 246, 0.6));
+                        background: linear-gradient(to bottom, #a855f7, #7c3aed);
                         border-radius: 10px;
-                        transition: all 0.3s ease;
+                        transition: background 0.3s ease;
                     }
                     ::-webkit-scrollbar-thumb:hover {
-                        background: linear-gradient(to bottom, rgba(168, 85, 247, 0.8), rgba(59, 130, 246, 0.8));
+                        background: linear-gradient(to bottom, #9333ea, #6d28d9);
+                    }
+                    ::-webkit-scrollbar-corner {
+                        background: transparent;
                     }
                     * {
                         scrollbar-width: thin;
-                        scrollbar-color: rgba(168, 85, 247, 0.6) rgba(31, 41, 55, 0.5);
+                        scrollbar-color: #a855f7 transparent;
                     }
                     .overflow-auto, .overflow-y-auto, .overflow-x-auto {
                         scroll-behavior: smooth;
                     }
                 `}</style>
-                
-                {/* Validation Errors Toast */}
-                {validationErrors.length > 0 && step !== 10 && (
-                    <div className="fixed top-24 left-1/2 transform -translate-x-1/2 z-[9999] px-6 py-3.5 rounded-xl bg-gradient-to-r from-red-600 to-red-700 backdrop-blur-md border border-red-400/50 shadow-2xl animate-in slide-in-from-top fade-in duration-300">
+
+                {validationErrors.length > 0 && (
+                    <div className="fixed top-24 left-1/2 transform -translate-x-1/2 z-[9999] px-6 py-3.5 rounded-xl bg-gradient-to-r from-red-600 to-red-700 backdrop-blur-md border border-red-400/50 shadow-2xl animate-in slide-in-from-top fade-in duration-300 max-w-[90vw]">
                         <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
                                 <AlertCircle size={18} className="text-white" />
                             </div>
-                            <div>
+                            <div className="min-w-0">
                                 <p className="text-sm font-semibold text-white">Validation Error</p>
-                                <p className="text-xs text-white/80">{validationErrors[0]}</p>
+                                <p className="text-xs text-white/80 truncate">{validationErrors[0]}</p>
                             </div>
-                            <button 
+                            <button
                                 onClick={clearValidationErrors}
                                 className="ml-2 w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors duration-200 flex-shrink-0"
                             >
@@ -837,232 +1516,144 @@ const CVBuilder: React.FC<CVBuilderProps> = ({ userId, initialTemplateId, onBack
                         </div>
                     </div>
                 )}
-                
-                {/* ✅ Header - with onBackToTemplates */}
+
                 <HeaderToolbar
                     onClearAll={clearAllData}
-                    onToggleFullscreen={toggleFullscreen}
-                    isFullscreen={isFullscreen}
                     saveStatus={saveStatus}
-                    onBackToTemplates={onBackToHome}
+                    onOpenSidebar={openSidebar}
                 />
-                
-                {/* ✅ FIXED: Stepper ko uper karo - TemplateSelector se pehle */}
-                <Stepper
-                    currentStep={step}
-                    onStepClick={navigateToStep}
-                    getSectionScore={getSectionScore}
-                    isSectionComplete={isSectionComplete}
-                    hasSectionData={hasSectionData}
-                />
-                
-                {/* ✅ FIXED: Template Selector - Sirf direct Builder flow me show ho */}
-                {!initialTemplateId && (
+
+                {!isMobile && (
                     <TemplateSelector
                         template={template}
                         onTemplateChange={setTemplate}
+                        variant="buttons"
                     />
                 )}
-                
-                {/* ✅ Main Content - Mobile: Full page sections, Preview as overlay */}
-                <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-                    {/* ✅ Left Panel - Full height with bottom padding for buttons */}
-                    <div className="w-full lg:w-1/2 overflow-auto p-3 sm:p-4 md:p-6 lg:p-8 pt-4 sm:pt-4 lg:pt-8 pb-24 sm:pb-32 lg:pb-8 border-r border-gray-800">
-                        {step === 1 && <PersonalSection {...personalSectionProps} />}
-                        {step === 2 && <ExperienceSection {...experienceSectionProps} />}
-                        {step === 3 && (
-                            <EducationSection
-                                educations={educations}
-                                addEducation={addEducation}
-                                removeEducation={removeEducation}
-                                updateEducation={updateEducation}
-                            />
-                        )}
-                        {step === 4 && (
-                            <LanguagesSection
-                                languages={languages}
-                                addLanguage={addLanguage}
-                                removeLanguage={removeLanguage}
-                                updateLanguage={updateLanguage}
-                            />
-                        )}
-                        {step === 5 && <SkillsSection {...skillsSectionProps} />}
-                        {step === 6 && (
-                            <CertificationsSection
-                                certifications={certifications}
-                                addCertification={addCertification}
-                                removeCertification={removeCertification}
-                                updateCertification={updateCertification}
-                            />
-                        )}
-                        {step === 7 && <ProjectsSection {...projectSectionProps} />}
-                        {step === 8 && <AchievementsSection {...achievementSectionProps} />}
-                        {step === 9 && (
-                            <SummarySection
-                                professionalSummary={professionalSummary}
-                                setProfessionalSummary={setProfessionalSummary}
-                                generateSummary={() => generateDescriptionForField('summary')}
-                                generateAISummary={handleAIGenerateSummary}
-                                generating={generating}
-                                aiGenerating={aiGenerating}
-                                personalInfo={personalInfo}
-                                experiences={experiences}
-                                skills={skills}
-                            />
-                        )}
-                        
-                        {step === 10 && (
-                            <div className="text-center py-0 space-y-4 sm:space-y-5">
-                                {/* ATS Dashboard */}
-                                <ATSDashboard
-                                    realWeightedAverage={realWeightedAverage}
-                                    realCompletionPercentage={realCompletionPercentage}
-                                    realBreakdown={realBreakdown}
-                                    realQuality={realQuality}
-                                    realSuggestions={realSuggestions}
-                                    getScoreColor={getScoreColor}
-                                    getScoreBg={getScoreBg}
-                                />
-                                
-                                {/* Success Card */}
-                                {areRequiredSectionsComplete() && (
-                                    <SuccessCard
-                                        realWeightedAverage={realWeightedAverage}
-                                        realCompletionPercentage={realCompletionPercentage}
-                                        realQuality={realQuality}
-                                    />
-                                )}
-                                
-                                {/* AI Enhancer Panel */}
-                                <AIEnhancerPanel
-                                    onApplyEnhancement={applyAIEnhancement}
-                                    onRestoreOriginal={restoreOriginalSummary}
-                                    onGenerateSummary={handleAIGenerateSummary}
-                                    onEnhanceExperience={() => {
-                                        if (experiences.length > 0) {
-                                            handleAIGenerateExperience(0, experiences[0]);
-                                        } else {
-                                            toast.error('Add experience first');
-                                        }
-                                    }}
-                                    onProviderChange={setSelectedProvider}
-                                    selectedProvider={selectedProvider}
-                                    isLoading={aiGenerating}
-                                    isEnhancerLoading={aiEnhancerLoading}
-                                    isEnhancerUsed={isEnhancerUsed}
-                                    hasOriginalSummary={!!originalSummary}
-                                    hasExperiences={experiences.length > 0}
-                                    hasJobTitle={!!personalInfo.title?.trim()}
-                                />
-                                
-                                {/* ✅ Download Buttons - WITH FEEDBACK TRIGGER */}
-                                <DownloadButtons
-                                    onCopy={handleCopyCV}
-                                    onDownloadPDF={handleDownloadPDF}
-                                    onDownloadTXT={handleDownloadTXT}
-                                    onClear={clearAllData}
-                                />
-                            </div>
-                        )}
-                        
-                        {/* Navigation Buttons - Mobile optimized with proper spacing */}
-                        {step < 10 && (
-                            <div className="flex justify-between pt-6 sm:pt-8 lg:pt-10 mt-4 sm:mt-6 border-t border-gray-800">
-                                {step > 1 && (
-                                    <button
-                                        onClick={prevStep}
-                                        className="px-4 sm:px-5 lg:px-7 py-2.5 rounded-xl bg-gray-800/80 hover:bg-gray-700 transition-all duration-300 hover:scale-105 text-sm sm:text-base flex items-center gap-2 font-medium"
-                                    >
-                                        <ChevronLeft size={16} className="flex-shrink-0" /> Back
-                                    </button>
-                                )}
-                                <button
-                                    onClick={nextStep}
-                                    className={`px-4 sm:px-5 lg:px-7 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-blue-500 hover:opacity-90 text-white font-medium transition-all duration-300 hover:scale-105 shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 text-sm sm:text-base flex items-center gap-2 ${step > 1 ? '' : 'w-full justify-center'}`}
-                                >
-                                    Next <ChevronRight size={16} className="flex-shrink-0" />
-                                </button>
-                            </div>
-                        )}
-                        {step === 10 && (
-                            <div className="flex justify-center pt-6 sm:pt-8 lg:pt-10 mt-4 sm:mt-6 border-t border-gray-800">
-                                <button
-                                    onClick={prevStep}
-                                    className="px-4 sm:px-5 lg:px-7 py-2.5 rounded-xl bg-gray-800/80 hover:bg-gray-700 transition-all duration-300 hover:scale-105 text-sm sm:text-base flex items-center gap-2 font-medium"
-                                >
-                                    <ChevronLeft size={16} className="flex-shrink-0" /> Back to Edit
-                                </button>
-                            </div>
-                        )}
+
+                <div className="flex-1 flex overflow-hidden">
+                    <div
+                        ref={editorPaneRef}
+                        className={`
+                            w-full lg:w-1/2 overflow-auto 
+                            p-3 sm:p-4 md:p-6 lg:p-8 
+                            pb-24 lg:pb-8
+                            border-r border-slate-200
+                            bg-slate-100
+                            ${isMobile && mobileTab !== 'edit' ? 'hidden' : 'block'}
+                        `}
+                    >
+                        {renderAllSections()}
                     </div>
-                    
-                    {/* ✅ Right Panel - Desktop only, Mobile hidden (CVPreviewMobile as overlay) */}
+
                     {!isMobile && (
-                        <div ref={previewRef} className="w-full lg:w-1/2 overflow-auto mt-8 lg:mt-0">
+                        <div
+                            ref={previewPaneRef}
+                            className="w-full lg:w-1/2 overflow-auto bg-gradient-to-b from-slate-100 via-slate-50 to-slate-100"
+                        >
+                            {/* ✅ KICKRESUME STYLE: Preview gets DEBOUNCED data */}
                             <CVPreview
-                                personalInfo={personalInfo}
-                                phoneNumber={phoneNumber}
-                                selectedCountryCode={selectedCountryCode}
-                                professionalSummary={professionalSummary}
-                                experiences={experiences}
-                                educations={educations}
-                                projects={projects}
-                                certifications={certifications}
-                                languages={languages}
-                                achievements={achievements}
-                                skills={skills}
-                                profilePhoto={profilePhoto}
-                                template={template}
+                                ref={previewHandleRef}
+                                personalInfo={previewData.personalInfo}
+                                phoneNumber={previewData.phoneNumber}
+                                selectedCountryCode={previewData.selectedCountryCode}
+                                professionalSummary={previewData.professionalSummary}
+                                experiences={previewData.experiences}
+                                educations={previewData.educations}
+                                projects={previewData.projects}
+                                certifications={previewData.certifications}
+                                languages={previewData.languages}
+                                achievements={previewData.achievements}
+                                skills={previewData.skills}
+                                profilePhoto={previewData.profilePhoto}
+                                template={previewData.template}
                                 atsScore={realWeightedAverage}
                                 strength={getStrengthStatus(realWeightedAverage)}
                                 completionPercentage={realCompletionPercentage}
                                 sectionStatuses={sectionStatuses}
+                                onCopyCV={handleCopyCV}
+                                onDownloadPDF={handleDownloadPDF}
+                                onDownloadTXT={handleDownloadTXT}
+                                onOpenFeedback={() => setShowFeedbackModal(true)}
+                                onEditSection={handleEditSection}
+                                activeSection={activeSection}
+                                onPNGExportStateChange={setIsExportingPNG}
+                            />
+                        </div>
+                    )}
+
+                    {isMobile && mobileTab === 'preview' && (
+                        <div className="w-full overflow-auto pb-20 bg-slate-100">
+                            {/* ✅ KICKRESUME STYLE: Mobile preview gets DEBOUNCED data */}
+                            <CVPreviewMobile
+                                personalInfo={previewData.personalInfo}
+                                phoneNumber={previewData.phoneNumber}
+                                selectedCountryCode={previewData.selectedCountryCode}
+                                professionalSummary={previewData.professionalSummary}
+                                experiences={previewData.experiences}
+                                educations={previewData.educations}
+                                projects={previewData.projects}
+                                certifications={previewData.certifications}
+                                languages={previewData.languages}
+                                achievements={previewData.achievements}
+                                skills={previewData.skills}
+                                profilePhoto={previewData.profilePhoto}
+                                template={previewData.template}
+                                atsScore={realWeightedAverage}
+                                strength={getStrengthStatus(realWeightedAverage)}
+                                completionPercentage={realCompletionPercentage}
+                                sectionStatuses={sectionStatuses}
+                                onCopyCV={handleCopyCV}
+                                onDownloadPDF={handleDownloadPDF}
+                                onDownloadTXT={handleDownloadTXT}
+                                onOpenFeedback={() => setShowFeedbackModal(true)}
+                                onEditSection={handleEditSection}
+                                activeSection={activeSection}
                             />
                         </div>
                     )}
                 </div>
 
-                {/* ✅ Mobile Preview Overlay - Like Cover Letter */}
                 {isMobile && (
-                    <CVPreviewMobile
-                        personalInfo={personalInfo}
-                        phoneNumber={phoneNumber}
-                        selectedCountryCode={selectedCountryCode}
-                        professionalSummary={professionalSummary}
-                        experiences={experiences}
-                        educations={educations}
-                        projects={projects}
-                        certifications={certifications}
-                        languages={languages}
-                        achievements={achievements}
-                        skills={skills}
-                        profilePhoto={profilePhoto}
-                        template={template}
-                        atsScore={realWeightedAverage}
-                        strength={getStrengthStatus(realWeightedAverage)}
-                        completionPercentage={realCompletionPercentage}
-                        sectionStatuses={sectionStatuses}
-                    />
+                    <div className="fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200 px-3 py-2 shadow-lg">
+                        <div className="max-w-7xl mx-auto flex gap-2">
+                            <button
+                                onClick={() => setMobileTab('edit')}
+                                className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-medium transition-all duration-300 touch-manipulation ${
+                                    mobileTab === 'edit'
+                                        ? 'bg-gradient-to-r from-purple-600 to-purple-500 text-white shadow-lg shadow-purple-500/30'
+                                        : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-800'
+                                }`}
+                            >
+                                <Pencil size={18} className="flex-shrink-0" />
+                                <span>Edit</span>
+                            </button>
+                            <button
+                                onClick={() => setMobileTab('preview')}
+                                className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-medium transition-all duration-300 touch-manipulation ${
+                                    mobileTab === 'preview'
+                                        ? 'bg-gradient-to-r from-purple-600 to-purple-500 text-white shadow-lg shadow-purple-500/30'
+                                        : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-800'
+                                }`}
+                            >
+                                <Eye size={18} className="flex-shrink-0" />
+                                <span>Preview</span>
+                            </button>
+                        </div>
+                    </div>
                 )}
 
-                {/* ✅ Feedback Modal - Feature-Specific with onMinimize */}
-                <FeedbackModal
+                <FeedbackFullScreen
                     isOpen={showFeedbackModal}
-                    onClose={() => {
-                        setShowFeedbackModal(false);
-                        markFeedbackShown('cv-builder');
-                    }}
-                    onMinimize={handleMinimize}
+                    onClose={handleFeedbackModalClose}
                     source="cv-builder"
-                    sourceKey="cv-builder"
                 />
 
-                {/* ✅ NEW: Feedback Widget */}
-                <FeedbackWidget
-                    isVisible={showWidget}
-                    onOpen={handleOpenFromWidget}
-                    onClose={handleCloseWidget}
-                    source="cv-builder"
+                <BackupReminderPopup
+                    isOpen={showBackupReminder}
+                    onClose={handleBackupReminderClose}
+                    onDownloadId={handleBackupReminderDownloadId}
+                    onSetPin={handleBackupReminderSetPin}
                 />
             </div>
         </>

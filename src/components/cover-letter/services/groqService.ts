@@ -1,143 +1,510 @@
 // src/components/cover-letter/services/groqService.ts
+// =====================================================
+// ✅ 5 SEPARATE KEYS with priority fallback
+// ✅ include_reasoning: false (GPT-OSS fix)
+// ✅ MAX_TOKENS = 4000
+// ✅ Empty/length response → try next key
+// ✅ Queue-based concurrency control (via makeRequestWithRetry)
+// ✅ rotateNext() on success
+// =====================================================
 
-// ===== DIRECT GROQ API CALL (NO BACKEND) =====
+import {
+  FeatureKey,
+  getKeysForFeature,
+  setKeyCooldown,
+  clearKeyCooldown,
+  getConfiguredKeyCount,
+  hasAnyKey,
+  rotateNext,
+} from '../../cv-builder/services/providers/groqKeyManager';
+import { enqueue } from '../../../services/aiQueueService';
+
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const GROQ_MODEL = 'openai/gpt-oss-120b';
+const MAX_TOKENS = 4000;
 
-// ===== API KEYS FROM .ENV =====
-const API_KEYS: string[] = [
-  import.meta.env.VITE_GROQ_API_KEY_1 || '',
-  import.meta.env.VITE_GROQ_API_KEY_2 || '',
-  import.meta.env.VITE_GROQ_API_KEY_3 || ''
-].filter(key => key && key !== 'your_groq_api_key_here');
+const FEATURE: FeatureKey = 'COVER_LETTER';
 
-let currentKeyIndex = 0;
-
-// ===== KEY COOLDOWN TRACKING =====
-interface KeyStatus {
-  cooldownUntil: number;
-}
-
-const keyStatuses: Map<number, KeyStatus> = new Map();
-API_KEYS.forEach((_, index) => {
-  keyStatuses.set(index, { cooldownUntil: 0 });
-});
-
-const COOLDOWN_DURATION = 60 * 1000;
-
-// ===== GET NEXT AVAILABLE KEY =====
-const getNextApiKey = (): { apiKey: string; keyIndex: number } => {
-  if (API_KEYS.length === 0) {
-    throw new Error('No GROQ API keys configured');
-  }
-
-  const now = Date.now();
-  let checkedKeys = 0;
-
-  while (checkedKeys < API_KEYS.length) {
-    const index = currentKeyIndex % API_KEYS.length;
-    const status = keyStatuses.get(index);
-
-    if (!status || status.cooldownUntil <= now) {
-      currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
-      return { apiKey: API_KEYS[index], keyIndex: index };
-    }
-
-    currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
-    checkedKeys++;
-  }
-
-  throw new Error('Traffic overload detected. Please try again after a few moments.');
-};
-
-const setKeyCooldown = (keyIndex: number): void => {
-  const status = keyStatuses.get(keyIndex);
-  if (status) {
-    status.cooldownUntil = Date.now() + COOLDOWN_DURATION;
-  }
-};
-
-const clearKeyCooldown = (keyIndex: number): void => {
-  const status = keyStatuses.get(keyIndex);
-  if (status) {
-    status.cooldownUntil = 0;
-  }
-};
-
-// ===== MAKE REQUEST WITH RETRY =====
-const makeRequestWithRetry = async (
-  requestBody: any,
-  maxRetries: number = API_KEYS.length
-): Promise<any> => {
+// ============================================================
+// INTERNAL: raw HTTP loop (not queued)
+// ============================================================
+const runRequestWithRetry = async (requestBody: any): Promise<any> => {
   let lastError: Error | null = null;
-  const triedKeys = new Set<number>();
 
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
+  const keys = getKeysForFeature(FEATURE);
+
+  if (keys.length === 0) {
+    throw new Error(
+      'All API keys are rate-limited. Please try again in a moment.'
+    );
+  }
+
+  console.log(
+    `🔑 Cover Letter: trying ${keys.length} key(s) in order: ${keys
+      .map((k) => k.source)
+      .join(' → ')}`
+  );
+
+  for (const { apiKey, source } of keys) {
     try {
-      let apiKey: string;
-      let keyIndex: number = -1;
-      let keyFound = false;
-      let attemptsInLoop = 0;
-
-      while (attemptsInLoop < API_KEYS.length) {
-        try {
-          const result = getNextApiKey();
-          apiKey = result.apiKey;
-          keyIndex = result.keyIndex;
-
-          if (!triedKeys.has(keyIndex)) {
-            keyFound = true;
-            break;
-          }
-          attemptsInLoop++;
-        } catch (error) {
-          attemptsInLoop++;
-        }
-      }
-
-      if (!keyFound || keyIndex === -1) {
-        continue;
-      }
-
-      triedKeys.add(keyIndex);
-      console.log(`🔄 Attempt ${attempt + 1}/${maxRetries} with Key #${keyIndex + 1}`);
+      console.log(`🔄 Cover Letter: attempting with key [${source}]`);
 
       const response = await fetch(GROQ_API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
+          Authorization: `Bearer ${apiKey}`,
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(requestBody),
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.warn(`⚠️ Key #${keyIndex + 1} failed: ${response.status} - ${errorText}`);
+      if (response.ok) {
+        const responseData = await response.json();
+        const message = responseData?.choices?.[0]?.message;
+        const content = (message?.content || '').trim();
+        const finishReason = responseData?.choices?.[0]?.finish_reason;
 
-        if (response.status === 429) {
-          setKeyCooldown(keyIndex);
-          lastError = new Error(`API Error: ${response.status} - ${errorText}`);
+        if (!content || content.length < 50) {
+          console.warn(
+            `⚠️ Cover Letter key [${source}] empty/short content (${content.length} chars, finish=${finishReason}). Trying next key...`
+          );
+          lastError = new Error(
+            `Empty response on [${source}] (finish=${finishReason})`
+          );
           continue;
         }
 
-        throw new Error(`API Error: ${response.status} - ${errorText}`);
+        if (finishReason === 'length') {
+          console.warn(
+            `⚠️ Cover Letter key [${source}] hit token limit (finish=length). Trying next key...`
+          );
+          lastError = new Error(`Token limit reached on [${source}]`);
+          continue;
+        }
+
+        console.log(`✅ Cover Letter: success with key [${source}]`);
+        clearKeyCooldown(source);
+        rotateNext();
+        return responseData;
       }
 
-      const responseData = await response.json();
-      console.log(`✅ Request successful with Key #${keyIndex + 1}`);
-      clearKeyCooldown(keyIndex);
-      return responseData;
+      const errorText = await response.text();
+      console.warn(
+        `⚠️ Cover Letter key [${source}] failed: ${response.status} - ${errorText}`
+      );
 
+      if (response.status === 429) {
+        setKeyCooldown(source);
+        lastError = new Error(`Rate limit on [${source}]`);
+        continue;
+      }
+
+      if (response.status === 401 || response.status === 403) {
+        setKeyCooldown(source);
+        lastError = new Error(`Invalid key [${source}] (${response.status})`);
+        continue;
+      }
+
+      if (response.status === 404) {
+        throw new Error(`Model not found: ${errorText}`);
+      }
+
+      lastError = new Error(
+        `API Error on [${source}]: ${response.status} - ${errorText}`
+      );
+      continue;
     } catch (error) {
-      console.warn(`❌ Key attempt ${attempt + 1} failed:`, error);
+      console.warn(`❌ Cover Letter key [${source}] error:`, error);
       lastError = error as Error;
+
+      if ((error as Error).message?.includes('Model not found')) {
+        throw error;
+      }
     }
   }
 
-  throw new Error('Traffic overload detected. Please try again after a few moments.');
+  throw lastError || new Error('AI is busy. Please try again in a moment.');
 };
 
-// ===== GENERATE COVER LETTER =====
+// ============================================================
+// PUBLIC: queued wrapper
+// ============================================================
+const makeRequestWithRetry = async (requestBody: any): Promise<any> => {
+  return enqueue(() => runRequestWithRetry(requestBody));
+};
+
+// ============================================================
+// ✅ FRESHER DETECTION
+// ============================================================
+const detectFresherMode = (
+  currentTitle?: string,
+  currentCompany?: string,
+  yearsOfExperience?: number
+): boolean => {
+  const hasTitle = !!(currentTitle && currentTitle.trim());
+  const hasCompany = !!(currentCompany && currentCompany.trim());
+  const hasYears = !!(yearsOfExperience && yearsOfExperience > 0);
+  return !hasTitle && !hasCompany && !hasYears;
+};
+
+// ============================================================
+// ✅ DETECT EXPERIENCE LEVEL → LENGTH TARGET
+// ============================================================
+interface LengthTarget {
+  level: string;
+  min: number;
+  max: number;
+}
+
+const getLengthTarget = (
+  years?: number,
+  title?: string,
+  currentCompany?: string
+): LengthTarget => {
+  if (detectFresherMode(title, currentCompany, years)) {
+    return { level: 'Fresher', min: 250, max: 350 };
+  }
+
+  const lowerTitle = (title || '').toLowerCase();
+  const isSeniorTitle =
+    /senior|lead|principal|head|manager|director|architect|vp|chief/.test(
+      lowerTitle
+    );
+  const isFresherTitle =
+    /junior|intern|trainee|graduate|entry|fresher/.test(lowerTitle);
+
+  if (years && years >= 6) return { level: 'Senior', min: 300, max: 400 };
+  if (isSeniorTitle && (!years || years >= 1))
+    return { level: 'Senior', min: 300, max: 400 };
+  if (isFresherTitle) return { level: 'Fresher', min: 250, max: 350 };
+  if (!years || years === 0) return { level: 'Mid-level', min: 280, max: 350 };
+  if (years >= 1 && years <= 5)
+    return { level: 'Mid-level', min: 280, max: 350 };
+
+  return { level: 'Mid-level', min: 280, max: 350 };
+};
+
+const escapeRegex = (s: string): string => {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
+
+// ============================================================
+// ✅ TEXT EXTRACTOR
+// ============================================================
+const extractTextFromResponse = (
+  responseData: any,
+  hiringManagerName?: string
+): string => {
+  const message = responseData?.choices?.[0]?.message;
+  if (!message) return '';
+
+  const content = (message.content || '').trim();
+  const reasoning = (message.reasoning || '').trim();
+
+  if (content.length >= 50) return content;
+
+  if (reasoning.length > 0) {
+    console.log('⚠️ Empty/short content — extracting from reasoning');
+    try {
+      const extracted = extractFinalAnswerFromReasoning(
+        reasoning,
+        hiringManagerName
+      );
+      if (extracted.length >= 50) {
+        console.log(
+          '🔍 EXTRACTED (first 300 chars):',
+          JSON.stringify(extracted.slice(0, 300))
+        );
+        return extracted;
+      }
+      return reasoning;
+    } catch (err) {
+      console.warn('⚠️ Reasoning extraction failed — triggering fallback');
+      throw err;
+    }
+  }
+
+  return '';
+};
+
+const extractFinalAnswerFromReasoning = (
+  reasoning: string,
+  hiringManagerName?: string
+): string => {
+  const startMarkers = [
+    /\*\*Final[^*]*\*\*\s*:?\s*/i,
+    /\*\*Cover Letter[^*]*\*\*\s*:?\s*/i,
+    /\*\*Response[^*]*\*\*\s*:?\s*/i,
+    /Final answer\s*:?\s*/i,
+    /Here is the cover letter\s*:?\s*/i,
+    /Here's the cover letter\s*:?\s*/i,
+    /Here is the letter\s*:?\s*/i,
+    /Now,?\s+writing the cover letter\s*:?\s*/i,
+    /Now,?\s+the cover letter\s*:?\s*/i,
+    /Alright,?\s+writing the cover letter\s*:?\s*/i,
+    /Here is the final cover letter\s*:?\s*/i,
+    /The final cover letter\s*:?\s*/i,
+    /Final version\s*:?\s*/i,
+    /Cover letter body\s*:?\s*/i,
+    /Body of the cover letter\s*:?\s*/i,
+  ];
+
+  let bestIndex = -1;
+  let bestLength = 0;
+
+  for (const marker of startMarkers) {
+    const matches = [...reasoning.matchAll(new RegExp(marker.source, 'gi'))];
+    if (matches.length > 0) {
+      const lastMatch = matches[matches.length - 1];
+      if (lastMatch.index !== undefined && lastMatch.index > bestIndex) {
+        bestIndex = lastMatch.index;
+        bestLength = lastMatch[0].length;
+      }
+    }
+  }
+
+  let extracted = '';
+
+  if (bestIndex >= 0) {
+    extracted = reasoning.slice(bestIndex + bestLength).trim();
+  } else {
+    const candidateStarts = [
+      /I am writing to apply/i,
+      /I am writing to express/i,
+      /I am excited to apply/i,
+      /I am writing to express my interest/i,
+      /I am writing in response to/i,
+      /I am writing to apply for/i,
+    ];
+
+    let bestStart = -1;
+    for (const pattern of candidateStarts) {
+      const matches = [...reasoning.matchAll(new RegExp(pattern.source, 'gi'))];
+      if (matches.length > 0) {
+        const firstMatch = matches[0];
+        if (firstMatch.index !== undefined) {
+          if (bestStart < 0 || firstMatch.index < bestStart) {
+            bestStart = firstMatch.index;
+          }
+        }
+      }
+    }
+
+    if (bestStart >= 0) {
+      extracted = reasoning.slice(bestStart).trim();
+    } else {
+      const isInternalNote =
+        /Rewrite\s+P\d|Let me\s+think|Now\s+we\s+removed|I\s+need\s+to\s+revise|Hmm,|Okay,\s+let\s+me|Actually,|Wait,|Let me\s+reconsider|I'll\s+now|Let me\s+refine/i.test(
+          reasoning
+        );
+      if (isInternalNote) {
+        throw new Error(
+          'AI returned reasoning-only response without valid letter body'
+        );
+      }
+
+      const paragraphs = reasoning
+        .split(/\n\n+/)
+        .filter((p) => p.trim().length > 0);
+      if (paragraphs.length > 3) {
+        extracted = paragraphs.slice(-5).join('\n\n').trim();
+      } else {
+        extracted = reasoning;
+      }
+    }
+  }
+
+  if (hiringManagerName && hiringManagerName.trim()) {
+    const name = hiringManagerName.trim();
+    const escapedName = escapeRegex(name);
+
+    extracted = extracted.replace(
+      new RegExp(`^\\s*${escapedName}\\s*[,:.\\-]?[\\s\\n]+`, 'i'),
+      ''
+    );
+
+    extracted = extracted.replace(
+      new RegExp(`^\\s*Dear\\s+${escapedName}\\s*[,:]?[\\s\\n]+`, 'i'),
+      ''
+    );
+  }
+
+  extracted = extracted.replace(
+    /^\s*Dear\s+[A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z][A-Za-z.'-]*)*\s*[,:]?[\s\n]+/i,
+    ''
+  );
+
+  return extracted.trim();
+};
+
+const cleanReasoningArtifacts = (text: string): string => {
+  let cleaned = text;
+
+  cleaned = cleaned.replace(/\*\*/g, '');
+  cleaned = cleaned.replace(/(?<!\w)\*(?!\w)/g, '');
+
+  const internalNotePrefixes = [
+    /^Rewrite\s+P\d\s*:?\s*/i,
+    /^Now\s+we\s+removed\s+[^\n]*\n+/i,
+    /^Let me\s+(think|refine|reconsider|revise)[^\n]*\n+/i,
+    /^Okay,?\s+(so\s+)?(let me|I need to|I'll|I will)[^\n]*\n+/i,
+    /^Alright,?[^\n]*\n+/i,
+    /^First,?\s+I[^\n]*\n+/i,
+    /^Hmm,?[^\n]*\n+/i,
+    /^So,?\s+[^\n]*\n+/i,
+    /^Now,?\s+[^\n]*\n+/i,
+    /^Actually,?[^\n]*\n+/i,
+    /^Wait,?[^\n]*\n+/i,
+    /^I\s+(need to|will|am going to|should)[^\n]*\n+/i,
+  ];
+  for (const prefix of internalNotePrefixes) {
+    cleaned = cleaned.replace(prefix, '');
+  }
+
+  cleaned = cleaned.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/i, '');
+  cleaned = cleaned.replace(/```/g, '');
+
+  const suffixesToRemove = [
+    /\n+(That's|This is|Here is|I've)\s+(the|a|my|the final)[^\n]*$/i,
+    /\n+(Word count|Length|Total words)[^\n]*$/i,
+    /\n+\(?\d+\s+words?\)?\s*$/i,
+    /\n+Let me know[^\n]*$/i,
+    /\n+Feel free[^\n]*$/i,
+    /\n+I hope[^\n]*$/i,
+  ];
+  for (const suffix of suffixesToRemove) {
+    cleaned = cleaned.replace(suffix, '');
+  }
+
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+
+  return cleaned.trim();
+};
+
+const removeHiringManagerPrefix = (
+  text: string,
+  hiringManagerName?: string
+): string => {
+  if (!text) return text;
+
+  let cleaned = text.trim();
+
+  for (let i = 0; i < 3; i++) {
+    const before = cleaned;
+    cleaned = cleaned.replace(
+      /^\s*Dear\s+[A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z][A-Za-z.'-]*)*\s*[,:]?[\s\n]+/i,
+      ''
+    );
+    if (cleaned === before) break;
+  }
+
+  if (hiringManagerName && hiringManagerName.trim()) {
+    const name = hiringManagerName.trim();
+    const escapedName = escapeRegex(name);
+
+    for (let i = 0; i < 3; i++) {
+      const before = cleaned;
+
+      cleaned = cleaned.replace(
+        new RegExp(`^\\s*${escapedName}\\s*[,:.\\-]?[\\s\\n]+`, 'i'),
+        ''
+      );
+
+      cleaned = cleaned.replace(
+        new RegExp(`^\\s*${escapedName}\\s*$`, 'i'),
+        ''
+      );
+
+      const firstName = name.split(/\s+/)[0];
+      if (firstName && firstName.length >= 3) {
+        const escapedFirst = escapeRegex(firstName);
+        cleaned = cleaned.replace(
+          new RegExp(`^\\s*${escapedFirst}\\s*[,:.\\-]?[\\s\\n]+`, 'i'),
+          ''
+        );
+      }
+
+      if (cleaned === before) break;
+    }
+
+    const lowerName = name.toLowerCase();
+    const firstChunk = cleaned.slice(0, 200);
+    const idx = firstChunk.toLowerCase().indexOf(lowerName);
+
+    if (idx >= 0 && idx < 100) {
+      cleaned =
+        cleaned.slice(0, idx) +
+        cleaned.slice(idx + name.length).replace(/^[\s,.:;\-]+/, '');
+    }
+  }
+
+  const firstChar = cleaned.charAt(0);
+  if (firstChar && !/[A-Za-z]/.test(firstChar)) {
+    cleaned = cleaned.replace(/^[^A-Za-z]+/, '');
+  }
+
+  cleaned = cleaned.replace(/^[\s\n]+/, '').trim();
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+
+  return cleaned;
+};
+
+// ============================================================
+// ✅ STYLE FRAMEWORKS
+// ============================================================
+const styleFrameworks: Record<string, string> = {
+  professional: `PROFESSIONAL STYLE:
+- Confident but natural introduction
+- Simple, direct business English
+- Warm and professional tone
+- Concrete over abstract`,
+
+  executive: `EXECUTIVE STYLE:
+- High-level positioning (only if user data supports leadership)
+- Authoritative but not arrogant tone
+- Direct, decisive language
+- Focus on strategic context only when supported by user data`,
+
+  technical: `TECHNICAL STYLE:
+- Engineering-minded tone
+- Precise technical vocabulary
+- Mention only technologies the user actually listed
+- Focus on practical problem-solving`,
+
+  creative: `CREATIVE STYLE:
+- Engaging but professional tone
+- 80% professional, 20% personality
+- Natural flow, not overly poetic
+- Genuine interest in the work`,
+
+  persuasive: `PERSUASIVE STYLE:
+- Strong value proposition (using real data)
+- Confident, direct statements
+- Every sentence adds value
+- No filler or generic claims`,
+
+  confident: `CONFIDENT STYLE:
+- Bold but grounded tone
+- Strong action verbs
+- Self-assured without exaggeration
+- Specific over generic`,
+
+  enthusiastic: `ENTHUSIASTIC STYLE:
+- Warm, genuine energy
+- Positive but professional
+- Real interest in the role
+- Not overly emotional`,
+
+  empathetic: `EMPATHETIC STYLE:
+- Warm, human-centered tone
+- Collaborative language
+- Genuine and respectful
+- Conversational but professional`,
+};
+
+// ============================================================
+// ✅ GENERATE COVER LETTER
+// ============================================================
 export const generateCoverLetterWithAI = async (data: {
   userName: string;
   jobTitle: string;
@@ -148,225 +515,631 @@ export const generateCoverLetterWithAI = async (data: {
   projects: string;
   additionalInfo: string;
   selectedStyle: string;
+  hiringManagerName?: string;
+  currentTitle?: string;
+  currentCompany?: string;
+  yearsOfExperience?: number;
+  jobDescription?: string;
 }): Promise<string> => {
+  console.log('🔑 Total configured keys:', getConfiguredKeyCount());
+  console.log(
+    '🔍 hiringManagerName value:',
+    JSON.stringify(data.hiringManagerName)
+  );
+  console.log('🔍 Using model:', GROQ_MODEL);
 
-  console.log('🔑 Total API Keys available:', API_KEYS.length);
-
-  if (API_KEYS.length === 0) {
-    throw new Error('Traffic overload detected. Please try again after a few moments.');
+  if (!hasAnyKey()) {
+    throw new Error('AI service not configured. Please contact support.');
   }
 
-  const skillsList = data.skills ? data.skills.split(',').map(s => s.trim()).filter(s => s.length > 0) : [];
-  const formattedSkills = skillsList.length > 0 ? skillsList.join(', ') : 'various skills';
+  const skillsList = data.skills
+    ? data.skills
+        .split(',')
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0)
+    : [];
+  const formattedSkills =
+    skillsList.length > 0 ? skillsList.join(', ') : '(none provided)';
 
-  const educationParts = data.education ? data.education.split(',').map(s => s.trim()) : [];
-  const degree = educationParts.length > 0 ? educationParts[0] : '';
-  const university = educationParts.length > 1 ? educationParts[1] : '';
+  const styleFramework =
+    styleFrameworks[data.selectedStyle] || styleFrameworks['professional'];
 
-  // ===== STYLE FRAMEWORKS =====
-  const styleFrameworks: Record<string, string> = {
-    'professional': `PROFESSIONAL STYLE FRAMEWORK:
-- OPENING: Start with a confident, formal introduction that immediately connects your experience to the company's needs
-- VOCABULARY: Use sophisticated business terminology: "strategic," "implemented," "optimized," "delivered," "spearheaded," "exceeded," "streamlined"
-- TONE: Balanced confidence with humility - assertive but respectful
-- ATS EMPHASIS: Integrate industry-standard keywords naturally: "cross-functional collaboration," "stakeholder engagement," "KPI achievement," "process improvement"
-- STRUCTURE: Clear topic sentences with evidence-based support; professional transitions ("Furthermore," "Additionally," "Consequently")
-- ACHIEVEMENTS: Quantify results with metrics ($ amounts, percentages, time saved)
-- COMPANY ALIGNMENT: Reference company goals and how your background supports them
-- CLOSING: Professional call-to-action with confidence in your fit
-- SENTENCES: Varied length with smooth, polished flow; occasional complex sentences
-- FOCUS: Business outcomes, professional growth, organizational contribution`,
+  const isFresherMode = detectFresherMode(
+    data.currentTitle,
+    data.currentCompany,
+    data.yearsOfExperience
+  );
 
-    'executive': `EXECUTIVE STYLE FRAMEWORK:
-- OPENING: Start with strategic impact - "As a [role] with [years] of experience driving [business outcome]" or similar high-level positioning
-- VOCABULARY: Executive-level language: "orchestrated," "transformed," "architected," "spearheaded," "governance," "strategic alignment," "organizational restructuring," "revenue optimization," "market expansion," "enterprise-wide"
-- TONE: Authoritative, visionary, decisive - immediate leadership presence
-- LEADERSHIP: Emphasize team management, board-level communication, cross-functional leadership
-- STRATEGY: Show big-picture thinking, long-term planning, business transformation
-- IMPACT: Focus on enterprise-level results, market share, organizational efficiency
-- DECISION-MAKING: Demonstrate executive judgment, risk management, resource allocation
-- LANGUAGE: Concise, powerful, forward-looking; avoid operational or tactical language
-- STRUCTURE: Strategic overview → organizational impact → leadership achievements → future vision
-- CLOSING: Vision-driven call-to-action with emphasis on partnership and strategic value
-- SENTENCES: Commanding, authoritative cadence; bold statements with clear direction
-- FOCUS: Transformational leadership, business growth, strategic partnerships`,
+  const hasExperience = !!(
+    data.currentTitle?.trim() || data.currentCompany?.trim()
+  );
+  const years =
+    data.yearsOfExperience && data.yearsOfExperience > 0
+      ? data.yearsOfExperience
+      : null;
 
-    'technical': `TECHNICAL STYLE FRAMEWORK:
-- OPENING: Start with technical expertise and engineering approach to solving problems
-- VOCABULARY: Technical precision: "architected," "implemented," "optimized," "debugged," "scaled," "deployed," "containerized," "automated"
-- TECHNOLOGY FOCUS: Explicitly mention specific technologies: programming languages, frameworks, databases, cloud platforms, tools
-- ENGINEERING MINDSET: Emphasize problem-solving, system thinking, and technical excellence
-- ARCHITECTURE: Reference system design, scalable solutions, performance optimization, security considerations
-- ACHIEVEMENTS: Quantify technical impact (performance improvements, error reduction, deployment speed)
-- APPROACH: Detail technical challenges and solutions with engineering rigor
-- LANGUAGE: Direct, precise, technical but accessible to non-technical readers
-- STRUCTURE: Technical problem → innovative solution → measurable technical results
-- CLOSING: Focus on technical contribution to the engineering team and product
-- SENTENCES: Clear, logical, structured - like good technical documentation
-- FOCUS: Code quality, system architecture, technical leadership, innovation`,
+  const lengthTarget = getLengthTarget(
+    data.yearsOfExperience,
+    data.currentTitle,
+    data.currentCompany
+  );
 
-    'creative': `CREATIVE STYLE FRAMEWORK:
-- OPENING: Start with a compelling hook - a question, observation, or unique perspective that captures attention
-- VOCABULARY: Vivid, imaginative language: "crafted," "designed," "sculpted," "envisioned," "orchestrated"
-- STORYTELLING: Weave narrative elements - the journey, the challenge, the transformation
-- PERSONALITY: Show authentic voice; 80% professional, 20% personal flair
-- STRUCTURE: Hook → narrative arc → key achievements → compelling conclusion
-- TRANSITIONS: Creative bridges between ideas - "What began as... evolved into..."
-- EXAMPLES: Paint vivid pictures of your work experience with specific, colorful details
-- ORIGINALITY: Avoid clichés; find unique ways to express professional achievements
-- LANGUAGE: Poetic but professional; rhythm and flow matter
-- CLOSING: Memorable, resonant closing that leaves a strong impression
-- SENTENCES: Varied, musical, sometimes shorter for impact, sometimes flowing and descriptive
-- FOCUS: Innovation, creativity, problem-solving, unique perspective
-- ATS NOTE: All creative elements must still incorporate relevant keywords`,
+  console.log(
+    `🧭 Experience mode: ${isFresherMode ? 'FRESHER' : 'EXPERIENCED'}`
+  );
+  console.log(
+    `📏 Detected level: ${lengthTarget.level} → ${lengthTarget.min}-${lengthTarget.max} words`
+  );
 
-    'persuasive': `PERSUASIVE STYLE FRAMEWORK:
-- OPENING: Strong value proposition - immediately demonstrate ROI and why you're the solution to their problem
-- VOCABULARY: Compelling language: "proven," "demonstrated," "accelerated," "generated," "transformed"
-- EMPLOYER FOCUS: Every sentence answers "What's in it for the employer?"
-- BUSINESS BENEFITS: Connect every achievement to business value (profit, efficiency, growth)
-- CONVINCING ARGUMENTS: Present a logical case with supporting evidence
-- IMPACT: Exaggerate nothing - use real metrics and genuine value propositions
-- STRUCTURE: Problem → solution → proof of success → irresistible closing
-- LANGUAGE: Confident, assertive, persuasive - make them want to hire you immediately
-- CALL-TO-ACTION: Strong closing that positions you as the obvious choice
-- SENTENCES: Bold, declarative statements; compelling flow with clear logic
-- FOCUS: Proven results, business value, competitive advantage, problem solving`,
+  const experienceModeBlock = isFresherMode
+    ? `═══════════════════════════════════════════════
+🚫 FRESHER MODE — NO EXPERIENCE PROVIDED (CRITICAL)
+═══════════════════════════════════════════════
+The applicant has NOT provided ANY experience information:
+   - Current / Most Recent Job Title: EMPTY
+   - Company Name: EMPTY
+   - Years of Experience: EMPTY
 
-    'confident': `CONFIDENT STYLE FRAMEWORK:
-- OPENING: Bold, authoritative start that establishes credibility and presence
-- VOCABULARY: Strong action verbs: "delivered," "achieved," "led," "developed," "implemented," "accelerated"
-- OWNERSHIP: Use "I" statements that show responsibility and achievement
-- RESULTS: Emphasize outcomes and performance with specific metrics
-- ACHIEVEMENT-DRIVEN: Every paragraph highlights significant accomplishments
-- LEADERSHIP LANGUAGE: Show initiative, ownership, and ability to drive results
-- TONE: Self-assured but authentic - never arrogant or overpromising
-- STRUCTURE: Authority → proven results → leadership examples → confident closing
-- LANGUAGE: Decisive, direct, powerful - like someone who knows their value
-- SENTENCES: Strong, definitive; varied but consistently assertive
-- FOCUS: Leadership, results, initiative, professional excellence
-- AUTHENTICITY: Ground all confidence in actual achievements`,
+You MUST treat this applicant as a FRESHER / ENTRY-LEVEL / JUNIOR candidate.
 
-    'enthusiastic': `ENTHUSIASTIC STYLE FRAMEWORK:
-- OPENING: Energized, passionate introduction that shows genuine excitement for the role
-- VOCABULARY: Positive, energetic language: "thrilled," "passionate," "excited," "inspired," "curious," "driven"
-- PASSION: Show genuine interest in the work and the company
-- CURIOSITY: Express eagerness to learn and grow
-- MOTIVATION: Explain what drives you professionally and why this role matters
-- EXCITEMENT: Convey authentic enthusiasm for the opportunity
-- STRUCTURE: Passionate hook → demonstrated interest → skills and contribution → enthusiastic closing
-- LANGUAGE: Warm, engaging, positive - energy without being overwhelming
-- SENTENCES: Energetic rhythm; shorter, punchier sentences mixed with flowing enthusiasm
-- FOCUS: Passion for the field, desire to contribute, alignment with company mission
-- BALANCE: Enthusiasm tempered with professionalism and substance`,
+⚠️ EMPTY EXPERIENCE ≠ SHORT OR GENERIC LETTER (CRITICAL)
+A fresher MUST still receive a strong, complete, personalized cover
+letter. Do NOT write a weak, generic, or thin letter simply because
+experience is missing.
 
-    'empathetic': `EMPATHETIC STYLE FRAMEWORK:
-- OPENING: Warm, human-focused start that connects on a personal level
-- VOCABULARY: Collaborative, caring language: "supported," "collaborated," "listened," "understood," "advocated"
-- HUMAN CONNECTION: Focus on people, relationships, and understanding needs
-- COLLABORATION: Emphasize teamwork, partnership, and shared success
-- CUSTOMER FOCUS: Show dedication to service, user experience, and meeting needs
-- EMOTIONAL INTELLIGENCE: Demonstrate ability to understand, empathize, and connect
-- STRUCTURE: Human connection → service mindset → collaborative achievements → relationship-focused closing
-- LANGUAGE: Warm, genuine, respectful - builds trust and rapport
-- SENTENCES: Softer, more conversational; approachable and friendly cadence
-- FOCUS: People, service, collaboration, understanding, team success`
-  };
+You SHOULD use:
+   - Personal information (name)
+   - Target job title
+   - Target company
+   - Job description
+   - Skills explicitly provided by the applicant
+   - Motivation, enthusiasm, willingness to learn
+   - Readiness to contribute
+   - Alignment between provided skills and job requirements
+   - Professional growth mindset
 
-  const styleFramework = styleFrameworks[data.selectedStyle] || styleFrameworks['professional'];
+✅ ALLOWED — describing provided skills as a foundation:
+   "My foundation in HTML5, CSS3, JavaScript, TypeScript, and Angular
+    has prepared me to contribute to modern web development."
+   "I am familiar with HTML5, CSS3, JavaScript, TypeScript, and Angular."
+   "I am eager to apply my existing technical foundation while
+    contributing to the web development responsibilities outlined for
+    this role."
 
-  const systemPrompt = `You are an expert cover letter writer. Write ONLY the BODY of a professional cover letter.
+❌ Do NOT claim HOW or WHERE the skills were acquired or used.
+   ❌ "I used Angular at my last job to build..."
+   ❌ "I learned these skills in university..."
+   ❌ "I applied these skills during an internship..."
+
+═══════════════════════════════════════════════
+🚫 DO NOT INVENT BACKGROUND (CRITICAL)
+═══════════════════════════════════════════════
+When Experience is empty, DO NOT invent:
+   ❌ employment
+   ❌ previous jobs
+   ❌ "X years of experience"
+   ❌ "With X years of experience"
+   ❌ "I have X years of experience"
+   ❌ "several years of experience"
+   ❌ "extensive experience"
+   ❌ "professional experience"
+   ❌ "my current role" / "my previous role"
+   ❌ "in my current position" / "in my previous position"
+   ❌ employers
+   ❌ internships
+   ❌ education / degrees
+   ❌ graduation status
+   ❌ university / college
+   ❌ coursework
+   ❌ academic projects
+   ❌ personal projects
+   ❌ extracurricular activities
+   ❌ certifications
+   ❌ achievements
+   ❌ clients
+   ❌ professional responsibilities
+   ❌ professional results
+   ❌ metrics
+   ❌ practical / clinical / technical / business experience
+
+❌ FORBIDDEN PHRASINGS (unless explicitly provided):
+   ❌ "I recently graduated..."
+   ❌ "My coursework taught me..."
+   ❌ "During university, I built..."
+   ❌ "I have built several Angular applications..."
+   ❌ "During my internship..."
+   ❌ "Through my studies..."
+   ❌ "As a recent graduate..."
+   ❌ "In my personal projects..."
+   ❌ "While building X..."
+   ❌ "I developed these skills during..."
+   ❌ "I gained experience with X by..."
+   ❌ any sentence that claims WHERE or HOW the applicant acquired or
+      used the provided skills
+
+═══════════════════════════════════════════════
+🚫 JOB DESCRIPTION ≠ APPLICANT EXPERIENCE (CRITICAL)
+═══════════════════════════════════════════════
+The Job Description describes what the EMPLOYER wants.
+It is NOT evidence that the applicant has done those things.
+
+❌ FORBIDDEN — converting JD responsibilities into applicant experience:
+   JD says: "Responsibilities include developing new web features, fixing bugs, optimizing performance, integrating APIs, ensuring cross-browser compatibility."
+   You MUST NOT write: "I have experience developing web features, fixing bugs, optimizing performance, integrating APIs, and ensuring cross-browser compatibility."
+
+✅ ALLOWED — connecting skills to the JD without claiming experience:
+   "I am eager to apply my existing technical foundation while
+    contributing to the web development responsibilities outlined
+    for this role."
+
+The candidate's skills may be connected to the JD, but the JD must
+NEVER be converted into fabricated applicant experience.`
+    : `═══════════════════════════════════════════════
+✅ EXPERIENCED MODE — EXPERIENCE METADATA PROVIDED
+═══════════════════════════════════════════════
+The applicant HAS provided experience METADATA:
+${data.currentTitle?.trim() ? `   - Current / Most Recent Job Title: ${data.currentTitle.trim()}` : ''}
+${data.currentCompany?.trim() ? `   - Company Name: ${data.currentCompany.trim()}` : ''}
+${years ? `   - Years of Experience: ${years}` : ''}
+
+═══════════════════════════════════════════════
+🧭 METADATA vs RESPONSIBILITIES (CRITICAL SPLIT)
+═══════════════════════════════════════════════
+METADATA is FACTUAL and may be stated directly:
+   ✅ Job Title
+   ✅ Company Name
+   ✅ Years of Experience
+
+RESPONSIBILITIES / DETAILS require EXPLICIT user-provided information.
+The user has NOT provided any responsibility details.
+
+✅ ALLOWED — using metadata:
+   "With ${years || 'my'} years of experience as a ${data.currentTitle?.trim() || 'professional'}${data.currentCompany?.trim() ? ` at ${data.currentCompany.trim()}` : ''}..."
+   "As a ${data.currentTitle?.trim() || 'professional'}${data.currentCompany?.trim() ? ` at ${data.currentCompany.trim()}` : ''}, I focus on..."
+
+❌ FORBIDDEN — inventing responsibilities the user did NOT provide:
+   ❌ "I regularly collaborate with designers."
+   ❌ "I routinely test pages."
+   ❌ "I keep documentation current."
+   ❌ "I optimize website performance."
+   ❌ "I developed modular Angular components."
+   ❌ "I fixed bugs and integrated APIs."
+   ❌ "I led a team."
+   ❌ "I managed clients."
+   ❌ "I improved performance by X%."
+   ❌ any specific task, project, product, responsibility, achievement,
+      metric, client, result, or activity not explicitly supplied
+
+You do NOT know:
+   - what exact tasks the applicant performed
+   - what projects they worked on
+   - what products they built
+   - whether they worked with APIs, testing, accessibility, docs,
+     design collaboration, performance, clients, or leadership
+
+Therefore you MUST NOT state any of these as the applicant's
+experience.
+
+═══════════════════════════════════════════════
+🚫 OTHER PROHIBITIONS (EXPERIENCED MODE)
+═══════════════════════════════════════════════
+You MUST NOT invent:
+   ❌ additional responsibilities
+   ❌ achievements
+   ❌ metrics
+   ❌ projects
+   ❌ clients
+   ❌ technologies not listed in the applicant's skills
+   ❌ outcomes
+   ❌ education, graduation status, coursework, internships, or
+      academic background (not provided)
+   ❌ any fact not supplied by the user
+
+═══════════════════════════════════════════════
+✅ ALLOWED — CONNECTING EXPERIENCE + SKILLS TO THE JD
+═══════════════════════════════════════════════
+You MAY:
+   - State the metadata (title, company, years)
+   - Mention provided skills
+   - Connect metadata + skills to the JD's needs
+   - Express professional alignment and motivation
+
+You MUST NOT convert the JD's responsibilities into the applicant's
+past responsibilities. The JD is what the EMPLOYER wants — not what
+the applicant has done.
+
+If only SOME metadata is provided (e.g., title only, no company/years),
+use only what is provided. Do NOT invent the missing fields.`;
+
+  const systemPrompt = `You are an experienced career coach writing a cover letter for a real candidate. Write the BODY ONLY — natural, specific, and grounded in the user's actual data.
 
 ${styleFramework}
 
-IMPORTANT LENGTH GUIDELINES:
-- Target length: 230-260 words
-- Soft maximum: 280 words
-- Hard maximum: 300 words
-- If content exceeds 300 words, intelligently compress while preserving quality
+${experienceModeBlock}
 
-COMPRESSION STRATEGY (if needed):
-- Remove: repeated ideas, similar achievements, duplicate soft skills, generic motivational sentences, extra adjectives, filler lines, repeated excitement phrasing
-- NEVER remove: company personalization, job title, user achievements, metrics, ATS keywords, core experience, technical skills, strong closing paragraph
+═══════════════════════════════════════════════
+🚫 OUTPUT = BODY ONLY (CRITICAL)
+═══════════════════════════════════════════════
+The PDF/preview template ALREADY provides:
+   - Date
+   - Recipient ("Hiring Manager" / "[Name]")
+   - Company name
+   - RE: Application for [Role]
+   - Greeting ("Dear Hiring Manager," / "Dear [Name],")
+   - Contact details in header
+   - "Sincerely," signoff
+   - Signature (name + title)
 
-WRITING QUALITY:
-- Maintain natural, human-like English (should NOT sound AI-generated)
-- Preserve current grammar quality
-- Keep the specified style tone
-- Strong opening and closing
+So you MUST NOT output ANY of these. Output ONLY the body paragraphs.
 
-IMPORTANT RULES:
-1. DO NOT include "Sincerely," or any closing salutation
-2. DO NOT include the user's name at the end
-3. DO NOT include "Dear Hiring Manager" - it will be added separately
-4. ONLY write the 3-4 body paragraphs of the letter
-5. Start directly with the introduction paragraph
-6. End with the closing paragraph (like "Thank you for your consideration...")
-7. Use the style framework provided above
-8. Make it unique and tailored to the user
-9. Prioritize: Personalization > Job Matching > ATS Keywords > Achievements > Style Application > Professional Tone > Logical Flow
-10. CRITICAL: NEVER mention the target company (${data.company}) as your current or past employer in achievements or experience sections
-11. The target company should ONLY appear in: introduction, "why this company" paragraph, and closing
+Do NOT output:
+   ❌ "Dear Hiring Manager," or "Dear Hiring Team," or "Dear [Name],"
+   ❌ Any date
+   ❌ Any recipient name or hiring manager name
+   ❌ Any "RE:" or "Application for" line
+   ❌ Any email, phone, or location
+   ❌ "Sincerely," or "Regards," or any signoff
+   ❌ User's name at end
+   ❌ Any header, footer, or meta-info
+   ❌ Any reasoning, notes, or meta-commentary (e.g., "Rewrite P4:", "Let me think")
 
-Return ONLY the body paragraphs, nothing else.`;
+═══════════════════════════════════════════════
+🚫 HIRING MANAGER NAME — DO NOT REPEAT (CRITICAL)
+═══════════════════════════════════════════════
+The PDF/template ALREADY renders the greeting.
 
-  const userPrompt = `Write the body of a cover letter for:
+You MUST NOT include any greeting in your output.
+You MUST NOT repeat the hiring manager name anywhere in the body.
+You MUST NOT start your output with any name (hiring manager or otherwise).
+
+❌ WRONG:
+   "Midhat Sultan I am writing to express my interest..."
+   "Midhat Sultan, I am writing to express my interest..."
+   "Dear Midhat Sultan, I am writing..."
+   "Dear Hiring Manager, I am writing..."
+
+✅ CORRECT (start directly with the first sentence):
+   "I am writing to express my interest in the [Role] position at [Company]..."
+   "I am excited to apply for the [Role] position at [Company]..."
+
+Your output MUST start with the actual first sentence of the letter body,
+NOT with any name, greeting, or salutation.
+
+═══════════════════════════════════════════════
+🚫 ABSOLUTE PROHIBITIONS
+═══════════════════════════════════════════════
+Never invent, assume, or infer:
+   1. Skills, technologies, tools, frameworks, languages
+   2. Job responsibilities (unless explicitly provided)
+   3. Achievements, metrics, numbers
+   4. Projects
+   5. Certifications
+   6. Education, degrees
+   7. Graduation status
+   8. Coursework
+   9. Internships
+   10. Team size
+   11. Leadership claims
+   12. Agile/Scrum/Kanban
+   13. CI/CD, DevOps, cloud
+   14. Company history, reputation, culture, mission, products
+   15. JD requirements as user's skills
+   16. Any practical experience, activities, or application of skills
+
+═══════════════════════════════════════════════
+🚫 JOB DESCRIPTION RULE
+═══════════════════════════════════════════════
+The JD tells you what the EMPLOYER wants — NOT what the user HAS.
+If the JD mentions a skill NOT in the user's list → write AROUND it, do NOT claim it.
+
+Only mention a skill if it is BOTH:
+   (a) In the user's provided list, AND
+   (b) Relevant to the JD.
+
+═══════════════════════════════════════════════
+🚫 WHEN INFORMATION IS MISSING → OMIT IT
+═══════════════════════════════════════════════
+Do NOT assume, infer, or guess. If information is missing, write around it. Never invent.
+
+═══════════════════════════════════════════════
+🚫 PLACEHOLDERS FORBIDDEN
+═══════════════════════════════════════════════
+Never output placeholders such as:
+   ❌ X years
+   ❌ [Your Name]
+   ❌ [Company Name]
+   ❌ [Job Title]
+   ❌ [Insert Name]
+   ❌ [Insert Company]
+   ❌ [Your Experience]
+
+If information is missing, simply omit that information.
+Use the actual applicant name when it is available.
+
+═══════════════════════════════════════════════
+🔄 DO NOT REPEAT INFORMATION
+═══════════════════════════════════════════════
+Each piece of information appears ONCE:
+   - A skill mentioned in P2 → do NOT re-list in P3
+   - Role mentioned in P1 → do NOT restate in P3
+   - "React.js" in P2 → do NOT mention again in P3/P4
+
+Each paragraph has UNIQUE information.
+
+═══════════════════════════════════════════════
+📝 WEAK WORDING — REPLACE WITH CONFIDENT
+═══════════════════════════════════════════════
+❌ "learning how to"           → ✅ "developing skills in" / "building expertise in"
+❌ "I enjoy and want to continue pursuing" → ✅ "I am committed to" / "I focus on"
+❌ "I am eager to learn"       → ✅ "I am ready to contribute and grow"
+❌ "trying to"                 → ✅ "working to" / "focused on"
+❌ "getting better at"         → ✅ "strengthening my skills in"
+❌ "I hope to"                 → ✅ "I look forward to" / "I am ready to"
+❌ "I want to"                 → ✅ "I aim to" / "I plan to"
+
+Confident but truthful. Never overpromise.
+
+═══════════════════════════════════════════════
+📝 NATURAL HUMAN-WRITTEN FEEL
+═══════════════════════════════════════════════
+Read your output aloud. If it sounds like a corporate template, rewrite.
+
+AVOID these overused phrases:
+- "technical acumen"
+- "collaborative spirit"
+- "strategic goals"
+- "professional aspirations"
+- "driving organizational success"
+- "leveraging my expertise"
+- "I am confident that I would be an excellent addition"
+- "contribute to the continued success"
+- "dynamic and fast-paced environment"
+- "dynamic environment"
+- "leverage my skills"
+- "synergy"
+- "results-driven"
+- "detail-oriented professional"
+- "proven track record"
+- "proven ability to"
+- "strong track record of"
+- "excellent communication skills"
+- "team player"
+- "passionate about leveraging"
+
+Write like an experienced professional emailing a hiring manager.
+Simple. Specific. Confident. Human.
+
+═══════════════════════════════════════════════
+🎯 BE SPECIFIC, NOT GENERIC
+═══════════════════════════════════════════════
+- Read the JD carefully.
+- Pick 2-4 most relevant skills from the user's list.
+- Connect them naturally to JD requirements.
+- Do NOT force-list every skill.
+
+═══════════════════════════════════════════════
+📝 JOB TITLE FORMATTING
+═══════════════════════════════════════════════
+Silently fix obvious typos:
+   "software enginner" → "Software Engineer"
+Do NOT change meaning or seniority.
+
+═══════════════════════════════════════════════
+📐 STRUCTURE (3-4 PARAGRAPHS, UNIQUE INFO EACH)
+═══════════════════════════════════════════════
+P1 — Opening (2-3 sentences):
+   - Role + company
+   - Brief professional positioning
+   - Do NOT list skills here
+   - MUST start with "I am writing..." or "I am excited..." (no names before)
+   ${
+     isFresherMode
+       ? '- FRESHER: express genuine interest + readiness to contribute; NO experience claims, NO education/graduation/coursework claims'
+       : '- EXPERIENCED: may state title/company/years factually; NO invented responsibilities'
+   }
+
+P2 — Relevant Background (3-4 sentences):
+   - ${
+     isFresherMode
+       ? 'FRESHER: frame provided skills as a current foundation (no origin/use claims, no education/projects/internships)'
+       : 'EXPERIENCED: state metadata (title/company/years) + 2-3 most relevant provided skills — do NOT invent tasks/projects/responsibilities'
+   }
+   - Connect skills to JD needs
+   - Do NOT repeat P1 content
+
+P3 — Fit (2-3 sentences):
+   - How the applicant aligns (new angle, not skill re-list)
+   - Confident but grounded
+   - Do NOT repeat P1/P2 content
+
+P4 — Closing (2 sentences):
+   - Genuine interest
+   - Thanks
+   - Do NOT re-summarize
+
+═══════════════════════════════════════════════
+📐 LENGTH TARGET
+═══════════════════════════════════════════════
+Level: ${lengthTarget.level}
+Target: ${lengthTarget.min}-${lengthTarget.max} words
+
+Aim for the middle of the range (ideally 280-350 words when enough
+information exists). Do NOT pad with filler. Never exceed
+${lengthTarget.max} words.
+
+═══════════════════════════════════════════════
+🔍 SELF-CHECK (INTERNAL, BEFORE OUTPUT)
+═══════════════════════════════════════════════
+1. Is every claim supported by user data?
+2. Is any skill/tech invented?
+3. Is any JD req falsely claimed as user's experience?
+4. Are only RELEVANT skills mentioned?
+5. Are title/company/years accurate?
+6. Any unsupported company claims?
+7. Is wording natural (not corporate)?
+8. Any info repeated across paragraphs?
+9. Length within ${lengthTarget.min}-${lengthTarget.max}?
+10. Any prohibited phrases used?
+11. Does the body start directly with "I am..." (no name/greeting before)?
+${
+  isFresherMode
+    ? '12. FRESHER MODE: Am I 100% free of any experience claim, years, employer, role, project, internship, achievement, education, graduation, coursework, application, or activity the user did NOT provide?\n13. FRESHER MODE: Did I claim HOW or WHERE the applicant acquired or used their provided skills? (Must be NO — skills may only be stated as skills/foundation.)\n14. FRESHER MODE: Is the letter strong, complete, and personalized (NOT short/generic) despite empty experience?'
+    : "12. EXPERIENCED MODE: Did I only state METADATA (title/company/years) and provided skills — without inventing any responsibility, task, project, achievement, metric, client, result, or activity?\n13. EXPERIENCED MODE: Did I convert any JD responsibility into the applicant's past experience? (Must be NO.)\n14. EXPERIENCED MODE: Is the letter strong, complete, and personalized?"
+}
+
+⚠️ CRITICAL: Output ONLY the final letter body. Do NOT include any reasoning, planning, notes, or meta-commentary like "Rewrite P4:", "Let me think", "Now we removed..." etc.
+
+Return ONLY the body paragraphs. Nothing else.`;
+
+  const fresherExtraInstruction = isFresherMode
+    ? `16. FRESHER MODE: The Job Description is what the EMPLOYER wants — it is NOT the applicant's experience. Never say "I have experience developing/fixing/integrating/optimizing..." just because the JD lists those responsibilities.
+17. FRESHER MODE: Do NOT invent education, graduation status, coursework, personal projects, internships, applications, practical experience, or previous activities.
+18. FRESHER MODE: You may describe the provided skills as skills / a current foundation, but you MUST NOT claim HOW or WHERE the applicant acquired or used those skills (no "through my studies", "during my degree", "in my personal projects", "during my internship", "while building X", etc.).
+19. FRESHER MODE: Empty experience does NOT mean a short or generic letter. Produce a strong, complete, personalized letter (target ${lengthTarget.min}-${lengthTarget.max} words) using skills + JD + motivation + alignment.`
+    : `16. EXPERIENCED MODE: You may state the experience METADATA (job title, company, years) factually.
+17. EXPERIENCED MODE: You MUST NOT invent responsibilities, tasks, projects, products, achievements, metrics, clients, results, or activities — the user did NOT provide them.
+18. EXPERIENCED MODE: Do NOT convert JD responsibilities into the applicant's past experience. The JD is what the EMPLOYER wants, not what the applicant has done.
+19. EXPERIENCED MODE: Use provided skills to connect the applicant's background to the JD. Produce a strong, complete, personalized letter (target ${lengthTarget.min}-${lengthTarget.max} words).`;
+
+  const userPrompt = `Write a cover letter body for a real candidate using ONLY the information below.
+
+═══════════════════════════════════════════════
+🧭 EXPERIENCE MODE: ${isFresherMode ? 'FRESHER / ENTRY-LEVEL (no experience provided)' : 'EXPERIENCED (experience metadata provided)'}
+═══════════════════════════════════════════════
+${
+  isFresherMode
+    ? '⚠️ The applicant has NOT provided ANY experience information. Treat as FRESHER. Do NOT claim or imply any experience, years, employer, role, project, internship, achievement, education, graduation, coursework, application, or activity. Skills may be stated as skills/foundation only — never claim how/where they were acquired or used. Still write a strong, complete, personalized letter.'
+    : "✅ The applicant HAS provided experience METADATA (title / company / years). You may state that metadata factually. You MUST NOT invent responsibilities, tasks, projects, products, achievements, metrics, clients, results, or activities. Do NOT convert JD responsibilities into the applicant's past experience."
+}
+
+═══════════════════════════════════════════════
+👤 APPLICANT
+═══════════════════════════════════════════════
 Name: ${data.userName}
-Job: ${data.jobTitle}
+${data.currentTitle ? `Current/Recent Title: ${data.currentTitle}` : ''}
+${data.currentCompany ? `Current/Recent Company: ${data.currentCompany}` : ''}
+${
+  years
+    ? `Years of Experience: ${years}`
+    : isFresherMode
+    ? 'Years of Experience: (NOT PROVIDED — FRESHER)'
+    : 'Years of Experience: (Not specified)'
+}
+
+═══════════════════════════════════════════════
+🎯 TARGET ROLE
+═══════════════════════════════════════════════
 Company: ${data.company}
-Experience: ${data.experience || 'Not specified'}
-Skills: ${formattedSkills}
-Education: ${degree}${university ? ` from ${university}` : ''}
-Projects: ${data.projects || 'Not specified'}
-Achievements: ${data.additionalInfo || 'Not specified'}
+Job Title: ${data.jobTitle}
+${data.jobDescription ? `\nJob Description:\n${data.jobDescription}` : ''}
 
-Write 3-4 professional paragraphs for the cover letter body.
+═══════════════════════════════════════════════
+🛠️ APPLICANT'S SKILLS (ONLY SOURCE OF TRUTH)
+═══════════════════════════════════════════════
+${formattedSkills}
 
-LENGTH REQUIREMENT:
-- Generate approximately 230-260 words
-- DO NOT exceed 300 words under any circumstances
-- If you have too much content, intelligently summarize and remove redundancies
-- Focus on quality over quantity
+═══════════════════════════════════════════════
+📋 FINAL INSTRUCTIONS
+═══════════════════════════════════════════════
+1. Use ONLY the skills listed above.
+2. Do NOT invent skills, technologies, or experience.
+3. If the JD mentions something NOT in the list → write around it.
+4. ${
+    isFresherMode
+      ? 'Do NOT reference any current/recent role, employer, or years of experience (none provided).'
+      : 'You may state the provided title/company/years factually. Do NOT invent responsibilities or tasks.'
+  }
+5. Do NOT include metrics, achievements, or company facts not provided.
+6. Do NOT include email/phone/location in the body.
+7. ${lengthTarget.level} level — write ${lengthTarget.min}-${lengthTarget.max} words (ideally 280-350).
+8. Natural, simple, confident English — no corporate jargon.
+9. ${
+    isFresherMode
+      ? 'Write as an ENTRY-LEVEL / FRESHER candidate: enthusiasm + provided skills as current foundation + alignment with the JD. NO experience claims. NO education/graduation/coursework/projects/internships/activities claims. NO origin/use context for skills.'
+      : hasExperience
+      ? 'Write as an EXPERIENCED candidate. State only the provided METADATA (title/company/years) and provided skills. Do NOT invent responsibilities, tasks, projects, achievements, metrics, clients, or results.'
+      : 'Write as an early-career candidate using only provided skills.'
+  }
+10. Do NOT use the target company (${data.company}) as a past/current employer.
+11. Do NOT include greeting, date, RE line, or signoff (template provides).
+12. Do NOT start with any name, greeting, or salutation.
+13. Start DIRECTLY with the first sentence of the body — typically
+    "I am writing to..." or "I am excited to apply...".
+14. Do NOT output placeholders like X years, [Your Name], [Company Name], etc.
+15. Output ONLY the final body. Do NOT include reasoning, notes, or meta-commentary.
+${fresherExtraInstruction}
 
-IMPORTANT: ${data.company} is the company you are applying to. NEVER use it as your current or past employer in your achievements or experience description. If you have current employer info, use that. If not, use generic terms like "Throughout my career" or "In my current role".
-
-DO NOT include "Sincerely," or the name at the end.
-DO NOT include "Dear Hiring Manager".
-ONLY the body paragraphs.`;
+Return ONLY the body paragraphs.`;
 
   try {
     const requestBody = {
-      model: 'llama-3.1-8b-instant',
+      model: GROQ_MODEL,
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
+        { role: 'user', content: userPrompt },
       ],
-      temperature: 0.7,
-      max_tokens: 1500,
+      temperature: 0.6,
+      max_tokens: MAX_TOKENS,
       top_p: 0.9,
+      include_reasoning: false,
     };
 
-    console.log('📤 Sending request to Groq with key rotation');
+    console.log('📤 Sending cover letter request to Groq');
 
     const responseData = await makeRequestWithRetry(requestBody);
 
-    let generatedText = responseData.choices?.[0]?.message?.content?.trim() || '';
+    let generatedText = extractTextFromResponse(
+      responseData,
+      data.hiringManagerName
+    );
 
     if (!generatedText || generatedText.length < 50) {
-      throw new Error('Traffic overload detected. Please try again after a few moments.');
+      console.warn(
+        '⚠️ Empty or too-short response. Full response:',
+        responseData
+      );
+      throw new Error('AI returned empty response. Please try again.');
     }
 
-    // ===== POST-PROCESSING: Length Check =====
-    const wordCount = generatedText.split(/\s+/).filter(w => w.length > 0).length;
-    console.log(`📊 Generated text word count: ${wordCount}`);
+    generatedText = cleanReasoningArtifacts(generatedText);
+    generatedText = removeHiringManagerPrefix(
+      generatedText,
+      data.hiringManagerName
+    );
 
-    if (wordCount > 300) {
-      const paragraphs = generatedText.split(/\n\n+/).filter(p => p.trim().length > 0);
+    console.log(
+      '🔍 AFTER CLEANUP (first 200 chars):',
+      JSON.stringify(generatedText.slice(0, 200))
+    );
+
+    const stillHasInternalNotes =
+      /Rewrite\s+P\d|Let me\s+think|Now\s+we\s+removed|I\s+need\s+to\s+revise/i.test(
+        generatedText
+      );
+    if (stillHasInternalNotes) {
+      throw new Error(
+        'AI returned reasoning-only response without valid letter body'
+      );
+    }
+
+    const wordCount = generatedText
+      .split(/\s+/)
+      .filter((w) => w.length > 0).length;
+    console.log(
+      `📊 Generated text word count: ${wordCount} (target: ${lengthTarget.min}-${lengthTarget.max})`
+    );
+
+    if (wordCount > lengthTarget.max + 80) {
+      const paragraphs = generatedText
+        .split(/\n\n+/)
+        .filter((p) => p.trim().length > 0);
       if (paragraphs.length > 4) {
         const compressed = [paragraphs[0]];
         const bodyParagraphs = paragraphs.slice(1, -1);
         if (bodyParagraphs.length > 2) {
-          const sorted = bodyParagraphs.sort((a, b) => b.split(/\s+/).length - a.split(/\s+/).length);
+          const sorted = bodyParagraphs.sort(
+            (a, b) => b.split(/\s+/).length - a.split(/\s+/).length
+          );
           compressed.push(sorted[0], sorted[1]);
         } else {
           compressed.push(...bodyParagraphs);
@@ -377,14 +1150,34 @@ ONLY the body paragraphs.`;
     }
 
     return generatedText;
-
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Generate letter error:', error);
-    throw new Error('Traffic overload detected. Please try again after a few moments.');
+
+    const msg = error?.message || '';
+
+    if (msg.includes('Model not found')) {
+      throw new Error('AI model unavailable. Please contact support.');
+    }
+    if (msg.includes('Rate limit') || msg.includes('429')) {
+      throw new Error('AI is busy. Please try again in a moment.');
+    }
+    if (msg.includes('not configured')) {
+      throw new Error('AI service not configured. Please contact support.');
+    }
+    if (msg.includes('empty response')) {
+      throw new Error('AI response was empty. Please try again.');
+    }
+    if (msg.includes('reasoning-only')) {
+      throw new Error('AI returned invalid response. Please try again.');
+    }
+
+    throw new Error('AI is busy. Please try again in a moment.');
   }
 };
 
-// ===== ENHANCE COVER LETTER =====
+// ============================================================
+// ✅ ENHANCE COVER LETTER
+// ============================================================
 export const enhanceCoverLetter = async (
   originalLetter: string,
   optionId: string,
@@ -392,176 +1185,136 @@ export const enhanceCoverLetter = async (
   jobTitle: string,
   company: string
 ): Promise<string> => {
-
-  if (API_KEYS.length === 0) {
-    throw new Error('Traffic overload detected. Please try again after a few moments.');
+  if (!hasAnyKey()) {
+    throw new Error('AI service not configured. Please contact support.');
   }
 
   const enhancementFrameworks: Record<string, string> = {
-    'professional': `PROFESSIONAL ENHANCEMENT:
-- Make language more sophisticated and polished
-- Strengthen business vocabulary and professional terminology
-- Improve flow with better transitions
-- Enhance ATS optimization with relevant keywords
-- Balance confidence with professional humility
-- Sharpen achievements with clearer metrics
-- Maintain formal business tone throughout`,
-
-    'persuasive': `PERSUASIVE ENHANCEMENT:
-- Strengthen the value proposition
-- Make every sentence employer-focused
-- Add compelling arguments for why you're the best fit
-- Connect achievements directly to business outcomes
-- Create a stronger case for your candidacy
-- Add conviction to the writing
-- Strengthen the call to action`,
-
-    'ats': `ATS OPTIMIZATION ENHANCEMENT:
-- Add more relevant keywords and phrases
-- Include industry-standard terminology
-- Enhance keyword density without sounding unnatural
-- Align with common ATS scanning patterns
-- Add measurable metrics where possible
-- Include specific technical and soft skills
-- Ensure key qualifications are clearly stated`,
-
-    'formal': `FORMAL ENHANCEMENT:
-- Make language more formal and polished
-- Use more sophisticated vocabulary
-- Add professional business terminology
-- Enhance the formality of transitions
-- Make structure more traditional
-- Add a more formal tone throughout
-- Ensure proper business etiquette`,
-
-    'human': `HUMANIZING ENHANCEMENT:
-- Make it warmer and more personal
-- Add more personality and authenticity
-- Create more emotional connection
-- Make it sound less AI-generated
-- Add natural, conversational elements
-- Include genuine enthusiasm
-- Make it feel more authentic`,
-
-    'expand': `EXPANSION ENHANCEMENT:
-- Add more detail and depth to achievements
-- Expand on key experiences
-- Add more specific examples
-- Provide more context for achievements
-- Add supporting details to claims
-- Strengthen the narrative with more information
-- Ensure expansion stays within word limits`,
-
-    'shorten': `CONCISE ENHANCEMENT:
-- Make it more concise and direct
-- Remove redundant phrases
-- Tighten the language
-- Make each sentence more efficient
-- Remove any filler content
-- Focus only on the most impactful information
-- Make it more scannable and direct`,
-
-    'closing': `CLOSING STRENGTHENING:
-- Make the closing more impactful
-- Add a stronger call to action
-- Emphasize eagerness to contribute
-- Make the closing more memorable
-- Add confidence about fit
-- Strengthen the final impression
-- End on a powerful note`,
-
-    'grammar': `GRAMMAR AND CLARITY ENHANCEMENT:
-- Fix any grammar or spelling issues
-- Improve sentence structure
-- Enhance clarity and readability
-- Fix any awkward phrasing
-- Ensure proper punctuation
-- Improve flow and coherence
-- Polish the writing style`,
-
-    'executive': `EXECUTIVE ENHANCEMENT:
-- Rewrite at executive leadership level
-- Focus on strategic and organizational impact
-- Emphasize leadership and vision
-- Add strategic planning language
-- Focus on business transformation
-- Include executive vocabulary
-- Make it sound like C-level communication`
+    professional:
+      'Polished, natural professional tone. Simple, direct sentences. No corporate jargon.',
+    persuasive:
+      'Stronger value proposition using EXISTING facts only. No new claims.',
+    ats: 'Better structure and clarity for ATS. Do NOT add new skills or metrics.',
+    formal:
+      'More formal but still natural. Professional vocabulary without jargon.',
+    human: 'Warmer, more personal. Natural conversational tone.',
+    expand: 'Add detail to EXISTING achievements only. No invented facts.',
+    shorten: 'Tighter, more direct. Remove filler. Preserve facts.',
+    closing: 'Stronger, more confident closing using existing facts.',
+    grammar: 'Fix grammar, spelling, clarity. Do not add content.',
+    executive:
+      'More senior tone (only if user data supports it). No invented leadership.',
   };
 
-  const enhancementFramework = enhancementFrameworks[optionId] || `Apply ${optionId} enhancement style`;
+  const enhancementFramework =
+    enhancementFrameworks[optionId] || `Apply ${optionId} enhancement style`;
 
-  const systemPrompt = `You are an expert cover letter writer. Enhance the cover letter body.
+  const systemPrompt = `You are a career coach refining a cover letter.
 
 ${enhancementFramework}
 
-LENGTH GUIDELINES:
-- Maintain professional length: 230-260 words
-- Do NOT exceed 300 words
-- If enhancing increases length, intelligently compress redundancies
-- Preserve all critical content: personalization, ATS keywords, achievements
+═══════════════════════════════════════════════
+🚫 OUTPUT = BODY ONLY
+═══════════════════════════════════════════════
+Do NOT include greeting, date, RE line, contact info, signoff, or signature.
+Do NOT start with any name or greeting.
+Output ONLY the body paragraphs.
 
-CRITICAL: NEVER mention the target company (${company}) as current or past employer in achievements. Target company should ONLY appear in introduction, "why this company" paragraph, and closing.
+═══════════════════════════════════════════════
+🚫 PROHIBITIONS
+═══════════════════════════════════════════════
+- NEVER invent skills, achievements, metrics, projects, education, or company facts
+- NEVER add facts not already in the original letter
+- ONLY improve wording and structure of EXISTING content
+- NEVER add experience, years, employers, or responsibilities not already present in the original letter
+- NEVER add education, graduation status, coursework, internships, or academic background not already present in the original letter
+- NEVER claim HOW or WHERE the applicant acquired or used their skills unless the original letter already states it
+- NEVER convert the JD into the applicant's past responsibilities
 
-Return ONLY the enhanced body text. Do NOT add "Sincerely," or the name.`;
+═══════════════════════════════════════════════
+📝 AVOID THESE PHRASES
+═══════════════════════════════════════════════
+technical acumen, collaborative spirit, strategic goals, professional aspirations, leveraging my expertise, synergy, results-driven, detail-oriented professional, proven track record, dynamic environment, excellent addition, contribute to continued success
+
+═══════════════════════════════════════════════
+📐 LENGTH
+═══════════════════════════════════════════════
+Preserve the original length (within 10%). Preserve all factual content.
+
+Return ONLY the enhanced body text.`;
 
   const userPrompt = `Original letter body:
 ${originalLetter}
 
 Enhancement: ${optionId}
 
-IMPORTANT: Keep the enhanced version professionally optimized (230-260 words). Do not exceed 300 words.
-
-IMPORTANT: ${company} is the company you are applying to. NEVER use it as your current or past employer in achievements. Use generic terms like "Throughout my career" if current employer is not specified.
+Instructions:
+1. Preserve length and factual content
+2. Improve language per enhancement style
+3. NEVER add fake information (no experience, years, employers, responsibilities, metrics, projects, education, graduation, coursework, internships)
+4. NEVER add origin/use context for skills not already in the original letter
+5. Target company "${company}" is NOT a past/current employer
+6. Output ONLY the body
+7. Do NOT start with any name or greeting
 
 Return ONLY the enhanced body text.`;
 
   try {
     const requestBody = {
-      model: 'llama-3.1-8b-instant',
+      model: GROQ_MODEL,
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
+        { role: 'user', content: userPrompt },
       ],
-      temperature: 0.7,
-      max_tokens: 1500,
+      temperature: 0.6,
+      max_tokens: MAX_TOKENS,
       top_p: 0.9,
+      include_reasoning: false,
     };
 
     const responseData = await makeRequestWithRetry(requestBody);
 
-    let enhancedText = responseData.choices?.[0]?.message?.content?.trim() || '';
+    let enhancedText = extractTextFromResponse(responseData);
 
     if (!enhancedText) {
-      throw new Error('Traffic overload detected. Please try again after a few moments.');
+      console.warn('⚠️ Empty enhance response. Full response:', responseData);
+      throw new Error('AI returned empty response. Please try again.');
     }
 
-    const wordCount = enhancedText.split(/\s+/).filter(w => w.length > 0).length;
+    enhancedText = cleanReasoningArtifacts(enhancedText);
+    enhancedText = removeHiringManagerPrefix(enhancedText);
+
+    const wordCount = enhancedText
+      .split(/\s+/)
+      .filter((w) => w.length > 0).length;
     console.log(`📊 Enhanced text word count: ${wordCount}`);
 
-    if (wordCount > 300) {
-      const sentences = enhancedText.match(/[^.!?]+[.!?]+/g) || [enhancedText];
-      if (sentences.length > 8) {
-        const keep = [
-          sentences[0], sentences[1],
-          ...sentences.slice(2, -2).filter((_, i) => i % 2 === 0),
-          sentences[sentences.length - 2], sentences[sentences.length - 1]
-        ];
-        enhancedText = keep.join(' ');
-      }
+    return enhancedText;
+  } catch (error: any) {
+    console.error('Enhance error:', error);
+
+    const msg = error?.message || '';
+    if (msg.includes('Model not found')) {
+      throw new Error('AI model unavailable. Please contact support.');
+    }
+    if (msg.includes('Rate limit') || msg.includes('429')) {
+      throw new Error('AI is busy. Please try again in a moment.');
+    }
+    if (msg.includes('empty response')) {
+      throw new Error('AI response was empty. Please try again.');
     }
 
-    return enhancedText;
-
-  } catch (error) {
-    console.error('Enhance error:', error);
-    throw new Error('Traffic overload detected. Please try again after a few moments.');
+    throw new Error('AI is busy. Please try again in a moment.');
   }
 };
 
 // ===== CHECK CONFIGURATION =====
 export const isGroqConfigured = (): boolean => {
-  const isConfigured = API_KEYS.length > 0;
-  console.log('🔑 isGroqConfigured:', isConfigured, `(${API_KEYS.length} keys available)`);
-  return isConfigured;
+  const configured = hasAnyKey();
+  console.log(
+    '🔑 isGroqConfigured:',
+    configured,
+    `(${getConfiguredKeyCount()} available)`
+  );
+  return configured;
 };

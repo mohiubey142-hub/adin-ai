@@ -1,96 +1,318 @@
 // src/components/cover-letter/CoverLetter.tsx
-import { useState, useEffect, useRef } from 'react';
-import toast, { Toaster } from 'react-hot-toast';
-import { ChevronLeft, ChevronRight, Sparkles, Trash2, Maximize2, Minimize2, Mail, Shield, Star, CheckCircle, Lock, Download, RotateCcw, ArrowLeft, ArrowDown, LayoutGrid, SendHorizontal, Eye, Activity } from 'lucide-react';
-import Step1Details from './steps/Step1Details';
-import Step2Style from './steps/Step2Style';
-import CoverLetterProgress from './CoverLetterProgress';
-import { generateCoverLetterPDF } from './utils/pdfGenerator';
-import CoverLetterEnhancer from './CoverLetterEnhancer';
-import { countryCodes } from './constants/cvDefaults';
-import { generateCoverLetterWithAI, isGroqConfigured } from './services/groqService';
+// ✅ UPDATED: FeedbackFullScreen (single-screen, Design C) replaces FeedbackModal + Widget
+// ✅ FIX: Removed widget visibility tracking
 
-// ✅ SEO Imports - CORRECT PATH from cover-letter/
+import { useState, useEffect, useRef, useCallback } from 'react';
+import toast, { Toaster } from 'react-hot-toast';
+import {
+  Trash2, Copy, Download, FileText, Eye, CheckCircle2, Sparkles, X, ChevronDown, MessageCircle, Maximize, Minimize, Image as ImageIcon,
+} from 'lucide-react';
+
+import Step1Details from './steps/Step1Details';
+import { generateCoverLetterPDF } from './utils/pdfGenerator';
+import CoverLetterHero from './CoverLetterHero';
+import CoverLetterTemplateSelector from './CoverLetterTemplateSelector';
+
 import { SEOHead } from "../../components/SEO/SEOHead";
 import { generatePageSchemas, generateJSONLDScript } from "../../utils/seo";
 import { getSEOConfig } from "../../utils/seoPages";
 
-// ✅ Import from new modular structure
 import { templates } from './constants/templates';
-import { 
-  validatePhoneForCountry, 
-  getPhoneValidationMessage, 
-  isEducationValid,
-  getEducationError,
+import {
+  validatePhoneForCountry,
+  getPhoneValidationMessage,
   generateLetter,
-  generateFallbackLetter,
-  countWords
 } from './utils';
-import { 
-  CircularProgressRing, 
-  EmailPremiumPanel, 
-  MoreInsightsArrow,
+import {
   ClassicPreview,
   ModernPreview,
+  MinimalPreview,
+  ProfessionalPreview,
+  ExecutivePreview,
+  CreativePreview,
 } from './components';
 
-// ✅ Import CoverLetterPreview directly (not from components/index)
-import CoverLetterPreview from './CoverLetterPreview';
+import { localStorageCoverLetterService } from './services/coverLetterService';
+import { CoverLetterData, CoverLetterTemplateId } from './types/coverLetterTypes';
 
-// ✅ NEW: Feedback Modal & Widget
-import FeedbackModal from '../../components/feedback/FeedbackModal';
-import FeedbackWidget from '../../components/feedback/FeedbackWidget';
-import { 
-  shouldShowFeedback, 
-  markFeedbackCompleted, 
-  markFeedbackShown, 
-  markFeedbackSkipped, 
-  resetFeedbackModal,
-  getWidgetVisibility,
-  setWidgetVisibility,
-  minimizeToWidget,
-  closeWidget
+import {
+  loadImageFromIDB,
+  saveImageToIDB,
+  deleteImageFromIDB,
+  getPhotoKey,
+  getDraftPhotoKey,
+} from '../cv-builder/utils/imageUtils';
+
+import {
+  CVExtractedData,
+  fetchMostRecentCVData,
+  getCVCount,
+  listUserCVs,
+  extractDataFromCV,
+} from './utils/cvDataFetcher';
+import { CVDocumentMeta } from '../cv-builder/types/documentTypes';
+import { syncService } from '../../services/sync/syncService';
+import { SYNC_CONFIG } from '../../services/sync/config';
+
+// ✅ NEW: FeedbackFullScreen (single-screen feedback)
+import FeedbackFullScreen from '../../components/feedback/FeedbackFullScreen';
+import {
+  shouldShowFeedback,
+  markFeedbackShown,
 } from '../../services/feedbackService';
 
+import { useSidebar } from '../../hooks/useSidebar';
+import { usePNGDownload } from '../cv-builder/hooks/usePNGDownload';
+import GlobalSidebar from '../../components/global/GlobalSidebar';
+
 const STORAGE_KEY = 'cover_letter_data';
+const TEMPLATE_STORAGE_KEY = 'adin-selected-cover-template';
+
+const isRealPhoto = (p: string | null | undefined): boolean => {
+  return !!p && typeof p === 'string' && p.length > 500;
+};
+
+const stripImageFromData = (data: any) => {
+  if (!data || typeof data !== 'object') return data;
+  const copy = { ...data };
+  if (copy.profilePhoto && typeof copy.profilePhoto === 'string' && copy.profilePhoto.length > 500) {
+    copy.profilePhoto = null;
+    copy.hasPhoto = true;
+  }
+  return copy;
+};
 
 const saveToLocalStorage = (data: any) => {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch (e) {
-    console.error('Error saving to localStorage:', e);
+    const stripped = stripImageFromData(data);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stripped));
+    return { ok: true };
+  } catch (e: any) {
+    if (e?.name === 'QuotaExceededError' || e?.code === 22) {
+      console.error('❌ localStorage FULL — cover letter not saved locally');
+      try {
+        toast.error(
+          'Storage full! Your cover letter is saved to cloud only.',
+          { duration: 6000, id: 'cl-storage-full' }
+        );
+      } catch {}
+      return { ok: false, error: 'quota_exceeded' };
+    }
+    console.error('Error saving:', e);
+    return { ok: false, error: 'unknown' };
   }
 };
 
 const loadFromLocalStorage = () => {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      return JSON.parse(saved);
-    }
-  } catch (e) {
-    console.error('Error loading from localStorage:', e);
-  }
+    if (saved) return JSON.parse(saved);
+  } catch (e) { console.error('Error loading:', e); }
   return null;
+};
+
+const VALID_TEMPLATE_IDS: CoverLetterTemplateId[] = [
+  'classic',
+  'modern',
+  'minimal',
+  'professional',
+  'executive',
+  'creative',
+];
+
+const isValidTemplate = (t: any): t is CoverLetterTemplateId =>
+  typeof t === 'string' && VALID_TEMPLATE_IDS.includes(t as CoverLetterTemplateId);
+
+const preserveHasPhoto = (userId: string, documentId: string | null | undefined, incoming: boolean): boolean => {
+  if (incoming === true) return true;
+  if (!documentId || !userId) return incoming;
+  try {
+    const key = `adin_cover_letter_document_${userId}_${documentId}`;
+    const raw = localStorage.getItem(key);
+    if (!raw) return incoming;
+    const existing = JSON.parse(raw);
+    if (existing?.hasPhoto === true) return true;
+    return incoming;
+  } catch {
+    return incoming;
+  }
+};
+
+interface DownloadDropdownProps {
+  onCopy?: () => void | Promise<void>;
+  onDownloadPDF?: () => void | Promise<void>;
+  onDownloadTXT?: () => void | Promise<void>;
+  onDownloadPNG?: () => void | Promise<void>;
+}
+
+const DownloadDropdown: React.FC<DownloadDropdownProps> = ({
+  onCopy,
+  onDownloadPDF,
+  onDownloadTXT,
+  onDownloadPNG,
+}) => {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClick = (e: MouseEvent | TouchEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('touchstart', handleClick);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('touchstart', handleClick);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [open]);
+
+  const run = (fn?: () => void | Promise<void>) => {
+    if (!fn) return;
+    setOpen(false);
+    try {
+      const r = fn();
+      if (r && typeof (r as Promise<void>).catch === 'function') {
+        (r as Promise<void>).catch(err => console.error(err));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white text-xs font-semibold shadow-md shadow-purple-600/20 hover:shadow-lg hover:shadow-purple-600/30 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-purple-500/20"
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        <Download size={13} />
+        <span>Download</span>
+        <ChevronDown
+          size={12}
+          className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 mt-2 w-48 rounded-xl bg-white border border-slate-200 shadow-2xl shadow-black/10 z-[60] overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150"
+        >
+          <button
+            role="menuitem"
+            onClick={() => run(onCopy)}
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors duration-150"
+          >
+            <Copy size={13} className="text-emerald-600 flex-shrink-0" />
+            Copy Letter
+          </button>
+
+          <div className="h-px bg-slate-100" />
+
+          <button
+            role="menuitem"
+            onClick={() => run(onDownloadPDF)}
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors duration-150"
+          >
+            <Download size={13} className="text-purple-600 flex-shrink-0" />
+            Download PDF
+          </button>
+
+          <div className="h-px bg-slate-100" />
+
+          <button
+            role="menuitem"
+            onClick={() => run(onDownloadPNG)}
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors duration-150"
+          >
+            <ImageIcon size={13} className="text-purple-600 flex-shrink-0" />
+            Download PNG
+          </button>
+
+          <div className="h-px bg-slate-100" />
+
+          <button
+            role="menuitem"
+            onClick={() => run(onDownloadTXT)}
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors duration-150"
+          >
+            <FileText size={13} className="text-slate-700 flex-shrink-0" />
+            Plain Text
+          </button>
+        </div>
+      )}
+    </div>
+  );
 };
 
 interface CoverLetterProps {
   onBackToHome?: () => void;
   initialTemplateId?: string;
+  userId?: string;
+  documentId?: string;
+  onBackToDocuments?: () => void;
+  onDocumentCreated?: (documentId: string) => void;
+  onTemplateChange?: (template: CoverLetterTemplateId) => void;
 }
 
-type TabType = 'preview' | 'health';
+type TabType = 'preview';
 
-const CoverLetter = ({ onBackToHome, initialTemplateId }: CoverLetterProps) => {
-  // ===== ALL STATE VARIABLES =====
-  const [step, setStep] = useState(1);
+type SectionKey = 'personal' | 'job' | 'experience' | 'skills';
+
+const DEFAULT_OPEN_STATE: Record<SectionKey, boolean> = {
+  personal: true,
+  job: false,
+  experience: false,
+  skills: false,
+};
+
+const CoverLetter = ({
+  onBackToHome,
+  initialTemplateId,
+  userId = 'anonymous_user',
+  documentId,
+  onBackToDocuments,
+  onDocumentCreated,
+  onTemplateChange,
+}: CoverLetterProps) => {
+  const { isOpen: isSidebarOpen, open: openSidebar, close: closeSidebar } = useSidebar();
+
   const [generating, setGenerating] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<'classic' | 'modern'>('classic');
-  
+
+  const [selectedTemplate, setSelectedTemplate] = useState<CoverLetterTemplateId>(() => {
+    if (isValidTemplate(initialTemplateId)) return initialTemplateId;
+    try {
+      const saved = localStorage.getItem(TEMPLATE_STORAGE_KEY);
+      if (isValidTemplate(saved)) return saved;
+    } catch (e) {}
+    return 'classic';
+  });
+
   const containerRef = useRef<HTMLDivElement>(null);
-  
+
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const fullscreenRef = useRef<HTMLDivElement>(null);
+
+  const pngPreviewRef = useRef<HTMLDivElement>(null);
+
+  const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({ ...DEFAULT_OPEN_STATE });
+
+  const toggleSection = useCallback((key: SectionKey) => {
+    setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
+  }, []);
+
   const [userName, setUserName] = useState('');
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -110,95 +332,276 @@ const CoverLetter = ({ onBackToHome, initialTemplateId }: CoverLetterProps) => {
   const [originalLetter, setOriginalLetter] = useState('');
   const [projects, setProjects] = useState('');
   const [isEnhanced, setIsEnhanced] = useState(false);
-  
-  // ✅ NEW: Current Position state
   const [currentPosition, setCurrentPosition] = useState('');
 
-  // ✅ MOBILE TABS STATE
+  const [hiringManagerName, setHiringManagerName] = useState('');
+  const [currentTitle, setCurrentTitle] = useState('');
+  const [currentCompany, setCurrentCompany] = useState('');
+  const [yearsOfExperience, setYearsOfExperience] = useState<string>('');
+  const [cvDataLoaded, setCvDataLoaded] = useState(false);
+  const [cvSourceId, setCvSourceId] = useState<string | null>(null);
+
+  const [cvData, setCvData] = useState<CVExtractedData | null>(null);
+  const [cvList, setCvList] = useState<CVDocumentMeta[]>([]);
+  const [selectedCVId, setSelectedCVId] = useState<string | null>(null);
+  const [isLoadingCV, setIsLoadingCV] = useState(false);
+  const [cvBannerDismissed, setCvBannerDismissed] = useState(false);
+
   const [mobileActiveTab, setMobileActiveTab] = useState<TabType | null>(null);
   const [isMobile, setIsMobile] = useState(false);
 
-  // ✅ NEW: Feedback Modal & Widget State
+  const [internalDocumentId, setInternalDocumentId] = useState<string | null>(documentId || null);
+  const documentCreationAttempted = useRef(false);
+  const documentCreationTimer = useRef<NodeJS.Timeout | null>(null);
+  const internalDocumentIdRef = useRef<string | null>(documentId || null);
+
+  // ✅ Single feedback modal state (no widget)
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedbackSourceKey, setFeedbackSourceKey] = useState('cover-letter');
-  
-  // ✅ NEW: Widget visibility state (restore from localStorage)
-  const [showWidget, setShowWidget] = useState(() => {
-    return getWidgetVisibility('cover-letter');
+
+  const [hasSaved, setHasSaved] = useState(true);
+
+  const { downloadPNG } = usePNGDownload({
+    elementRef: pngPreviewRef,
+    fileName: userName || jobTitle || 'My_Cover_Letter',
+    toastId: 'cl-png',
   });
 
-  // ============================================================
-  // ===== MOBILE DETECTION =====
-  // ============================================================
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 640);
-    };
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', handler);
+    return () => document.removeEventListener('fullscreenchange', handler);
+  }, []);
+
+  const handleToggleFullscreen = useCallback(async (element: HTMLElement | null) => {
+    if (!element) return;
+    try {
+      if (!document.fullscreenElement) {
+        await element.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      console.warn('[CoverLetter] Fullscreen toggle failed:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isValidTemplate(initialTemplateId)) {
+      setSelectedTemplate((prev) => {
+        if (prev !== initialTemplateId) {
+          console.log(`🔄 CoverLetter: Template synced from prop: ${prev} → ${initialTemplateId}`);
+          return initialTemplateId;
+        }
+        return prev;
+      });
+    }
+  }, [initialTemplateId]);
+
+  useEffect(() => {
+    if (isInitialLoad) {
+      return;
+    }
+    try {
+      localStorage.setItem(TEMPLATE_STORAGE_KEY, selectedTemplate);
+    } catch (e) {}
+  }, [selectedTemplate, isInitialLoad]);
+
+  const applyCVDataToForm = useCallback((data: CVExtractedData) => {
+    if (!userName.trim() && data.name) setUserName(data.name);
+    if (!email.trim() && data.email) setEmail(data.email);
+    if (!phoneNumber.trim() && data.phone) setPhoneNumber(data.phone);
+    if (!address.trim() && data.address) setAddress(data.address);
+    if (!linkedin.trim() && data.linkedin) setLinkedin(data.linkedin);
+    if (!currentTitle.trim() && data.currentTitle) setCurrentTitle(data.currentTitle);
+    if (!skills.trim() && data.skills) setSkills(data.skills);
+
+    setCvDataLoaded(true);
+    setCvSourceId(data.sourceId);
+    setCvData(data);
+  }, [userName, email, phoneNumber, address, linkedin, currentTitle, skills]);
+
+  useEffect(() => {
+    if (!userId) return;
+    if (documentId) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        setIsLoadingCV(true);
+        const count = await getCVCount(userId);
+        if (cancelled) return;
+
+        if (count === 0) {
+          setIsLoadingCV(false);
+          return;
+        }
+
+        if (count === 1) {
+          const data = await fetchMostRecentCVData(userId);
+          if (cancelled) return;
+          if (data) applyCVDataToForm(data);
+          setIsLoadingCV(false);
+          return;
+        }
+
+        const list = await listUserCVs(userId);
+        if (cancelled) return;
+        setCvList(list);
+        setSelectedCVId(list[0]?.id || null);
+        setIsLoadingCV(false);
+      } catch (e) {
+        console.error('[CoverLetter] Failed to fetch CV data:', e);
+        setIsLoadingCV(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [userId, documentId]);
+
+  const handleCVSelect = useCallback(async (cvId: string) => {
+    if (!cvId || !userId) return;
+    try {
+      setIsLoadingCV(true);
+      const data = await extractDataFromCV(userId, cvId);
+      if (data) applyCVDataToForm(data);
+    } catch (e) {
+      console.error('[CoverLetter] Failed to extract CV:', e);
+      toast.error('Failed to load CV data');
+    } finally {
+      setIsLoadingCV(false);
+    }
+  }, [userId, applyCVDataToForm]);
+
+  const handleDismissCVBanner = useCallback(() => {
+    setCvBannerDismissed(true);
+    setCvData(null);
+    setCvDataLoaded(false);
+    setCvSourceId(null);
+  }, []);
+
+  useEffect(() => {
+    if (documentId && documentId !== internalDocumentId) {
+      setInternalDocumentId(documentId);
+      internalDocumentIdRef.current = documentId;
+      documentCreationAttempted.current = true;
+    }
+  }, [documentId]);
+
+  useEffect(() => {
+    if (!documentId) {
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch (e) {}
+      setInternalDocumentId(null);
+      internalDocumentIdRef.current = null;
+      documentCreationAttempted.current = false;
+      setGeneratedLetter('');
+      setOriginalLetter('');
+    }
+  }, [documentId]);
+
+  useEffect(() => {
+    internalDocumentIdRef.current = internalDocumentId;
+  }, [internalDocumentId]);
+
+  useEffect(() => {
+    if (!documentId) return;
+    if (isRealPhoto(profilePhoto)) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const img = await loadImageFromIDB(getPhotoKey(documentId));
+        if (!cancelled && img) {
+          setProfilePhoto(img);
+        }
+      } catch (e) {
+        console.error('❌ CoverLetter: Failed to load photo from IDB:', e);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [documentId, profilePhoto]);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 640);
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // ============================================================
-  // ===== ✅ FIX: STABLE STATE REF (98% QUALITY FIX) =====
-  // ============================================================
   const stateRef = useRef({
     userName, email, phoneNumber, selectedCountryCode, address, linkedin,
     education, experience, skills, jobTitle, company, jobDescription,
-    additionalInfo, profilePhoto, selectedStyle, projects,
-    currentPosition
+    additionalInfo, profilePhoto, selectedStyle, projects, currentPosition,
+    hiringManagerName, currentTitle, currentCompany, yearsOfExperience,
   });
 
-  // ✅ Har state change par ref update karein
   useEffect(() => {
     stateRef.current = {
       userName, email, phoneNumber, selectedCountryCode, address, linkedin,
       education, experience, skills, jobTitle, company, jobDescription,
-      additionalInfo, profilePhoto, selectedStyle, projects,
-      currentPosition
+      additionalInfo, profilePhoto, selectedStyle, projects, currentPosition,
+      hiringManagerName, currentTitle, currentCompany, yearsOfExperience,
     };
   }, [
     userName, email, phoneNumber, selectedCountryCode, address, linkedin,
     education, experience, skills, jobTitle, company, jobDescription,
-    additionalInfo, profilePhoto, selectedStyle, projects,
-    currentPosition
+    additionalInfo, profilePhoto, selectedStyle, projects, currentPosition,
+    hiringManagerName, currentTitle, currentCompany, yearsOfExperience,
   ]);
 
-  // ============================================================
-  // ===== TEMPLATE SYNC FROM GALLERY =====
-  // ============================================================
   useEffect(() => {
-    if (initialTemplateId && (initialTemplateId === 'classic' || initialTemplateId === 'modern')) {
-      console.log(`🎯 Gallery template applied on mount: ${initialTemplateId}`);
-      setSelectedTemplate(initialTemplateId as 'classic' | 'modern');
-    }
-  }, []);
+    if (documentId) {
+      (async () => {
+        try {
+          const doc = await localStorageCoverLetterService.get(userId, documentId);
+          if (doc?.data) {
+            const d: any = doc.data;
+            setUserName(d.userName || '');
+            setEmail(d.email || '');
+            setPhoneNumber(d.phoneNumber || '');
+            setSelectedCountryCode(d.selectedCountryCode || '+92');
+            setAddress(d.address || '');
+            setLinkedin(d.linkedin || '');
+            setEducation(d.education || '');
+            setExperience(d.experience || '');
+            setSkills(d.skills || '');
+            setJobTitle(d.jobTitle || '');
+            setCompany(d.company || '');
+            setJobDescription(d.jobDescription || '');
+            setAdditionalInfo(d.additionalInfo || '');
+            setSelectedStyle(d.selectedStyle || 'professional');
 
-  useEffect(() => {
-    if (initialTemplateId && (initialTemplateId === 'classic' || initialTemplateId === 'modern')) {
-      console.log(`🎯 Gallery template applied via prop update: ${initialTemplateId}`);
-      setSelectedTemplate(initialTemplateId as 'classic' | 'modern');
-    }
-  }, [initialTemplateId]);
+            if (isValidTemplate(d.selectedTemplate) && !isValidTemplate(initialTemplateId)) {
+              setSelectedTemplate(d.selectedTemplate);
+            }
 
-  useEffect(() => {
-    const savedTemplate = localStorage.getItem('adin-selected-cover-template');
-    if (savedTemplate && (savedTemplate === 'classic' || savedTemplate === 'modern')) {
-      console.log(`🎯 Gallery template applied from localStorage: ${savedTemplate}`);
-      setSelectedTemplate(savedTemplate as 'classic' | 'modern');
-    }
-  }, []);
+            setGeneratedLetter(d.generatedLetter || '');
+            setOriginalLetter(d.originalLetter || '');
+            setProjects(d.projects || '');
+            setIsEnhanced(d.isEnhanced || false);
+            setCurrentPosition(d.currentPosition || '');
 
-  useEffect(() => {
-    if (!isInitialLoad) {
-      localStorage.setItem('adin-selected-cover-template', selectedTemplate);
+            setHiringManagerName(d.hiringManagerName || '');
+            setCurrentTitle(d.currentTitle || '');
+            setCurrentCompany(d.currentCompany || '');
+            setYearsOfExperience(
+              d.yearsOfExperience !== undefined && d.yearsOfExperience !== null
+                ? String(d.yearsOfExperience)
+                : ''
+            );
+            setCvDataLoaded(!!d.cvDataLoaded);
+            setCvSourceId(d.cvSourceId || null);
+          }
+        } catch (e) { console.error('Load failed:', e); }
+        finally { setIsInitialLoad(false); }
+      })();
+      return;
     }
-  }, [selectedTemplate, isInitialLoad]);
 
-  // ============================================================
-  // ===== LOCAL STORAGE LOAD =====
-  // ============================================================
-  useEffect(() => {
     const savedData = loadFromLocalStorage();
     if (savedData) {
       setUserName(savedData.userName || '');
@@ -214,184 +617,349 @@ const CoverLetter = ({ onBackToHome, initialTemplateId }: CoverLetterProps) => {
       setCompany(savedData.company || '');
       setJobDescription(savedData.jobDescription || '');
       setAdditionalInfo(savedData.additionalInfo || '');
-      setProfilePhoto(savedData.profilePhoto || null);
       setSelectedStyle(savedData.selectedStyle || 'professional');
-      if (!initialTemplateId && savedData.selectedTemplate) {
-        setSelectedTemplate(savedData.selectedTemplate || 'classic');
+
+      if (isValidTemplate(savedData.selectedTemplate) && !isValidTemplate(initialTemplateId)) {
+        setSelectedTemplate(savedData.selectedTemplate);
       }
+
       setGeneratedLetter(savedData.generatedLetter || '');
       setOriginalLetter(savedData.originalLetter || '');
-      setStep(savedData.step || 1);
       setProjects(savedData.projects || '');
       setIsEnhanced(savedData.isEnhanced || false);
       setCurrentPosition(savedData.currentPosition || '');
+
+      setHiringManagerName(savedData.hiringManagerName || '');
+      setCurrentTitle(savedData.currentTitle || '');
+      setCurrentCompany(savedData.currentCompany || '');
+      setYearsOfExperience(
+        savedData.yearsOfExperience !== undefined && savedData.yearsOfExperience !== null
+          ? String(savedData.yearsOfExperience)
+          : ''
+      );
+      setCvDataLoaded(!!savedData.cvDataLoaded);
+      setCvSourceId(savedData.cvSourceId || null);
+
+      if (savedData.hasPhoto && !documentId) {
+        (async () => {
+          try {
+            const img = await loadImageFromIDB(getDraftPhotoKey(userId));
+            if (img) {
+              setProfilePhoto(img);
+            }
+          } catch (e) {
+            console.error('Failed to load draft photo:', e);
+          }
+        })();
+      }
     }
     setIsInitialLoad(false);
-  }, [initialTemplateId]);
+  }, [initialTemplateId, documentId, userId]);
 
-  // ============================================================
-  // ===== LOCAL STORAGE SAVE =====
-  // ============================================================
   useEffect(() => {
     if (isInitialLoad) return;
-    
-    const data = {
-      userName,
-      email,
-      phoneNumber,
-      selectedCountryCode,
-      address,
-      linkedin,
-      education,
-      experience,
-      skills,
-      jobTitle,
-      company,
-      jobDescription,
+
+    setHasSaved(false);
+    const t = setTimeout(() => setHasSaved(true), 400);
+
+    const hasRealPhoto = isRealPhoto(profilePhoto);
+    const preservedHasPhoto = preserveHasPhoto(userId, internalDocumentIdRef.current, hasRealPhoto);
+
+    const data: CoverLetterData = {
+      userName, email, phoneNumber, selectedCountryCode, address, linkedin,
+      education, experience, skills, jobTitle, company, jobDescription,
       additionalInfo,
-      profilePhoto,
-      selectedStyle,
-      selectedTemplate,
-      generatedLetter,
-      originalLetter,
-      step,
-      projects,
-      isEnhanced,
-      currentPosition
-    };
-    
+      profilePhoto: null,
+      hasPhoto: preservedHasPhoto,
+      selectedStyle, selectedTemplate,
+      generatedLetter, originalLetter, step: 1, projects, isEnhanced,
+      currentPosition,
+      hiringManagerName,
+      currentTitle,
+      currentCompany,
+      yearsOfExperience: yearsOfExperience ? Number(yearsOfExperience) : undefined,
+      cvDataLoaded,
+      cvSourceId: cvSourceId || undefined,
+      lastUpdated: Date.now(),
+    } as any;
+
+    const currentDocId = internalDocumentIdRef.current;
+
+    if (currentDocId) {
+      localStorageCoverLetterService.update(userId, currentDocId, data);
+    } else {
+      const hasMeaningfulData = !!(
+        userName?.trim() || email?.trim() || jobTitle?.trim() || generatedLetter?.trim() || hasRealPhoto
+      );
+
+      if (hasMeaningfulData && !documentCreationAttempted.current) {
+        if (documentCreationTimer.current) {
+          clearTimeout(documentCreationTimer.current);
+        }
+
+        documentCreationTimer.current = setTimeout(async () => {
+          if (documentCreationAttempted.current) return;
+          if (internalDocumentIdRef.current) return;
+
+          documentCreationAttempted.current = true;
+          try {
+            const meta = await localStorageCoverLetterService.createEmpty(userId);
+
+            await localStorageCoverLetterService.update(userId, meta.id, data);
+
+            if (isRealPhoto(profilePhoto)) {
+              try {
+                await saveImageToIDB(getPhotoKey(meta.id), profilePhoto!);
+                await deleteImageFromIDB(getDraftPhotoKey(userId));
+              } catch (imgErr) {
+                console.error('Failed to move draft photo:', imgErr);
+              }
+            }
+
+            setInternalDocumentId(meta.id);
+            internalDocumentIdRef.current = meta.id;
+
+            onDocumentCreated?.(meta.id);
+          } catch (e: any) {
+            console.error('[CoverLetter] Creation failed:', e);
+            documentCreationAttempted.current = false;
+          }
+        }, 300);
+      }
+    }
+
     saveToLocalStorage(data);
-    window.location.hash = `step-${step}`;
+
+    return () => {
+      clearTimeout(t);
+    };
   }, [
-    userName,
-    email,
-    phoneNumber,
-    selectedCountryCode,
-    address,
-    linkedin,
-    education,
-    experience,
-    skills,
-    jobTitle,
-    company,
-    jobDescription,
-    additionalInfo,
-    profilePhoto,
-    selectedStyle,
-    selectedTemplate,
-    generatedLetter,
-    originalLetter,
-    step,
-    projects,
-    isEnhanced,
-    currentPosition,
-    isInitialLoad
+    userName, email, phoneNumber, selectedCountryCode, address, linkedin,
+    education, experience, skills, jobTitle, company, jobDescription,
+    additionalInfo, profilePhoto, selectedStyle, selectedTemplate,
+    generatedLetter, originalLetter, projects, isEnhanced,
+    currentPosition, isInitialLoad, userId, onDocumentCreated,
+    hiringManagerName, currentTitle, currentCompany, yearsOfExperience,
+    cvDataLoaded, cvSourceId,
   ]);
 
-  // ============================================================
-  // ===== HASH CHANGE HANDLER =====
-  // ============================================================
   useEffect(() => {
-    const handleHashChange = () => {
-      const hash = window.location.hash;
-      if (hash.startsWith('#step-')) {
-        const stepNum = parseInt(hash.replace('#step-', ''), 10);
-        if (!isNaN(stepNum) && stepNum >= 1 && stepNum <= 3 && stepNum !== step) {
-          setStep(stepNum);
-          window.scrollTo({ top: 0, behavior: 'instant' });
-        }
+    return () => {
+      if (documentCreationTimer.current) {
+        clearTimeout(documentCreationTimer.current);
       }
     };
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, [step]);
-
-  // ============================================================
-  // ===== FULLSCREEN =====
-  // ============================================================
-  const toggleFullscreen = async () => {
-    try {
-      if (!isFullscreen) {
-        await containerRef.current?.requestFullscreen();
-        setIsFullscreen(true);
-        toast.success('Fullscreen mode ON');
-      } else {
-        await document.exitFullscreen();
-        setIsFullscreen(false);
-        toast.success('Fullscreen mode OFF');
-      }
-    } catch (err) {
-      toast.error('Fullscreen not supported');
-    }
-  };
-
-  useEffect(() => {
-    const handleFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  // ============================================================
-  // ===== CLEAR ALL DATA =====
-  // ============================================================
-  const clearAllData = () => {
-    if (window.confirm('Are you sure? This will clear ALL your cover letter data!')) {
-      setUserName('');
-      setEmail('');
-      setPhoneNumber('');
-      setSelectedCountryCode('+92');
-      setAddress('');
-      setLinkedin('');
-      setEducation('');
-      setExperience('');
-      setSkills('');
-      setJobTitle('');
-      setCompany('');
-      setJobDescription('');
-      setAdditionalInfo('');
-      setProfilePhoto(null);
-      setSelectedStyle('professional');
-      setSelectedTemplate('classic');
-      setGeneratedLetter('');
-      setOriginalLetter('');
-      setProjects('');
-      setIsEnhanced(false);
-      setCurrentPosition('');
-      setStep(1);
-      localStorage.removeItem(STORAGE_KEY);
-      toast.success('All cover letter data cleared successfully!');
+  useEffect(() => {
+    if (isInitialLoad) return;
+    const docId = internalDocumentIdRef.current;
+    if (!docId) return;
+    if (!userId) return;
+
+    const timer = setTimeout(() => {
+      const now = Date.now();
+      syncService.syncCoverLetter({
+        userId,
+        clId: docId,
+        data: {
+          userName, email, phoneNumber, selectedCountryCode, address, linkedin,
+          education, experience, skills, jobTitle, company, jobDescription,
+          additionalInfo,
+          hasPhoto: isRealPhoto(profilePhoto),
+          selectedStyle, selectedTemplate,
+          generatedLetter, originalLetter, projects, isEnhanced,
+          currentPosition,
+          hiringManagerName, currentTitle, currentCompany, yearsOfExperience,
+          cvDataLoaded, cvSourceId,
+          openSections,
+        },
+        title: jobTitle?.trim() || userName?.trim() || 'Untitled Cover Letter',
+        template: selectedTemplate,
+        createdAt: now,
+        updatedAt: now,
+      }).catch(err => {
+        console.warn('[CoverLetter] Sheet sync failed (queued for retry):', err);
+      });
+    }, SYNC_CONFIG.idleDebounceMs);
+
+    return () => clearTimeout(timer);
+  }, [
+    isInitialLoad,
+    userId,
+    userName, email, phoneNumber, selectedCountryCode, address, linkedin,
+    education, experience, skills, jobTitle, company, jobDescription,
+    additionalInfo, profilePhoto, selectedStyle, selectedTemplate,
+    generatedLetter, originalLetter, projects, isEnhanced,
+    currentPosition, hiringManagerName, currentTitle, currentCompany,
+    yearsOfExperience, cvDataLoaded, cvSourceId, openSections,
+  ]);
+
+  useEffect(() => {
+    if (isInitialLoad) return;
+
+    const forceSync = (label: string, warnLabel: string) => {
+      const docId = internalDocumentIdRef.current;
+      if (!docId) return;
+      if (!userId) return;
+      if (isInitialLoad) return;
+
+      const now = Date.now();
+      console.log(`[CoverLetter] ${label} — force syncing CL to Sheet`);
+
+      syncService.syncCoverLetter({
+        userId,
+        clId: docId,
+        data: {
+          userName, email, phoneNumber, selectedCountryCode, address, linkedin,
+          education, experience, skills, jobTitle, company, jobDescription,
+          additionalInfo,
+          hasPhoto: isRealPhoto(profilePhoto),
+          selectedStyle, selectedTemplate,
+          generatedLetter, originalLetter, projects, isEnhanced,
+          currentPosition,
+          hiringManagerName, currentTitle, currentCompany, yearsOfExperience,
+          cvDataLoaded, cvSourceId,
+          openSections,
+        },
+        title: jobTitle?.trim() || userName?.trim() || 'Untitled Cover Letter',
+        template: selectedTemplate,
+        createdAt: now,
+        updatedAt: now,
+      }).catch(err => {
+        console.warn(`[CoverLetter] ${warnLabel}-triggered sync failed (queued):`, err);
+      });
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'hidden') return;
+      forceSync('visibility hidden', 'visibility');
+    };
+
+    const handlePageHide = () => {
+      forceSync('pagehide', 'pagehide');
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener('beforeunload', handlePageHide);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handlePageHide);
+      window.removeEventListener('beforeunload', handlePageHide);
+    };
+  }, [
+    isInitialLoad,
+    userId,
+    userName, email, phoneNumber, selectedCountryCode, address, linkedin,
+    education, experience, skills, jobTitle, company, jobDescription,
+    additionalInfo, profilePhoto, selectedStyle, selectedTemplate,
+    generatedLetter, originalLetter, projects, isEnhanced,
+    currentPosition, hiringManagerName, currentTitle, currentCompany,
+    yearsOfExperience, cvDataLoaded, cvSourceId, openSections,
+  ]);
+
+  const handlePhotoUpload = async (dataUrl: string) => {
+    setProfilePhoto(dataUrl);
+
+    try {
+      let docId = internalDocumentIdRef.current;
+
+      if (!docId) {
+        const meta = await localStorageCoverLetterService.createEmpty(userId);
+        docId = meta.id;
+        internalDocumentIdRef.current = meta.id;
+        setInternalDocumentId(meta.id);
+        documentCreationAttempted.current = true;
+
+        if (documentCreationTimer.current) {
+          clearTimeout(documentCreationTimer.current);
+          documentCreationTimer.current = null;
+        }
+
+        onDocumentCreated?.(meta.id);
+      }
+
+      await saveImageToIDB(getPhotoKey(docId), dataUrl);
+
+      try {
+        await localStorageCoverLetterService.update(userId, docId, {
+          ...stateRef.current,
+          profilePhoto: null,
+          hasPhoto: true,
+          lastUpdated: Date.now(),
+        } as any);
+      } catch (e: any) {
+        if (e?.name === 'QuotaExceededError' || e?.code === 22) {
+          console.error('❌ localStorage FULL — cover letter photo save failed locally');
+          try {
+            toast.error('Storage full! Photo saved to cloud only.', { duration: 5000 });
+          } catch {}
+        } else {
+          console.error('Cover letter update failed:', e);
+        }
+      }
+    } catch (err) {
+      console.error('❌ Failed to save photo to IndexedDB:', err);
     }
   };
 
-  // ============================================================
-  // ===== VALIDATIONS =====
-  // ============================================================
+  const handlePhotoRemove = async () => {
+    setProfilePhoto(null);
+
+    try {
+      const docId = internalDocumentIdRef.current;
+      if (docId) {
+        await deleteImageFromIDB(getPhotoKey(docId));
+
+        try {
+          await localStorageCoverLetterService.update(userId, docId, {
+            ...stateRef.current,
+            profilePhoto: null,
+            hasPhoto: false,
+            lastUpdated: Date.now(),
+          } as any);
+        } catch (e: any) {
+          if (e?.name === 'QuotaExceededError' || e?.code === 22) {
+            console.error('❌ localStorage FULL — cover letter update failed');
+          }
+        }
+      } else {
+        await deleteImageFromIDB(getDraftPhotoKey(userId));
+      }
+    } catch (err) {
+      console.error('❌ Failed to delete photo from IndexedDB:', err);
+    }
+  };
+
+  const clearAllData = () => {
+    if (window.confirm('Are you sure? This will clear ALL your cover letter data!')) {
+      const docId = internalDocumentIdRef.current;
+      if (docId && userId) {
+        syncService.deleteCoverLetter(userId, docId).catch(err => {
+          console.warn('[CoverLetter] Sheet delete failed (queued for retry):', err);
+        });
+      }
+      setUserName(''); setEmail(''); setPhoneNumber('');
+      setSelectedCountryCode('+92'); setAddress(''); setLinkedin('');
+      setEducation(''); setExperience(''); setSkills('');
+      setJobTitle(''); setCompany(''); setJobDescription('');
+      setAdditionalInfo(''); setProfilePhoto(null);
+      setSelectedStyle('professional'); setSelectedTemplate('classic');
+      setGeneratedLetter(''); setOriginalLetter(''); setProjects('');
+      setIsEnhanced(false); setCurrentPosition('');
+      setHiringManagerName(''); setCurrentTitle(''); setCurrentCompany('');
+      setYearsOfExperience(''); setCvDataLoaded(false); setCvSourceId(null);
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(TEMPLATE_STORAGE_KEY);
+      toast.success('All data cleared!');
+    }
+  };
+
   const isPhoneValid = validatePhoneForCountry(phoneNumber, selectedCountryCode);
   const phoneValidationMessage = getPhoneValidationMessage(phoneNumber, selectedCountryCode);
 
-  // ============================================================
-  // ===== SCORES =====
-  // ============================================================
-  const nameScore = userName ? 100 : 0;
-  const emailScore = email && email.includes('@gmail.com') ? 100 : 0;
-  const phoneScore = phoneNumber && isPhoneValid ? 100 : 0;
-  const educationScore = education ? 100 : 0;
-  const experienceScore = experience ? 100 : 0;
-  const skillsScore = skills ? 100 : 0;
-  const jobTitleScore = jobTitle ? 100 : 0;
-  const companyScore = company ? 100 : 0;
-  const descriptionScore = jobDescription ? 100 : 0;
-  const achievementsScore = additionalInfo ? 100 : 0;
-  const currentPositionScore = currentPosition ? 100 : 0;
-  
-  const totalScore = Math.round((nameScore + emailScore + phoneScore + educationScore + experienceScore + skillsScore + jobTitleScore + companyScore + descriptionScore + achievementsScore + currentPositionScore) / 11);
-  const missingFields = [userName, email, phoneNumber, education, experience, skills, jobTitle, company, jobDescription, additionalInfo, currentPosition].filter(f => !f).length;
-  
-  const overallQuality = generatedLetter ? 88 : 0;
-
-  // ============================================================
-  // ===== HANDLERS =====
-  // ============================================================
   const handleSkillsChange = (value: string) => {
     let formatted = value.replace(/\s*,\s*/g, ', ').trim();
     formatted = formatted.replace(/,+/g, ',');
@@ -400,34 +968,14 @@ const CoverLetter = ({ onBackToHome, initialTemplateId }: CoverLetterProps) => {
     setSkills(formatted);
   };
 
-  const handleEnhance = (enhancedLetter: string) => {
-    setGeneratedLetter(enhancedLetter);
-    setIsEnhanced(true);
-    toast.success('Letter enhanced successfully!');
-  };
-
-  const resetToOriginal = () => {
-    if (originalLetter) {
-      setGeneratedLetter(originalLetter);
-      setIsEnhanced(false);
-      toast.success('Restored to original version');
-    }
-  };
-
   const copyToClipboard = () => {
-    if (!generatedLetter) { 
-      toast.error('Generate a letter first'); 
-      return; 
-    }
+    if (!generatedLetter) { toast.error('Generate a letter first'); return; }
     navigator.clipboard.writeText(generatedLetter);
-    toast.success('Copied to clipboard!');
+    toast.success('Copied!');
   };
 
   const downloadTXT = () => {
-    if (!generatedLetter) { 
-      toast.error('Generate a letter first'); 
-      return; 
-    }
+    if (!generatedLetter) { toast.error('Generate a letter first'); return; }
     const blob = new Blob([generatedLetter], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -435,37 +983,19 @@ const CoverLetter = ({ onBackToHome, initialTemplateId }: CoverLetterProps) => {
     a.download = `cover_letter_${jobTitle.replace(/\s/g, '_') || 'application'}.txt`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success('TXT file downloaded!');
+    toast.success('TXT downloaded!');
   };
 
   const downloadPDF = async () => {
-    if (!generatedLetter) {
-      toast.error('Generate a letter first');
-      return;
-    }
-
+    if (!generatedLetter) { toast.error('Generate a letter first'); return; }
     try {
       toast.loading('Generating PDF...', { id: 'pdf' });
-
       const pdfBlob = await generateCoverLetterPDF({
-        userName,
-        email,
-        phoneNumber,
-        selectedCountryCode,
-        address,
-        linkedin,
-        jobTitle,
-        company,
-        education,
-        experience,
-        skills,
-        additionalInfo,
-        generatedLetter,
-        selectedStyle,
-        profilePhoto,
-        selectedTemplate
+        userName, email, phoneNumber, selectedCountryCode, address, linkedin,
+        jobTitle, company, education, experience, skills, additionalInfo,
+        generatedLetter, selectedStyle, profilePhoto, selectedTemplate,
+        hiringManagerName,
       });
-
       const url = URL.createObjectURL(pdfBlob);
       const link = document.createElement('a');
       link.href = url;
@@ -474,158 +1004,58 @@ const CoverLetter = ({ onBackToHome, initialTemplateId }: CoverLetterProps) => {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-
-      toast.success('PDF downloaded successfully!', { id: 'pdf' });
+      toast.success('PDF downloaded!', { id: 'pdf' });
     } catch (error) {
-      console.error('PDF generation error:', error);
+      console.error('PDF error:', error);
       toast.error('Failed to generate PDF', { id: 'pdf' });
     }
   };
 
-  // ============================================================
-  // ===== ✅ FIXED: GENERATE LETTER HANDLER (Ref se) =====
-  // ============================================================
-  const generateLetterHandler = () => {
-    const currentState = stateRef.current;
-    
-    console.log('🚀 Generating with latest values:', {
-      userName: currentState.userName,
-      jobTitle: currentState.jobTitle,
-      company: currentState.company,
-      experience: currentState.experience,
-      skills: currentState.skills,
-      education: currentState.education,
-      projects: currentState.projects,
-      additionalInfo: currentState.additionalInfo,
-      selectedStyle: currentState.selectedStyle,
-      currentPosition: currentState.currentPosition
-    });
+  const handleGenerateLetter = () => {
+    const s = stateRef.current;
+
+    if (!s.userName?.trim()) { toast.error('Please fill your full name'); return; }
+    if (!s.email || !s.email.includes('@gmail.com')) { toast.error('Please enter a valid Gmail address'); return; }
+    if (!s.phoneNumber) { toast.error('Please enter your phone number'); return; }
+    if (!validatePhoneForCountry(s.phoneNumber, s.selectedCountryCode)) { toast.error('Please enter a valid phone number'); return; }
+    if (!s.jobTitle?.trim()) { toast.error('Please fill target job title'); return; }
+    if (!s.company?.trim()) { toast.error('Please fill target company'); return; }
+    if (!s.jobDescription?.trim()) { toast.error('Please fill job description'); return; }
+    if (!s.skills?.trim()) { toast.error('Please add at least one skill'); return; }
 
     const params = {
-      userName: currentState.userName,
-      email: currentState.email,
-      phoneNumber: currentState.phoneNumber,
-      education: currentState.education,
-      jobTitle: currentState.jobTitle,
-      company: currentState.company,
-      experience: currentState.experience,
-      skills: currentState.skills,
-      projects: currentState.projects,
-      additionalInfo: currentState.additionalInfo,
-      selectedStyle: currentState.selectedStyle,
-      currentPosition: currentState.currentPosition,
-      isPhoneValid: validatePhoneForCountry(currentState.phoneNumber, currentState.selectedCountryCode),
+      userName: s.userName,
+      email: s.email,
+      phoneNumber: s.phoneNumber,
+      education: s.education,
+      jobTitle: s.jobTitle,
+      company: s.company,
+      experience: s.experience,
+      skills: s.skills,
+      projects: s.projects,
+      additionalInfo: s.additionalInfo,
+      selectedStyle: s.selectedStyle,
+      currentPosition: s.currentPosition,
+      isPhoneValid: validatePhoneForCountry(s.phoneNumber, s.selectedCountryCode),
+      hiringManagerName: s.hiringManagerName,
+      currentTitle: s.currentTitle,
+      currentCompany: s.currentCompany,
+      yearsOfExperience: s.yearsOfExperience
+        ? Number(s.yearsOfExperience)
+        : undefined,
+      jobDescription: s.jobDescription,
       setGenerating,
       setGeneratedLetter,
       setOriginalLetter,
       setIsEnhanced,
-      setStep
+      setStep: () => {},
     };
-    
+
     generateLetter(params);
   };
 
-  // ============================================================
-  // ===== ✅ FIXED: FALLBACK HANDLER (Ref se) =====
-  // ============================================================
-  const generateFallbackFromRef = () => {
-    const currentState = stateRef.current;
-    
-    generateFallbackLetter(
-      currentState.userName,
-      currentState.jobTitle,
-      currentState.company,
-      currentState.experience,
-      currentState.skills,
-      currentState.education,
-      currentState.projects,
-      currentState.additionalInfo,
-      currentState.currentPosition,
-      setGeneratedLetter,
-      setOriginalLetter,
-      setIsEnhanced,
-      setStep
-    );
-  };
-
-  // ============================================================
-  // ===== NAVIGATION =====
-  // ============================================================
-  const nextStep = () => {
-    if (step === 1) {
-      if (!userName || !userName.trim()) {
-        toast.error('Please fill your full name');
-        return;
-      }
-      if (!email || !email.includes('@gmail.com')) {
-        toast.error('Please enter a valid Gmail address (@gmail.com)');
-        return;
-      }
-      if (!phoneNumber) {
-        toast.error('Please enter your phone number');
-        return;
-      }
-      if (!isPhoneValid) {
-        toast.error(phoneValidationMessage);
-        return;
-      }
-      if (!education) {
-        toast.error('Please fill in Education section (Degree and University are required)');
-        return;
-      }
-      const educationParts = education.split(',');
-      const hasDegree = educationParts.length > 0 && educationParts[0].trim().length > 0;
-      const hasUniversity = educationParts.length > 1 && educationParts[1].trim().length > 0;
-      if (!hasDegree) {
-        toast.error('Degree is required in Education section');
-        return;
-      }
-      if (!hasUniversity) {
-        toast.error('University is required in Education section');
-        return;
-      }
-      if (!jobTitle || !jobTitle.trim()) {
-        toast.error('Please fill your job title');
-        return;
-      }
-      if (!company || !company.trim()) {
-        toast.error('Please fill company name');
-        return;
-      }
-      if (!skills || !skills.trim()) {
-        toast.error('Please fill your skills');
-        return;
-      }
-      if (!currentPosition || !currentPosition.trim()) {
-        toast.error('Please fill your current position');
-        return;
-      }
-      setStep(2);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } else if (step === 2) {
-      generateLetterHandler();
-    } else {
-      setStep(Math.min(step + 1, 3));
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  };
-
-  const prevStep = () => {
-    setStep(Math.max(step - 1, 1));
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const goBackToEdit = () => {
-    setStep(2);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  // ============================================================
-  // ===== LIVE PREVIEW =====
-  // ============================================================
   const getLivePreview = () => {
-    if (step === 3 && generatedLetter) return generatedLetter;
-    
+    if (generatedLetter) return generatedLetter;
     let preview = '';
     preview += `${userName || '[Your Name]'}\n\n`;
     preview += `${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}\n\n`;
@@ -634,284 +1064,272 @@ const CoverLetter = ({ onBackToHome, initialTemplateId }: CoverLetterProps) => {
     preview += `Dear Hiring Manager,\n\n`;
     preview += `I am excited to apply for the ${jobTitle || '[Job Title]'} position at ${company || '[Company]'}. `;
     if (experience) preview += `With a strong foundation in ${experience}, `;
-    preview += `I am eager to contribute to a team that delivers innovative technology solutions.\n\n`;
+    preview += `I am eager to contribute to a team that delivers innovative solutions.\n\n`;
     if (projects) preview += `My experience includes ${projects}. `;
     if (skills) preview += `I bring expertise in ${skills}. `;
-    preview += `\n\nI would welcome the opportunity to discuss how I can contribute to your team. Thank you for your consideration.`;
+    preview += `\n\nI would welcome the opportunity to discuss how I can contribute. Thank you.`;
     return preview;
   };
 
   const livePreview = getLivePreview();
   const currentTemplate = templates.find(t => t.id === selectedTemplate) || templates[0];
 
-  // ============================================================
-  // ===== MOBILE TABS HANDLER =====
-  // ============================================================
   const handleMobileTabClick = (tabId: TabType) => {
-    if (mobileActiveTab === tabId) {
-      setMobileActiveTab(null);
-    } else {
-      setMobileActiveTab(tabId);
-    }
+    setMobileActiveTab(mobileActiveTab === tabId ? null : tabId);
   };
 
-  // ============================================================
-  // ===== CSS STYLES =====
-  // ============================================================
   useEffect(() => {
     const style = document.createElement('style');
     style.textContent = `
-      .main-scroll::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-      }
-      .main-scroll::-webkit-scrollbar-track {
-        background: rgba(31, 41, 55, 0.5);
-        border-radius: 10px;
-        min-height: 100%;
-      }
+      .main-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+      .main-scroll::-webkit-scrollbar-track { background: transparent; }
       .main-scroll::-webkit-scrollbar-thumb {
-        background: linear-gradient(to bottom, #a855f7, #3b82f6);
+        background: linear-gradient(to bottom, #a855f7, #7c3aed);
         border-radius: 10px;
-        transition: all 0.3s ease;
-        min-height: 40px;
       }
       .main-scroll::-webkit-scrollbar-thumb:hover {
-        background: linear-gradient(to bottom, #7c3aed, #2563eb);
-        box-shadow: 0 0 20px rgba(168, 85, 247, 0.3);
+        background: linear-gradient(to bottom, #9333ea, #6d28d9);
       }
-      .main-scroll {
-        scrollbar-width: thin;
-        scrollbar-color: #a855f7 rgba(31, 41, 55, 0.5);
-      }
+      .main-scroll { scrollbar-width: thin; scrollbar-color: #a855f7 transparent; }
 
       .left-column-scroll::-webkit-scrollbar,
-      .right-column-scroll::-webkit-scrollbar {
-        width: 5px;
-        height: 5px;
-      }
+      .right-column-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
       .left-column-scroll::-webkit-scrollbar-track,
-      .right-column-scroll::-webkit-scrollbar-track {
-        background: rgba(31, 41, 55, 0.5);
-        border-radius: 10px;
-        min-height: 100%;
-      }
+      .right-column-scroll::-webkit-scrollbar-track { background: transparent; }
       .left-column-scroll::-webkit-scrollbar-thumb,
       .right-column-scroll::-webkit-scrollbar-thumb {
-        background: linear-gradient(to bottom, #a855f7, #3b82f6);
+        background: linear-gradient(to bottom, #a855f7, #7c3aed);
         border-radius: 10px;
-        transition: all 0.3s ease;
-        min-height: 30px;
       }
       .left-column-scroll::-webkit-scrollbar-thumb:hover,
       .right-column-scroll::-webkit-scrollbar-thumb:hover {
-        background: linear-gradient(to bottom, #7c3aed, #2563eb);
-        box-shadow: 0 0 20px rgba(168, 85, 247, 0.3);
+        background: linear-gradient(to bottom, #9333ea, #6d28d9);
       }
-      .left-column-scroll {
-        scrollbar-width: thin;
-        scrollbar-color: #a855f7 rgba(31, 41, 55, 0.5);
-        overflow-y: auto !important;
-        overflow-x: hidden !important;
-      }
+      .left-column-scroll,
       .right-column-scroll {
         scrollbar-width: thin;
-        scrollbar-color: #a855f7 rgba(31, 41, 55, 0.5);
-        overflow-y: auto !important;
-        overflow-x: hidden !important;
+        scrollbar-color: #a855f7 transparent;
       }
 
-      .preview-scroll::-webkit-scrollbar {
-        width: 4px;
-      }
-      .preview-scroll::-webkit-scrollbar-track {
-        background: rgba(200, 200, 200, 0.2);
-        border-radius: 10px;
-      }
-      .preview-scroll::-webkit-scrollbar-thumb {
-        background: linear-gradient(to bottom, #a855f7, #3b82f6);
-        border-radius: 10px;
-        transition: all 0.3s ease;
-      }
-      .preview-scroll::-webkit-scrollbar-thumb:hover {
-        background: linear-gradient(to bottom, #7c3aed, #2563eb);
-      }
-      .preview-scroll {
-        scrollbar-width: thin;
-        scrollbar-color: #a855f7 rgba(200, 200, 200, 0.2);
-      }
-
-      .smooth-scroll {
-        scroll-behavior: smooth;
-      }
-
-      .overflow-wrap-anywhere {
-        overflow-wrap: anywhere;
-        word-break: break-word;
-        max-width: 100%;
-      }
-
-      @keyframes float-cover {
-        0%, 100% { transform: translateY(0px); }
-        50% { transform: translateY(-8px); }
-      }
-      .animate-float-cover {
-        animation: float-cover 1s ease-in-out infinite;
-      }
-
-      @keyframes float-email {
-        0%, 100% { transform: translateY(0px); }
-        50% { transform: translateY(-8px); }
-      }
-      .animate-float-email {
-        animation: float-email 2.8s ease-in-out infinite;
-      }
-
-      @keyframes float-arrow {
-        0%, 100% { transform: translateY(0px); }
-        50% { transform: translateY(-3px); }
-      }
-      .animate-float-arrow {
-        animation: float-arrow 1s ease-in-out infinite;
-      }
-
-      @keyframes glow-pulse-cover {
-        0%, 100% { box-shadow: 0 0 20px rgba(168, 85, 247, 0.3); }
-        50% { box-shadow: 0 0 40px rgba(168, 85, 247, 0.6), 0 0 60px rgba(59, 130, 246, 0.3); }
-      }
-      .animate-glow-cover {
-        animation: glow-pulse-cover 2.5s ease-in-out infinite;
-      }
-
-      @keyframes glow-pulse-email {
-        0%, 100% { box-shadow: 0 0 30px rgba(168, 85, 247, 0.3); }
-        50% { box-shadow: 0 0 60px rgba(168, 85, 247, 0.5), 0 0 80px rgba(59, 130, 246, 0.2); }
-      }
-      .animate-glow-email {
-        animation: glow-pulse-email 2.8s ease-in-out infinite;
-      }
-
-      .go-to-top {
-        position: fixed !important;
-        top: 20px !important;
-        left: 50% !important;
-        transform: translateX(-50%) !important;
-        z-index: 9999 !important;
-        pointer-events: none !important;
-      }
-      .go-to-top > div {
-        pointer-events: auto !important;
-      }
-
-      * {
-        scroll-behavior: smooth;
-      }
-
-      /* Premium Generate Button Animations */
-      @keyframes shimmer-pulse {
-        0% { background-position: -200% center; }
-        100% { background-position: 200% center; }
-      }
-
-      .generate-btn-shimmer {
-        background-size: 200% auto;
-        animation: shimmer-pulse 3s ease-in-out infinite;
-      }
-
-      @keyframes icon-float {
-        0%, 100% { transform: translateY(0px) scale(1); }
-        50% { transform: translateY(-2px) scale(1.05); }
-      }
-
-      .generate-btn-icon {
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      }
-
-      .generate-btn:hover .generate-btn-icon {
-        animation: icon-float 2s ease-in-out infinite;
-      }
-
-      @keyframes spin-smooth {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-
-      .generate-spinner {
-        animation: spin-smooth 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-      }
-
-      /* Fullscreen Button Premium Animations */
-      @keyframes fullscreen-icon-float {
-        0%, 100% { transform: translateY(0px); }
-        50% { transform: translateY(-2px); }
-      }
-      .fullscreen-btn-icon {
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      }
-      .fullscreen-btn:hover .fullscreen-btn-icon {
-        animation: fullscreen-icon-float 2.5s ease-in-out infinite;
-      }
+      .smooth-scroll { scroll-behavior: smooth; }
+      * { scroll-behavior: smooth; }
     `;
     document.head.appendChild(style);
-    return () => {
-      document.head.removeChild(style);
-    };
+    return () => { document.head.removeChild(style); };
   }, []);
 
-  // ============================================================
-  // ===== ✅ FEEDBACK TRIGGER - Watch generatedLetter (Feature-Specific) =====
-  // ============================================================
   useEffect(() => {
-    console.log('🔍 CoverLetter Feedback useEffect triggered:', { 
-      generatedLetter: !!generatedLetter, 
-      generating, 
-      step,
-      length: generatedLetter?.length || 0
-    });
-    
-    if (generatedLetter && !generating && step === 3) {
-      console.log('✅ CoverLetter Feedback conditions met!');
+    if (generatedLetter && !generating) {
       const shouldShow = shouldShowFeedback('cover-letter');
-      console.log('📊 CoverLetter shouldShowFeedback:', shouldShow);
-      
       if (shouldShow) {
-        console.log('🚀 CoverLetter Opening feedback modal...');
         setFeedbackSourceKey('cover-letter');
-        setTimeout(() => {
-          setShowFeedbackModal(true);
-        }, 500);
-      } else {
-        console.log('⏭️ CoverLetter Feedback already shown or skipped.');
+        setTimeout(() => setShowFeedbackModal(true), 500);
       }
     }
-  }, [generatedLetter, generating, step]);
+  }, [generatedLetter, generating]);
 
-  // ✅ NEW: Feedback Widget Handlers
-  const handleMinimize = () => {
+  // ✅ UPDATED: Feedback close handler — dispatches event for PIN education popup
+  const handleFeedbackModalClose = useCallback(() => {
     setShowFeedbackModal(false);
-    minimizeToWidget('cover-letter');
-    setShowWidget(true);
-  };
-  
-  const handleOpenFromWidget = () => {
-    setShowWidget(false);
-    setShowFeedbackModal(true);
-  };
-  
-  const handleCloseWidget = () => {
-    closeWidget('cover-letter');
-    setShowWidget(false);
+    markFeedbackShown('cover-letter');
+
+    window.dispatchEvent(new CustomEvent('adin-feedback-closed', {
+      detail: { source: 'cover-letter' }
+    }));
+  }, []);
+
+  const renderCVBanner = () => {
+    if (cvBannerDismissed) return null;
+    if (!userId) return null;
+    if (documentId) return null;
+
+    if (isLoadingCV) {
+      return (
+        <div className="mb-4 rounded-2xl p-4 bg-purple-50 border border-purple-200 flex items-center gap-3">
+          <div className="w-5 h-5 rounded-full border-2 border-purple-600 border-t-transparent animate-spin shrink-0" />
+          <p className="text-sm text-purple-700 font-medium">Loading your CV data...</p>
+        </div>
+      );
+    }
+
+    if (cvList.length === 0 && !cvData) return null;
+
+    if (cvList.length > 1) {
+      return (
+        <div className="mb-4 rounded-2xl p-4 bg-gradient-to-br from-purple-50 to-blue-50 border border-purple-200">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-purple-500 flex items-center justify-center shrink-0 shadow-sm">
+              <Sparkles size={18} className="text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-sm font-semibold text-slate-900">Auto-fill from CV</h3>
+                  <p className="text-xs text-slate-600 mt-0.5">
+                    We found {cvList.length} CVs. Choose one to auto-fill your details.
+                  </p>
+                </div>
+                <button
+                  onClick={handleDismissCVBanner}
+                  className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white/60 transition-colors"
+                  aria-label="Dismiss"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <select
+                value={selectedCVId || ''}
+                onChange={(e) => {
+                  setSelectedCVId(e.target.value);
+                  if (e.target.value) handleCVSelect(e.target.value);
+                }}
+                className="mt-3 w-full rounded-lg bg-white border border-purple-200 text-slate-900 text-sm font-medium outline-none transition-all px-3 py-2.5 cursor-pointer focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10"
+              >
+                <option value="">Select a CV...</option>
+                {cvList.map((cv) => (
+                  <option key={cv.id} value={cv.id}>
+                    {cv.title || 'Untitled CV'}
+                  </option>
+                ))}
+              </select>
+
+              {cvDataLoaded && cvData && (
+                <p className="mt-2 text-xs text-emerald-700 flex items-center gap-1.5">
+                  <CheckCircle2 size={13} />
+                  Data loaded from "{cvData.sourceTitle}"
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (cvDataLoaded && cvData) {
+      return (
+        <div className="mb-4 rounded-2xl p-4 bg-gradient-to-br from-purple-50 to-blue-50 border border-purple-200">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-purple-500 flex items-center justify-center shrink-0 shadow-sm">
+              <Sparkles size={18} className="text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-sm font-semibold text-slate-900">Auto-filled from your CV</h3>
+                  <p className="text-xs text-slate-600 mt-0.5">
+                    We used "{cvData.sourceTitle}" to pre-fill your personal details. You can edit any field.
+                  </p>
+                </div>
+                <button
+                  onClick={handleDismissCVBanner}
+                  className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white/60 transition-colors"
+                  aria-label="Dismiss"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return null;
   };
 
-  // ============================================================
-  // ===== RENDER =====
-  // ============================================================
+  const renderActionButtons = () => (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
+      <button
+        onClick={copyToClipboard}
+        aria-label="Copy Cover Letter"
+        className="group flex flex-col items-center justify-center gap-2.5 py-5 md:py-6 rounded-2xl bg-white border border-slate-200 hover:border-emerald-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-emerald-500/10 focus:outline-none focus:ring-4 focus:ring-emerald-500/15 transition-all duration-200"
+      >
+        <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-sm shadow-emerald-500/25 group-hover:scale-105 transition-transform duration-200">
+          <Copy size={19} className="text-white" strokeWidth={2.4} />
+        </div>
+        <span className="text-xs md:text-sm font-semibold text-slate-800 tracking-tight">
+          Copy Letter
+        </span>
+      </button>
 
-  // ===== MOBILE RENDER =====
+      <button
+        onClick={downloadPDF}
+        aria-label="Download PDF"
+        className="group flex flex-col items-center justify-center gap-2.5 py-5 md:py-6 rounded-2xl bg-white border border-slate-200 hover:border-purple-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-purple-500/10 focus:outline-none focus:ring-4 focus:ring-purple-500/15 transition-all duration-200"
+      >
+        <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-600 to-purple-500 flex items-center justify-center shadow-sm shadow-purple-500/25 group-hover:scale-105 transition-transform duration-200">
+          <Download size={19} className="text-white" strokeWidth={2.4} />
+        </div>
+        <span className="text-xs md:text-sm font-semibold text-slate-800 tracking-tight">
+          Download PDF
+        </span>
+      </button>
+
+      <button
+        onClick={downloadPNG}
+        aria-label="Download PNG"
+        className="group flex flex-col items-center justify-center gap-2.5 py-5 md:py-6 rounded-2xl bg-white border border-slate-200 hover:border-purple-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-purple-500/10 focus:outline-none focus:ring-4 focus:ring-purple-500/15 transition-all duration-200"
+      >
+        <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-fuchsia-600 to-purple-500 flex items-center justify-center shadow-sm shadow-fuchsia-500/25 group-hover:scale-105 transition-transform duration-200">
+          <ImageIcon size={19} className="text-white" strokeWidth={2.4} />
+        </div>
+        <span className="text-xs md:text-sm font-semibold text-slate-800 tracking-tight">
+          Download PNG
+        </span>
+      </button>
+
+      <button
+        onClick={downloadTXT}
+        aria-label="Download TXT"
+        className="group flex flex-col items-center justify-center gap-2.5 py-5 md:py-6 rounded-2xl bg-white border border-slate-200 hover:border-slate-400 hover:-translate-y-1 hover:shadow-lg hover:shadow-slate-500/10 focus:outline-none focus:ring-4 focus:ring-slate-500/15 transition-all duration-200"
+      >
+        <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center shadow-sm shadow-slate-500/25 group-hover:scale-105 transition-transform duration-200">
+          <FileText size={19} className="text-white" strokeWidth={2.4} />
+        </div>
+        <span className="text-xs md:text-sm font-semibold text-slate-800 tracking-tight">
+          Plain Text
+        </span>
+      </button>
+    </div>
+  );
+
+  const renderPreview = () => {
+    const previewProps = {
+      letter: generatedLetter || livePreview,
+      photo: profilePhoto,
+      name: userName,
+      title: jobTitle,
+      email: email,
+      phone: phoneNumber,
+      countryCode: selectedCountryCode,
+      userAddress: address,
+      linkedinUrl: linkedin,
+      companyName: company,
+      hiringManagerName: hiringManagerName,
+    };
+
+    switch (selectedTemplate) {
+      case 'classic':
+        return <ClassicPreview {...previewProps} />;
+      case 'modern':
+        return <ModernPreview {...previewProps} />;
+      case 'minimal':
+        return <MinimalPreview {...previewProps} />;
+      case 'professional':
+        return <ProfessionalPreview {...previewProps} />;
+      case 'executive':
+        return <ExecutivePreview {...previewProps} />;
+      case 'creative':
+        return <CreativePreview {...previewProps} />;
+      default:
+        return <ClassicPreview {...previewProps} />;
+    }
+  };
+
   if (isMobile) {
     return (
       <>
-        {/* ✅ SEO: Cover Letter Page */}
         <SEOHead
           title={getSEOConfig('cover-letter').title}
           description={getSEOConfig('cover-letter').description}
@@ -919,353 +1337,149 @@ const CoverLetter = ({ onBackToHome, initialTemplateId }: CoverLetterProps) => {
           canonicalUrl={getSEOConfig('cover-letter').canonicalUrl}
           ogType="website"
         />
-
-        {/* ✅ JSON-LD: Cover Letter Schema */}
         <script type="application/ld+json">
           {generateJSONLDScript(generatePageSchemas('cover-letter'))}
         </script>
 
-        {/* ✅ FIXED: h-screen + overflow-hidden for proper flex height */}
-        <div ref={containerRef} className="h-screen flex flex-col bg-black main-scroll smooth-scroll overflow-hidden">
-          
+        <div
+          ref={containerRef}
+          className="h-screen flex flex-col bg-slate-100 main-scroll smooth-scroll overflow-hidden"
+        >
           <Toaster
             position="top-center"
             toastOptions={{
               duration: 3000,
               style: {
-                background: '#1f2937',
-                color: '#fff',
-                border: '1px solid rgba(168, 85, 247, 0.3)',
-                boxShadow: '0 10px 40px rgba(0, 0, 0, 0.5), 0 0 20px rgba(168, 85, 247, 0.1)',
+                background: '#ffffff',
+                color: '#0f172a',
+                border: '1px solid rgba(168, 85, 247, 0.25)',
                 borderRadius: '12px',
                 padding: '12px 24px',
                 fontSize: '14px',
-                maxWidth: '500px',
-                textAlign: 'center',
+                boxShadow: '0 20px 60px -10px rgba(2, 6, 23, 0.15)',
               },
-              success: {
-                style: { border: '1px solid rgba(34, 197, 94, 0.3)' },
-                iconTheme: { primary: '#22c55e', secondary: '#fff' },
-              },
-              error: {
-                style: { border: '1px solid rgba(239, 68, 68, 0.3)' },
-                iconTheme: { primary: '#ef4444', secondary: '#fff' },
-              },
-              loading: {
-                style: { border: '1px solid rgba(168, 85, 247, 0.3)' },
-              },
+              success: { style: { border: '1px solid rgba(34, 197, 94, 0.3)' } },
+              error: { style: { border: '1px solid rgba(239, 68, 68, 0.3)' } },
+              loading: { style: { border: '1px solid rgba(168, 85, 247, 0.3)' } },
             }}
-            containerStyle={{
-              position: 'fixed',
-              top: '20px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              zIndex: 9999,
-              pointerEvents: 'none',
-            }}
-            containerClassName="go-to-top"
           />
-          
-          {/* ===== HEADER - flex-shrink-0 ===== */}
-          <div className="flex-shrink-0 sticky top-0 z-50 bg-black/95 backdrop-blur-sm border-b border-purple-500/20">
-            <div className="flex items-center justify-between py-2 sm:py-3 px-0">
-              <div className="flex items-center flex-shrink-0">
-                <button 
-                  onClick={() => {
-                    if (onBackToHome) {
-                      onBackToHome();
-                    } else {
-                      toast.error('Navigation to templates not available');
-                    }
-                  }}
-                  className="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[10px] sm:text-sm font-medium transition-all duration-300 hover:scale-105 shadow-lg shadow-blue-600/20 hover:shadow-blue-600/40 flex items-center gap-1.5 sm:gap-2 group"
-                >
-                  <ArrowLeft size={14} className="sm:size-[16px] text-white/80 group-hover:text-white transition-all duration-300 group-hover:scale-110 group-hover:-translate-x-0.5" />
-                  <span className="relative hidden xs:inline">
-                    Templates
-                    <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-400 to-blue-300 transition-all duration-300 group-hover:w-full" />
-                  </span>
-                  <span className="relative xs:hidden">
-                    Templates
-                    <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-400 to-blue-300 transition-all duration-300 group-hover:w-full" />
-                  </span>
-                </button>
-              </div>
-              
-              <div className="absolute left-1/2 -translate-x-1/2 text-center whitespace-nowrap pointer-events-none">
-                <h1 className="text-base sm:text-xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent tracking-tight">
-                  Adin AI Cover Letter
-                </h1>
-              </div>
-              
-              <div className="flex items-center flex-shrink-0">
-                <button 
-                  onClick={toggleFullscreen} 
-                  className="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-gradient-to-r from-purple-600 to-blue-500 hover:opacity-90 text-white font-medium shadow-lg shadow-purple-500/30 transition-all duration-300 hover:scale-105 hover:shadow-purple-500/50 flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-sm fullscreen-btn"
-                >
-                  {isFullscreen ? (
-                    <>
-                      <Minimize2 size={14} className="sm:size-[16px] text-white/90 transition-all duration-300 fullscreen-btn-icon" />
-                      <span className="hidden xs:inline text-white/90">Exit Full Screen</span>
-                      <span className="xs:hidden text-white/90">Exit</span>
-                    </>
-                  ) : (
-                    <>
-                      <Maximize2 size={14} className="sm:size-[16px] text-white/90 transition-all duration-300 fullscreen-btn-icon" />
-                      <span className="hidden xs:inline text-white/90">Full Screen</span>
-                      <span className="xs:hidden text-white/90">Full</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
 
-          {/* ✅ FIXED: flex-1 + min-h-0 for proper scrolling */}
+          <CoverLetterHero
+            onOpenSidebar={openSidebar}
+            saveStatus={hasSaved ? 'saved' : 'saving'}
+          />
+
           <div className="flex-1 overflow-y-auto overflow-x-hidden pb-24 min-h-0">
-            <div className="w-full px-3 sm:px-6 py-4 sm:py-6">
-              
-              <CoverLetterProgress step={step} jobTitle={jobTitle} company={company} selectedStyle={selectedStyle} />
-              
+            <div className="w-full px-3 py-4">
               <div className="max-w-7xl mx-auto">
-                <div className="space-y-6">
-                  
-                  {/* LEFT COLUMN - Full width on mobile */}
-                  <div className="space-y-6">
-                    
-                    {step === 1 && (
-                      <div className="rounded-2xl p-4 sm:p-6 bg-gray-900/40 backdrop-blur-sm border border-purple-500/20 shadow-xl transition-all duration-300 hover:border-purple-500/40 hover:shadow-purple-500/10">
-                        <h3 className="text-base sm:text-lg font-semibold text-white mb-4 sm:mb-6 pb-2 border-b border-purple-500/30 tracking-wide sticky top-0 bg-gray-900/80 backdrop-blur-sm z-10">
-                          Personal Information
-                        </h3>
-                        <Step1Details 
-                          userName={userName} setUserName={setUserName}
-                          email={email} setEmail={setEmail}
-                          phoneNumber={phoneNumber} setPhoneNumber={setPhoneNumber}
-                          selectedCountryCode={selectedCountryCode} setSelectedCountryCode={setSelectedCountryCode}
-                          address={address} setAddress={setAddress}
-                          linkedin={linkedin} setLinkedin={setLinkedin}
-                          education={education} setEducation={setEducation}
-                          experience={experience} setExperience={setExperience}
-                          skills={skills} setSkills={handleSkillsChange}
-                          jobTitle={jobTitle} setJobTitle={setJobTitle}
-                          company={company} setCompany={setCompany}
-                          jobDescription={jobDescription} setJobDescription={setJobDescription}
-                          additionalInfo={additionalInfo} setAdditionalInfo={setAdditionalInfo}
-                          profilePhoto={profilePhoto} setProfilePhoto={setProfilePhoto}
-                          projects={projects} setProjects={setProjects}
-                          currentPosition={currentPosition} setCurrentPosition={setCurrentPosition}
-                          onNext={nextStep}
-                          generating={generating}
-                        />
+                {renderCVBanner()}
+
+                <Step1Details
+                  userName={userName} setUserName={setUserName}
+                  email={email} setEmail={setEmail}
+                  phoneNumber={phoneNumber} setPhoneNumber={setPhoneNumber}
+                  selectedCountryCode={selectedCountryCode} setSelectedCountryCode={setSelectedCountryCode}
+                  address={address} setAddress={setAddress}
+                  linkedin={linkedin} setLinkedin={setLinkedin}
+                  education={education} setEducation={setEducation}
+                  experience={experience} setExperience={setExperience}
+                  skills={skills} setSkills={handleSkillsChange}
+                  jobTitle={jobTitle} setJobTitle={setJobTitle}
+                  company={company} setCompany={setCompany}
+                  jobDescription={jobDescription} setJobDescription={setJobDescription}
+                  additionalInfo={additionalInfo} setAdditionalInfo={setAdditionalInfo}
+                  profilePhoto={profilePhoto}
+                  setProfilePhoto={async (photo) => {
+                    if (photo) await handlePhotoUpload(photo);
+                    else await handlePhotoRemove();
+                  }}
+                  projects={projects} setProjects={setProjects}
+                  currentPosition={currentPosition} setCurrentPosition={setCurrentPosition}
+                  onNext={handleGenerateLetter}
+                  generating={generating}
+                  hiringManagerName={hiringManagerName}
+                  setHiringManagerName={setHiringManagerName}
+                  currentTitle={currentTitle}
+                  setCurrentTitle={setCurrentTitle}
+                  currentCompany={currentCompany}
+                  setCurrentCompany={setCurrentCompany}
+                  yearsOfExperience={yearsOfExperience}
+                  setYearsOfExperience={setYearsOfExperience}
+                  openSections={openSections}
+                  toggleSection={toggleSection}
+                />
+
+                {generatedLetter && !generating && (
+                  <div className="space-y-5 mt-5">
+                    <div className="rounded-2xl p-5 bg-white border border-purple-200 shadow-sm text-center">
+                      <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-600 to-purple-500 flex items-center justify-center mx-auto mb-3 shadow-md shadow-purple-600/20">
+                        <CheckCircle2 size={26} className="text-white" strokeWidth={2.5} />
                       </div>
-                    )}
-                    
-                    {step === 2 && (
-                      <>
-                        <div className="rounded-2xl p-4 sm:p-6 bg-gray-900/40 backdrop-blur-sm border border-purple-500/20 shadow-xl transition-all duration-300 hover:border-purple-500/40 hover:shadow-purple-500/10">
-                          <h3 className="text-base sm:text-lg font-semibold text-purple-400 mb-4 sm:mb-6 pb-2 border-b border-purple-500/30 tracking-wide">
-                            Letter Style
-                          </h3>
-                          <Step2Style 
-                            selectedStyle={selectedStyle} setSelectedStyle={setSelectedStyle}
-                            selectedTemplate={selectedTemplate} setSelectedTemplate={setSelectedTemplate}
-                          />
-                        </div>
+                      <h3 className="text-lg font-bold text-slate-900">Cover Letter Ready</h3>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Your professional cover letter is ready to download
+                      </p>
+                    </div>
 
-                        <div className="flex justify-between pt-4 gap-4 bg-black/80 backdrop-blur-sm py-3 -mx-2 px-2 rounded-xl">
-                          <button onClick={prevStep} className="px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl bg-gray-800/80 hover:bg-gray-700 text-white text-sm sm:text-base font-medium transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-purple-500/20">
-                            ← Back
-                          </button>
-                          <button 
-                            onClick={() => {
-                              nextStep();
-                            }} 
-                            disabled={generating}
-                            className={`
-                              relative px-5 sm:px-7 py-2.5 sm:py-3 rounded-xl 
-                              bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600
-                              hover:from-blue-500 hover:via-purple-500 hover:to-blue-500
-                              text-white text-sm sm:text-base font-semibold 
-                              transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]
-                              hover:scale-105 active:scale-95
-                              shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50
-                              border border-white/10 hover:border-white/20
-                              flex items-center justify-center gap-2.5 sm:gap-3
-                              min-w-[160px] sm:min-w-[200px]
-                              generate-btn
-                              ${generating ? 'opacity-90 cursor-wait' : 'cursor-pointer'}
-                            `}
-                            style={{
-                              backgroundSize: '200% auto',
-                            }}
-                          >
-                            <span className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-blue-500/20 blur-xl transition-all duration-500 hover:blur-2xl opacity-0 hover:opacity-100 pointer-events-none" />
-                            <span className="absolute inset-[1px] rounded-xl bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-blue-600/20 opacity-0 transition-opacity duration-300 group-hover:opacity-100 pointer-events-none" />
-                            
-                            {generating ? (
-                              <>
-                                <svg 
-                                  className="generate-spinner w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 text-white" 
-                                  xmlns="http://www.w3.org/2000/svg" 
-                                  fill="none" 
-                                  viewBox="0 0 24 24"
-                                >
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                <span className="relative z-10 text-white/90">Generating...</span>
-                              </>
-                            ) : (
-                              <>
-                                <SendHorizontal 
-                                  size={18} 
-                                  className="sm:size-[20px] flex-shrink-0 text-white/90 transition-all duration-300 generate-btn-icon group-hover:scale-110 group-hover:text-white group-hover:translate-y-[-2px]" 
-                                  strokeWidth={2}
-                                />
-                                <span className="relative z-10 bg-gradient-to-r from-white to-white/90 bg-clip-text text-transparent">
-                                  Generate Letter
-                                </span>
-                                <span className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-blue-500/10 opacity-0 hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      </>
-                    )}
-                    
-                    {step === 3 && generatedLetter && (
-                      <>
-                        <div className="rounded-2xl p-4 sm:p-6 bg-gradient-to-r from-purple-600/20 to-blue-600/20 border border-purple-500/30 shadow-xl text-center transition-all duration-300 hover:border-purple-500/50 hover:shadow-purple-500/20">
-                          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-r from-purple-600 to-blue-500 flex items-center justify-center mx-auto mb-3 sm:mb-4 shadow-lg shadow-purple-500/30 transition-all duration-500 hover:scale-110 hover:shadow-purple-500/50 animate-float-cover animate-glow-cover">
-                            <span className="text-xl sm:text-2xl">🎉</span>
-                          </div>
-                          <h3 className="text-lg sm:text-xl font-bold text-purple-400 tracking-wide">Cover Letter Ready!</h3>
-                          <p className="text-[10px] sm:text-xs text-gray-400 mt-1 sm:mt-1.5 tracking-wide">Your professional cover letter is ready for use</p>
-                          <div className="mt-4 sm:mt-5 flex justify-center gap-6 sm:gap-8">
-                            <div className="text-center">
-                              <p className="text-xl sm:text-2xl font-bold text-white">{totalScore}%</p>
-                              <p className="text-[9px] sm:text-[10px] text-gray-400 tracking-wide">Complete</p>
-                            </div>
-                            <div className="text-center">
-                              <p className="text-xl sm:text-2xl font-bold text-white">{overallQuality}%</p>
-                              <p className="text-[9px] sm:text-[10px] text-gray-400 tracking-wide">Quality</p>
-                            </div>
-                          </div>
-                        </div>
-
-                        <CoverLetterEnhancer 
-                          originalLetter={originalLetter || generatedLetter}
-                          onEnhance={handleEnhance}
-                          userName={userName}
-                          jobTitle={jobTitle}
-                          company={company}
-                          isEnhanced={isEnhanced}
-                          onRestoreOriginal={resetToOriginal}
-                        />
-
-                        <EmailPremiumPanel />
-
-                        <div className="flex gap-2 sm:gap-3 justify-center flex-wrap">
-                          <button onClick={copyToClipboard} className="px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-medium transition-all duration-300 hover:scale-105 shadow-lg shadow-green-600/20 hover:shadow-green-600/40">
-                            📋 Copy
-                          </button>
-                          <button onClick={downloadPDF} className="px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-blue-500 hover:opacity-90 text-white text-xs sm:text-sm font-medium transition-all duration-300 hover:scale-105 shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50">
-                            📥 PDF
-                          </button>
-                          <button onClick={downloadTXT} className="px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-gray-600 hover:bg-gray-700 text-white text-xs sm:text-sm font-medium transition-all duration-300 hover:scale-105 shadow-lg shadow-gray-600/20 hover:shadow-gray-600/40">
-                            📄 TXT
-                          </button>
-                          <button 
-                            onClick={clearAllData} 
-                            className="px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium transition-all duration-300 hover:scale-105 shadow-lg shadow-red-600/20 hover:shadow-red-600/40 flex items-center gap-1.5 sm:gap-2"
-                          >
-                            <Trash2 size={14} className="sm:size-[16px]" />
-                            <span className="hidden xs:inline">Clear All Data</span>
-                            <span className="xs:hidden">Clear</span>
-                          </button>
-                        </div>
-
-                        <div className="flex justify-between pt-4 gap-4 bg-black/80 backdrop-blur-sm py-3 -mx-2 px-2 rounded-xl">
-                          <button onClick={goBackToEdit} className="px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl bg-gray-800/80 hover:bg-gray-700 text-white text-sm sm:text-base font-medium transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-purple-500/20">
-                            ← Back to Edit
-                          </button>
-                        </div>
-                      </>
-                    )}
-                    
+                    {renderActionButtons()}
                   </div>
-                </div>
+                )}
               </div>
-              
             </div>
           </div>
 
-          {/* ===== MOBILE TABS - FIXED AT BOTTOM ===== */}
-          <div className="flex-shrink-0 fixed bottom-0 left-0 right-0 z-20 bg-white/95 backdrop-blur-md border-t border-gray-200/80 px-3 py-2 shadow-lg">
+          <div className="flex-shrink-0 fixed bottom-0 left-0 right-0 z-20 bg-white/95 backdrop-blur-md border-t border-slate-200 px-3 py-2 shadow-lg">
             <div className="max-w-7xl mx-auto">
               <div className="flex gap-2">
                 <button
                   onClick={() => handleMobileTabClick('preview')}
-                  className={`flex-1 flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl text-sm font-medium transition-all duration-300 touch-manipulation ${
+                  className={`flex-1 flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl text-sm font-medium transition-all duration-300 ${
                     mobileActiveTab === 'preview'
-                      ? 'bg-gradient-to-r from-purple-600 to-blue-500 text-white shadow-lg shadow-purple-500/30'
-                      : 'bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-800'
+                      ? 'bg-gradient-to-r from-purple-600 to-purple-500 text-white shadow-lg shadow-purple-500/30'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-800'
                   }`}
                 >
-                  <Eye size={18} className="flex-shrink-0" />
+                  <Eye size={18} />
                   <span>Preview</span>
-                </button>
-                <button
-                  onClick={() => handleMobileTabClick('health')}
-                  className={`flex-1 flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl text-sm font-medium transition-all duration-300 touch-manipulation ${
-                    mobileActiveTab === 'health'
-                      ? 'bg-gradient-to-r from-purple-600 to-blue-500 text-white shadow-lg shadow-purple-500/30'
-                      : 'bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-800'
-                  }`}
-                >
-                  <Activity size={18} className="flex-shrink-0" />
-                  <span>Health</span>
                 </button>
               </div>
             </div>
           </div>
 
-          {/* ===== TAB CONTENT - OVERLAY ON BOTTOM ===== */}
-          {/* ✅ FIXED: Use ClassicPreview/ModernPreview for proper image alignment */}
           {mobileActiveTab === 'preview' && (
-            <div className="fixed bottom-20 left-0 right-0 z-10 max-h-[60vh] overflow-auto bg-black/95 backdrop-blur-md border-t border-purple-500/20 rounded-t-2xl shadow-2xl animate-in slide-in-from-bottom-4 fade-in duration-300 p-4">
+            <div className="fixed bottom-20 left-0 right-0 z-10 max-h-[60vh] overflow-auto bg-slate-100 border-t border-slate-200 rounded-t-2xl shadow-2xl p-4">
               <div className="max-w-7xl mx-auto">
-                <div className="rounded-2xl p-3 bg-gray-900/40 backdrop-blur-sm border border-purple-500/20 shadow-xl">
-                  <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl shadow-2xl shadow-purple-500/20 overflow-hidden">
-                    <div className="p-0.5">
-                      {selectedTemplate === 'classic' ? (
-                        <ClassicPreview 
-                          letter={generatedLetter || livePreview}
-                          photo={profilePhoto}
-                          name={userName}
-                          title={jobTitle}
-                          email={email}
-                          phone={phoneNumber}
-                          countryCode={selectedCountryCode}
-                          userAddress={address}
-                          linkedinUrl={linkedin}
-                          companyName={company}
-                        />
-                      ) : (
-                        <ModernPreview 
-                          letter={generatedLetter || livePreview}
-                          photo={profilePhoto}
-                          name={userName}
-                          title={jobTitle}
-                          email={email}
-                          phone={phoneNumber}
-                          countryCode={selectedCountryCode}
-                          userAddress={address}
-                          linkedinUrl={linkedin}
-                          companyName={company}
-                        />
-                      )}
+                <div className="p-0">
+                  <div className="flex items-center justify-between mb-3 py-2">
+                    <h3 className="text-xs font-semibold flex items-center gap-2 text-purple-600 tracking-wide">
+                      <Eye size={13} />
+                      Live Preview
+                    </h3>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setShowFeedbackModal(true)}
+                        aria-label="Give feedback"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white text-[11px] font-semibold shadow-md shadow-purple-600/20 hover:shadow-lg hover:shadow-purple-600/30 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-purple-500/20"
+                      >
+                        <MessageCircle size={12} />
+                        <span>Feedback</span>
+                      </button>
+
+                      <DownloadDropdown
+                        onCopy={copyToClipboard}
+                        onDownloadPDF={downloadPDF}
+                        onDownloadTXT={downloadTXT}
+                        onDownloadPNG={downloadPNG}
+                      />
+                    </div>
+                  </div>
+
+                  <div ref={pngPreviewRef}>
+                    <div className="bg-white rounded-xl shadow-md overflow-hidden">
+                      <div className="p-0.5">
+                        {renderPreview()}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1273,62 +1487,16 @@ const CoverLetter = ({ onBackToHome, initialTemplateId }: CoverLetterProps) => {
             </div>
           )}
 
-          {mobileActiveTab === 'health' && (
-            <div className="fixed bottom-20 left-0 right-0 z-10 max-h-[60vh] overflow-auto bg-black/95 backdrop-blur-md border-t border-purple-500/20 rounded-t-2xl shadow-2xl animate-in slide-in-from-bottom-4 fade-in duration-300 p-4">
-              <div className="max-w-7xl mx-auto">
-                <div className="rounded-2xl p-4 bg-gray-900/40 backdrop-blur-sm border border-purple-500/20 shadow-xl">
-                  <h3 className="text-xs sm:text-sm font-semibold text-purple-400 mb-4 flex items-center gap-2 tracking-wide">
-                    <span className="text-sm sm:text-base">📊</span> Letter Health
-                  </h3>
-                  
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-4">
-                    <CircularProgressRing score={nameScore} label="Full Name" />
-                    <CircularProgressRing score={emailScore} label="Email" />
-                    <CircularProgressRing score={phoneScore} label="Phone" />
-                    <CircularProgressRing score={educationScore} label="Education" />
-                    <CircularProgressRing score={experienceScore} label="Experience" />
-                    <CircularProgressRing score={skillsScore} label="Skills" />
-                    <CircularProgressRing score={jobTitleScore} label="Job Title" />
-                    <CircularProgressRing score={companyScore} label="Company" />
-                    <CircularProgressRing score={descriptionScore} label="Description" />
-                    <CircularProgressRing score={achievementsScore} label="Achievements" />
-                    <CircularProgressRing score={currentPositionScore} label="Current Position" />
-                  </div>
-                  
-                  <div className="mt-2 pt-3 border-t border-purple-500/20">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] sm:text-xs text-gray-500 tracking-wide">Overall Health</span>
-                      <span className="text-xs sm:text-sm font-bold text-white">{totalScore}<span className="text-[9px] sm:text-xs text-purple-400">%</span></span>
-                    </div>
-                    <div className="w-full bg-gray-800 rounded-full h-1.5 mt-2 overflow-hidden">
-                      <div className="bg-gradient-to-r from-purple-500 to-blue-500 h-1.5 rounded-full transition-all duration-700" style={{ width: `${totalScore}%` }} />
-                    </div>
-                    <div className="text-center mt-2.5">
-                      <span className="text-[9px] sm:text-[10px] text-gray-500 tracking-wide">{missingFields} field{missingFields !== 1 ? 's' : ''} remaining</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ✅ Feedback Modal - Feature-Specific with onMinimize */}
-          <FeedbackModal
-            isOpen={showFeedbackModal}
-            onClose={() => {
-              setShowFeedbackModal(false);
-              markFeedbackShown('cover-letter');
-            }}
-            onMinimize={handleMinimize}
-            source="cover-letter"
-            sourceKey="cover-letter"
+          <GlobalSidebar
+            isOpen={isSidebarOpen}
+            onClose={closeSidebar}
+            currentPage="cover-letter"
           />
 
-          {/* ✅ NEW: Feedback Widget */}
-          <FeedbackWidget
-            isVisible={showWidget}
-            onOpen={handleOpenFromWidget}
-            onClose={handleCloseWidget}
+          {/* ✅ UPDATED: Single-screen feedback modal */}
+          <FeedbackFullScreen
+            isOpen={showFeedbackModal}
+            onClose={handleFeedbackModalClose}
             source="cover-letter"
           />
         </div>
@@ -1336,12 +1504,8 @@ const CoverLetter = ({ onBackToHome, initialTemplateId }: CoverLetterProps) => {
     );
   }
 
-  // ============================================================
-  // ===== DESKTOP RENDER (100% UNCHANGED) =====
-  // ============================================================
   return (
     <>
-      {/* ✅ SEO: Cover Letter Page */}
       <SEOHead
         title={getSEOConfig('cover-letter').title}
         description={getSEOConfig('cover-letter').description}
@@ -1349,402 +1513,182 @@ const CoverLetter = ({ onBackToHome, initialTemplateId }: CoverLetterProps) => {
         canonicalUrl={getSEOConfig('cover-letter').canonicalUrl}
         ogType="website"
       />
-
-      {/* ✅ JSON-LD: Cover Letter Schema */}
       <script type="application/ld+json">
         {generateJSONLDScript(generatePageSchemas('cover-letter'))}
       </script>
 
-      <div ref={containerRef} className="min-h-screen flex flex-col bg-black main-scroll smooth-scroll overflow-y-auto">
-        
+      <div
+        ref={containerRef}
+        className="h-screen flex flex-col bg-slate-100 smooth-scroll overflow-hidden"
+      >
         <Toaster
           position="top-center"
           toastOptions={{
             duration: 3000,
             style: {
-              background: '#1f2937',
-              color: '#fff',
-              border: '1px solid rgba(168, 85, 247, 0.3)',
-              boxShadow: '0 10px 40px rgba(0, 0, 0, 0.5), 0 0 20px rgba(168, 85, 247, 0.1)',
+              background: '#ffffff',
+              color: '#0f172a',
+              border: '1px solid rgba(168, 85, 247, 0.25)',
               borderRadius: '12px',
               padding: '12px 24px',
               fontSize: '14px',
-              maxWidth: '500px',
-              textAlign: 'center',
+              boxShadow: '0 20px 60px -10px rgba(2, 6, 23, 0.15)',
             },
-            success: {
-              style: { border: '1px solid rgba(34, 197, 94, 0.3)' },
-              iconTheme: { primary: '#22c55e', secondary: '#fff' },
-            },
-            error: {
-              style: { border: '1px solid rgba(239, 68, 68, 0.3)' },
-              iconTheme: { primary: '#ef4444', secondary: '#fff' },
-            },
-            loading: {
-              style: { border: '1px solid rgba(168, 85, 247, 0.3)' },
-            },
+            success: { style: { border: '1px solid rgba(34, 197, 94, 0.3)' } },
+            error: { style: { border: '1px solid rgba(239, 68, 68, 0.3)' } },
+            loading: { style: { border: '1px solid rgba(168, 85, 247, 0.3)' } },
           }}
-          containerStyle={{
-            position: 'fixed',
-            top: '20px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 9999,
-            pointerEvents: 'none',
-          }}
-          containerClassName="go-to-top"
         />
-        
-        {/* ===== HEADER - PERFECTLY CENTERED ===== */}
-        <div className="sticky top-0 z-50 bg-black/95 backdrop-blur-sm border-b border-purple-500/20">
-          <div className="flex items-center justify-between py-2 sm:py-3 px-0">
-            {/* LEFT - Templates Button - Flush Left */}
-            <div className="flex items-center flex-shrink-0">
-              <button 
-                onClick={() => {
-                  if (onBackToHome) {
-                    onBackToHome();
-                  } else {
-                    toast.error('Navigation to templates not available');
-                  }
-                }}
-                className="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[10px] sm:text-sm font-medium transition-all duration-300 hover:scale-105 shadow-lg shadow-blue-600/20 hover:shadow-blue-600/40 flex items-center gap-1.5 sm:gap-2 group"
-              >
-                <ArrowLeft size={14} className="sm:size-[16px] text-white/80 group-hover:text-white transition-all duration-300 group-hover:scale-110 group-hover:-translate-x-0.5" />
-                <span className="relative hidden xs:inline">
-                  Templates
-                  <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-400 to-blue-300 transition-all duration-300 group-hover:w-full" />
-                </span>
-                <span className="relative xs:hidden">
-                  Templates
-                  <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-400 to-blue-300 transition-all duration-300 group-hover:w-full" />
-                </span>
-              </button>
-            </div>
-            
-            {/* CENTER - Perfectly Centered Title (Flex-shrink 0 to maintain centering) */}
-            <div className="absolute left-1/2 -translate-x-1/2 text-center whitespace-nowrap pointer-events-none">
-              <h1 className="text-base sm:text-xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent tracking-tight">
-                Adin AI Cover Letter
-              </h1>
-            </div>
-            
-            {/* RIGHT - Premium Fullscreen Button - Flush Right */}
-            <div className="flex items-center flex-shrink-0">
-              <button 
-                onClick={toggleFullscreen} 
-                className="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-gradient-to-r from-purple-600 to-blue-500 hover:opacity-90 text-white font-medium shadow-lg shadow-purple-500/30 transition-all duration-300 hover:scale-105 hover:shadow-purple-500/50 flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-sm fullscreen-btn"
-              >
-                {isFullscreen ? (
-                  <>
-                    <Minimize2 size={14} className="sm:size-[16px] text-white/90 transition-all duration-300 fullscreen-btn-icon" />
-                    <span className="hidden xs:inline text-white/90">Exit Full Screen</span>
-                    <span className="xs:hidden text-white/90">Exit</span>
-                  </>
-                ) : (
-                  <>
-                    <Maximize2 size={14} className="sm:size-[16px] text-white/90 transition-all duration-300 fullscreen-btn-icon" />
-                    <span className="hidden xs:inline text-white/90">Full Screen</span>
-                    <span className="xs:hidden text-white/90">Full</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
 
-        <div className="w-full px-3 sm:px-6 py-4 sm:py-6">
-          
-          <CoverLetterProgress step={step} jobTitle={jobTitle} company={company} selectedStyle={selectedStyle} />
-          
-          <div className="max-w-7xl mx-auto">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
-              
-              {/* ===== LEFT COLUMN ===== */}
-              <div className="left-column-scroll h-[calc(100vh-250px)] overflow-y-auto overflow-x-hidden pr-2 space-y-6">
-                
-                {step === 1 && (
-                  <div className="rounded-2xl p-4 sm:p-6 bg-gray-900/40 backdrop-blur-sm border border-purple-500/20 shadow-xl transition-all duration-300 hover:border-purple-500/40 hover:shadow-purple-500/10">
-                    <h3 className="text-base sm:text-lg font-semibold text-white mb-4 sm:mb-6 pb-2 border-b border-purple-500/30 tracking-wide sticky top-0 bg-gray-900/80 backdrop-blur-sm z-10">
-                      Personal Information
-                    </h3>
-                    <Step1Details 
-                      userName={userName} setUserName={setUserName}
-                      email={email} setEmail={setEmail}
-                      phoneNumber={phoneNumber} setPhoneNumber={setPhoneNumber}
-                      selectedCountryCode={selectedCountryCode} setSelectedCountryCode={setSelectedCountryCode}
-                      address={address} setAddress={setAddress}
-                      linkedin={linkedin} setLinkedin={setLinkedin}
-                      education={education} setEducation={setEducation}
-                      experience={experience} setExperience={setExperience}
-                      skills={skills} setSkills={handleSkillsChange}
-                      jobTitle={jobTitle} setJobTitle={setJobTitle}
-                      company={company} setCompany={setCompany}
-                      jobDescription={jobDescription} setJobDescription={setJobDescription}
-                      additionalInfo={additionalInfo} setAdditionalInfo={setAdditionalInfo}
-                      profilePhoto={profilePhoto} setProfilePhoto={setProfilePhoto}
-                      projects={projects} setProjects={setProjects}
-                      currentPosition={currentPosition} setCurrentPosition={setCurrentPosition}
-                      onNext={nextStep}
-                      generating={generating}
-                    />
-                  </div>
-                )}
-                
-                {step === 2 && (
+        <CoverLetterHero
+          onOpenSidebar={openSidebar}
+          saveStatus={hasSaved ? 'saved' : 'saving'}
+        />
+
+        <CoverLetterTemplateSelector
+          template={selectedTemplate}
+          onTemplateChange={(t) => {
+            setSelectedTemplate(t);
+            onTemplateChange?.(t);
+          }}
+        />
+
+        <div className="flex-1 overflow-hidden w-full px-3 sm:px-6 py-4 sm:py-6">
+          <div className="max-w-7xl mx-auto h-full">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 h-full">
+
+              <div className="left-column-scroll overflow-y-auto overflow-x-hidden pr-2 pb-6 space-y-6 h-full">
+                {renderCVBanner()}
+
+                <Step1Details
+                  userName={userName} setUserName={setUserName}
+                  email={email} setEmail={setEmail}
+                  phoneNumber={phoneNumber} setPhoneNumber={setPhoneNumber}
+                  selectedCountryCode={selectedCountryCode} setSelectedCountryCode={setSelectedCountryCode}
+                  address={address} setAddress={setAddress}
+                  linkedin={linkedin} setLinkedin={setLinkedin}
+                  education={education} setEducation={setEducation}
+                  experience={experience} setExperience={setExperience}
+                  skills={skills} setSkills={handleSkillsChange}
+                  jobTitle={jobTitle} setJobTitle={setJobTitle}
+                  company={company} setCompany={setCompany}
+                  jobDescription={jobDescription} setJobDescription={setJobDescription}
+                  additionalInfo={additionalInfo} setAdditionalInfo={setAdditionalInfo}
+                  profilePhoto={profilePhoto}
+                  setProfilePhoto={async (photo) => {
+                    if (photo) await handlePhotoUpload(photo);
+                    else await handlePhotoRemove();
+                  }}
+                  projects={projects} setProjects={setProjects}
+                  currentPosition={currentPosition} setCurrentPosition={setCurrentPosition}
+                  onNext={handleGenerateLetter}
+                  generating={generating}
+                  hiringManagerName={hiringManagerName}
+                  setHiringManagerName={setHiringManagerName}
+                  currentTitle={currentTitle}
+                  setCurrentTitle={setCurrentTitle}
+                  currentCompany={currentCompany}
+                  setCurrentCompany={setCurrentCompany}
+                  yearsOfExperience={yearsOfExperience}
+                  setYearsOfExperience={setYearsOfExperience}
+                  openSections={openSections}
+                  toggleSection={toggleSection}
+                />
+
+                {generatedLetter && !generating && (
                   <>
-                    <div className="rounded-2xl p-4 sm:p-6 bg-gray-900/40 backdrop-blur-sm border border-purple-500/20 shadow-xl transition-all duration-300 hover:border-purple-500/40 hover:shadow-purple-500/10">
-                      <h3 className="text-base sm:text-lg font-semibold text-purple-400 mb-4 sm:mb-6 pb-2 border-b border-purple-500/30 tracking-wide">
-                        Letter Style
-                      </h3>
-                      <Step2Style 
-                        selectedStyle={selectedStyle} setSelectedStyle={setSelectedStyle}
-                        selectedTemplate={selectedTemplate} setSelectedTemplate={setSelectedTemplate}
+                    <div className="rounded-2xl p-5 bg-white border border-purple-200 shadow-sm text-center">
+                      <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-600 to-purple-500 flex items-center justify-center mx-auto mb-3 shadow-md shadow-purple-600/20">
+                        <CheckCircle2 size={26} className="text-white" strokeWidth={2.5} />
+                      </div>
+                      <h3 className="text-lg font-bold text-slate-900">Cover Letter Ready</h3>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Your professional cover letter is ready to download
+                      </p>
+                    </div>
+
+                    {renderActionButtons()}
+                  </>
+                )}
+              </div>
+
+              <div
+                ref={fullscreenRef}
+                className={`right-column-scroll overflow-y-auto overflow-x-hidden pb-6 space-y-6 h-full transition-colors ${
+                  isFullscreen ? 'bg-slate-200 p-6' : 'pr-2'
+                }`}
+              >
+                <div className="p-0">
+                  <div className="flex items-center justify-between mb-3 py-2">
+                    <h3 className="text-xs sm:text-sm font-semibold flex items-center gap-2 text-purple-600 tracking-wide">
+                      Live Preview
+                    </h3>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setShowFeedbackModal(true)}
+                        aria-label="Give feedback"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white text-xs font-semibold shadow-md shadow-purple-600/20 hover:shadow-lg hover:shadow-purple-600/30 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-purple-500/20"
+                      >
+                        <MessageCircle size={13} />
+                        <span>Feedback</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleToggleFullscreen(fullscreenRef.current)}
+                        aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                        title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+                        className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50 text-slate-600 hover:text-purple-700 shadow-sm transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-purple-500/20"
+                      >
+                        {isFullscreen ? <Minimize size={14} /> : <Maximize size={14} />}
+                      </button>
+
+                      <DownloadDropdown
+                        onCopy={copyToClipboard}
+                        onDownloadPDF={downloadPDF}
+                        onDownloadTXT={downloadTXT}
+                        onDownloadPNG={downloadPNG}
                       />
                     </div>
+                  </div>
 
-                    <div className="flex justify-between pt-4 gap-4 bg-black/80 backdrop-blur-sm py-3 -mx-2 px-2 rounded-xl">
-                      <button onClick={prevStep} className="px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl bg-gray-800/80 hover:bg-gray-700 text-white text-sm sm:text-base font-medium transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-purple-500/20">
-                        ← Back
-                      </button>
-                      {/* ===== PREMIUM GENERATE BUTTON ===== */}
-                      <button 
-                        onClick={() => {
-                          nextStep();
-                        }} 
-                        disabled={generating}
-                        className={`
-                          relative px-5 sm:px-7 py-2.5 sm:py-3 rounded-xl 
-                          bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600
-                          hover:from-blue-500 hover:via-purple-500 hover:to-blue-500
-                          text-white text-sm sm:text-base font-semibold 
-                          transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]
-                          hover:scale-105 active:scale-95
-                          shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50
-                          border border-white/10 hover:border-white/20
-                          flex items-center justify-center gap-2.5 sm:gap-3
-                          min-w-[160px] sm:min-w-[200px]
-                          generate-btn
-                          ${generating ? 'opacity-90 cursor-wait' : 'cursor-pointer'}
-                        `}
-                        style={{
-                          backgroundSize: '200% auto',
-                        }}
-                      >
-                        {/* Glow overlay */}
-                        <span className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-blue-500/20 blur-xl transition-all duration-500 hover:blur-2xl opacity-0 hover:opacity-100 pointer-events-none" />
-                        
-                        {/* Inner border glow */}
-                        <span className="absolute inset-[1px] rounded-xl bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-blue-600/20 opacity-0 transition-opacity duration-300 group-hover:opacity-100 pointer-events-none" />
-                        
-                        {generating ? (
-                          <>
-                            <svg 
-                              className="generate-spinner w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 text-white" 
-                              xmlns="http://www.w3.org/2000/svg" 
-                              fill="none" 
-                              viewBox="0 0 24 24"
-                            >
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            <span className="relative z-10 text-white/90">Generating...</span>
-                          </>
-                        ) : (
-                          <>
-                            <SendHorizontal 
-                              size={18} 
-                              className="sm:size-[20px] flex-shrink-0 text-white/90 transition-all duration-300 generate-btn-icon group-hover:scale-110 group-hover:text-white group-hover:translate-y-[-2px]" 
-                              strokeWidth={2}
-                            />
-                            <span className="relative z-10 bg-gradient-to-r from-white to-white/90 bg-clip-text text-transparent">
-                              Generate Letter
-                            </span>
-                            <span className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-blue-500/10 opacity-0 hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </>
-                )}
-                
-                {step === 3 && generatedLetter && (
-                  <>
-                    <div className="rounded-2xl p-4 sm:p-6 bg-gradient-to-r from-purple-600/20 to-blue-600/20 border border-purple-500/30 shadow-xl text-center transition-all duration-300 hover:border-purple-500/50 hover:shadow-purple-500/20">
-                      <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-r from-purple-600 to-blue-500 flex items-center justify-center mx-auto mb-3 sm:mb-4 shadow-lg shadow-purple-500/30 transition-all duration-500 hover:scale-110 hover:shadow-purple-500/50 animate-float-cover animate-glow-cover">
-                        <span className="text-xl sm:text-2xl">🎉</span>
+                  <div ref={pngPreviewRef}>
+                    {isFullscreen ? (
+                      <div className="p-0.5">
+                        {renderPreview()}
                       </div>
-                      <h3 className="text-lg sm:text-xl font-bold text-purple-400 tracking-wide">Cover Letter Ready!</h3>
-                      <p className="text-[10px] sm:text-xs text-gray-400 mt-1 sm:mt-1.5 tracking-wide">Your professional cover letter is ready for use</p>
-                      <div className="mt-4 sm:mt-5 flex justify-center gap-6 sm:gap-8">
-                        <div className="text-center">
-                          <p className="text-xl sm:text-2xl font-bold text-white">{totalScore}%</p>
-                          <p className="text-[9px] sm:text-[10px] text-gray-400 tracking-wide">Complete</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-xl sm:text-2xl font-bold text-white">{overallQuality}%</p>
-                          <p className="text-[9px] sm:text-[10px] text-gray-400 tracking-wide">Quality</p>
+                    ) : (
+                      <div className="bg-white rounded-xl shadow-md overflow-hidden">
+                        <div className="p-0.5">
+                          {renderPreview()}
                         </div>
                       </div>
-                    </div>
-
-                    <CoverLetterEnhancer 
-                      originalLetter={originalLetter || generatedLetter}
-                      onEnhance={handleEnhance}
-                      userName={userName}
-                      jobTitle={jobTitle}
-                      company={company}
-                      isEnhanced={isEnhanced}
-                      onRestoreOriginal={resetToOriginal}
-                    />
-
-                    <EmailPremiumPanel />
-
-                    <div className="flex gap-2 sm:gap-3 justify-center flex-wrap">
-                      <button onClick={copyToClipboard} className="px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-medium transition-all duration-300 hover:scale-105 shadow-lg shadow-green-600/20 hover:shadow-green-600/40">
-                        📋 Copy
-                      </button>
-                      <button onClick={downloadPDF} className="px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-blue-500 hover:opacity-90 text-white text-xs sm:text-sm font-medium transition-all duration-300 hover:scale-105 shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50">
-                        📥 PDF
-                      </button>
-                      <button onClick={downloadTXT} className="px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-gray-600 hover:bg-gray-700 text-white text-xs sm:text-sm font-medium transition-all duration-300 hover:scale-105 shadow-lg shadow-gray-600/20 hover:shadow-gray-600/40">
-                        📄 TXT
-                      </button>
-                      <button 
-                        onClick={clearAllData} 
-                        className="px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium transition-all duration-300 hover:scale-105 shadow-lg shadow-red-600/20 hover:shadow-red-600/40 flex items-center gap-1.5 sm:gap-2"
-                      >
-                        <Trash2 size={14} className="sm:size-[16px]" />
-                        <span className="hidden xs:inline">Clear All Data</span>
-                        <span className="xs:hidden">Clear</span>
-                      </button>
-                    </div>
-
-                    <div className="flex justify-between pt-4 gap-4 bg-black/80 backdrop-blur-sm py-3 -mx-2 px-2 rounded-xl">
-                      <button onClick={goBackToEdit} className="px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl bg-gray-800/80 hover:bg-gray-700 text-white text-sm sm:text-base font-medium transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-purple-500/20">
-                        ← Back to Edit
-                      </button>
-                    </div>
-                  </>
-                )}
-                
-              </div>
-              
-              {/* ===== RIGHT COLUMN ===== */}
-              <div className="right-column-scroll h-[calc(100vh-250px)] overflow-y-auto overflow-x-hidden pr-2 space-y-6">
-                
-                <div className={`rounded-2xl p-3 sm:p-5 ${currentTemplate.previewCardBg} border ${currentTemplate.previewBorder} shadow-xl transition-all duration-300 hover:shadow-2xl hover:shadow-purple-500/20`}>
-                  <div className="flex items-center justify-between mb-3 sticky top-0 bg-gray-900/80 backdrop-blur-sm py-2 -mt-2 z-10 rounded-t-xl">
-                    <h3 className={`text-xs sm:text-sm font-semibold flex items-center gap-2 ${currentTemplate.headingColor} tracking-wide`}>
-                      <span className="text-sm sm:text-base">👁️</span> Live Preview
-                    </h3>
-                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 text-[8px] sm:text-[10px]">
-                      <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-purple-400 animate-pulse" />
-                      Real-time
-                    </div>
+                    )}
                   </div>
-                  <div className={`bg-gradient-to-r ${currentTemplate.previewBg} rounded-xl shadow-2xl shadow-purple-500/20 overflow-hidden transition-all duration-300 hover:shadow-purple-500/30`}>
-                    <div className="p-0.5">
-                      {selectedTemplate === 'classic' ? (
-                        <ClassicPreview 
-                          letter={generatedLetter || livePreview}
-                          photo={profilePhoto}
-                          name={userName}
-                          title={jobTitle}
-                          email={email}
-                          phone={phoneNumber}
-                          countryCode={selectedCountryCode}
-                          userAddress={address}
-                          linkedinUrl={linkedin}
-                          companyName={company}
-                        />
-                      ) : (
-                        <ModernPreview 
-                          letter={generatedLetter || livePreview}
-                          photo={profilePhoto}
-                          name={userName}
-                          title={jobTitle}
-                          email={email}
-                          phone={phoneNumber}
-                          countryCode={selectedCountryCode}
-                          userAddress={address}
-                          linkedinUrl={linkedin}
-                          companyName={company}
-                        />
-                      )}
-                    </div>
-                  </div>
+
                   <div className="flex justify-center mt-3">
                     <div className="flex gap-1">
-                      <div className="w-4 sm:w-6 h-1 rounded-full bg-purple-500" />
-                      <div className="w-3 sm:w-4 h-1 rounded-full bg-gray-700" />
+                      <div className="w-6 h-1 rounded-full bg-purple-500" />
+                      <div className="w-4 h-1 rounded-full bg-slate-200" />
                     </div>
                   </div>
                 </div>
-
-                <MoreInsightsArrow onClick={() => {
-                  const healthPanel = document.getElementById('letter-health-panel');
-                  if (healthPanel) {
-                    healthPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }
-                }} />
-
-                <div id="letter-health-panel" className="rounded-2xl p-4 sm:p-5 bg-gray-900/40 backdrop-blur-sm border border-purple-500/20 shadow-xl transition-all duration-300 hover:border-purple-500/40 hover:shadow-purple-500/10">
-                  <h3 className="text-xs sm:text-sm font-semibold text-purple-400 mb-4 sm:mb-5 flex items-center gap-2 tracking-wide sticky top-0 bg-gray-900/80 backdrop-blur-sm py-2 -mt-2 z-10 rounded-t-xl">
-                    <span className="text-sm sm:text-base">📊</span> Letter Health
-                  </h3>
-                  
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5 mb-4 sm:mb-6">
-                    <CircularProgressRing score={nameScore} label="Full Name" />
-                    <CircularProgressRing score={emailScore} label="Email" />
-                    <CircularProgressRing score={phoneScore} label="Phone" />
-                    <CircularProgressRing score={educationScore} label="Education" />
-                    <CircularProgressRing score={experienceScore} label="Experience" />
-                    <CircularProgressRing score={skillsScore} label="Skills" />
-                    <CircularProgressRing score={jobTitleScore} label="Job Title" />
-                    <CircularProgressRing score={companyScore} label="Company" />
-                    <CircularProgressRing score={descriptionScore} label="Description" />
-                    <CircularProgressRing score={achievementsScore} label="Achievements" />
-                    <CircularProgressRing score={currentPositionScore} label="Current Position" />
-                  </div>
-                  
-                  <div className="mt-2 pt-3 border-t border-purple-500/20">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] sm:text-xs text-gray-500 tracking-wide">Overall Health</span>
-                      <span className="text-xs sm:text-sm font-bold text-white">{totalScore}<span className="text-[9px] sm:text-xs text-purple-400">%</span></span>
-                    </div>
-                    <div className="w-full bg-gray-800 rounded-full h-1.5 mt-2 overflow-hidden">
-                      <div className="bg-gradient-to-r from-purple-500 to-blue-500 h-1.5 rounded-full transition-all duration-700" style={{ width: `${totalScore}%` }} />
-                    </div>
-                    <div className="text-center mt-2.5">
-                      <span className="text-[9px] sm:text-[10px] text-gray-500 tracking-wide">{missingFields} field{missingFields !== 1 ? 's' : ''} remaining</span>
-                    </div>
-                  </div>
-                </div>
-                
               </div>
             </div>
           </div>
-          
         </div>
 
-        {/* ✅ Feedback Modal - Feature-Specific with onMinimize */}
-        <FeedbackModal
-          isOpen={showFeedbackModal}
-          onClose={() => {
-            setShowFeedbackModal(false);
-            markFeedbackShown('cover-letter');
-          }}
-          onMinimize={handleMinimize}
-          source="cover-letter"
-          sourceKey="cover-letter"
+        <GlobalSidebar
+          isOpen={isSidebarOpen}
+          onClose={closeSidebar}
+          currentPage="cover-letter"
         />
 
-        {/* ✅ NEW: Feedback Widget */}
-        <FeedbackWidget
-          isVisible={showWidget}
-          onOpen={handleOpenFromWidget}
-          onClose={handleCloseWidget}
+        {/* ✅ UPDATED: Single-screen feedback modal */}
+        <FeedbackFullScreen
+          isOpen={showFeedbackModal}
+          onClose={handleFeedbackModalClose}
           source="cover-letter"
         />
       </div>

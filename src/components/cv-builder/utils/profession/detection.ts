@@ -1,14 +1,29 @@
 // utils/profession/detection.ts
 // ============================================
-// PROFESSION DETECTION - 100+ Professions
+// PROFESSION DETECTION - 280+ Professions (UPDATED)
 // ============================================
+// 
+// ✅ FIXED: "officer" generic match removed
+// ✅ FIXED: "ai" match now uses word boundary (Sustain-ai-bility bug)
+// ✅ FIXED: "hr" match now uses word boundary (Sharma bug)
+// ✅ FIXED: "ml" match now uses word boundary
+// ✅ NEW: investmentBanker detection added (before banker)
+// ============================================
+
+// ============================================
+// HELPER: Word boundary match
+// ============================================
+const hasWord = (text: string, word: string): boolean => {
+    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`\\b${escaped}\\b`, 'i');
+    return regex.test(text);
+};
 
 export const detectProfession = (title: string): string => {
     const t = title.toLowerCase();
     
     // ============================================
     // LEVEL 1: MOST SPECIFIC PROFESSIONS
-    // (Exact matches - highest priority)
     // ============================================
     
     // --- MEDICAL SPECIFIC ---
@@ -20,7 +35,8 @@ export const detectProfession = (title: string): string => {
     if (t.includes('dentist')) return 'dentist';
     if (t.includes('pharmacist')) return 'pharmacist';
     if (t.includes('physiotherapist') || t.includes('physical therapist')) return 'physiotherapist';
-    if (t.includes('nutritionist') || t.includes('dietitian')) return 'nutritionist';
+    if (t.includes('nutritionist')) return 'nutritionist';
+    if (t.includes('dietitian')) return 'dietitian';
     if (t.includes('medical lab') || t.includes('laboratory technologist') || 
         t.includes('lab technologist') || t.includes('medical laboratory')) return 'medicalLabTechnologist';
     if (t.includes('radiology technologist') || t.includes('radiologic technologist') || 
@@ -36,6 +52,17 @@ export const detectProfession = (title: string): string => {
     if (t.includes('medical technician') || t.includes('lab technician')) return 'medicalTechnician';
     if (t.includes('medical sales representative') || t.includes('pharma sales') || 
         t.includes('medical representative')) return 'medicalSalesRepresentative';
+    
+    // --- NEW MEDICAL (BATCH 2) ---
+    if (t.includes('dental assistant')) return 'dentalAssistant';
+    if (t.includes('dental technician') || t.includes('dental lab')) return 'dentalTechnician';
+    if (t.includes('emergency medical technician') || t.includes('emt')) return 'emergencyMedicalTechnician';
+    if (t.includes('lab assistant') || t.includes('laboratory assistant')) return 'labAssistant';
+    if (t.includes('medical assistant')) return 'medicalAssistant';
+    if (t.includes('medical coder') || t.includes('medical coding')) return 'medicalCoder';
+    if (t.includes('midwife') || t.includes('midwifery')) return 'midwife';
+    if (t.includes('public health officer') || t.includes('public health')) return 'publicHealthOfficer';
+    if (t.includes('caregiver') || t.includes('care giver') || t.includes('care taker')) return 'caregiver';
     
     // --- IT SPECIFIC ---
     if (t.includes('software engineer') && !t.includes('embedded')) return 'softwareEngineer';
@@ -60,6 +87,13 @@ export const detectProfession = (title: string): string => {
     if (t.includes('it support') || t.includes('system administrator')) return 'itSupport';
     if (t.includes('qa') || t.includes('quality assurance') || t.includes('testing')) return 'qa';
     
+    // --- NEW IT (BATCH 2) ---
+    if (t.includes('computer hardware') || t.includes('hardware technician')) return 'computerHardwareTechnician';
+    if (t.includes('computer programmer') || t.includes('programmer')) return 'computerProgrammer';
+    if (t.includes('electronics technician') || t.includes('electronic technician')) return 'electronicsTechnician';
+    if (t.includes('it technician') || t.includes('it tech')) return 'itTechnician';
+    if (t.includes('software tester') || t.includes('software testing')) return 'softwareTester';
+    
     // --- ENGINEERING SPECIFIC ---
     if (t.includes('civil engineer')) return 'civilEngineer';
     if (t.includes('electrical engineer')) return 'electricalEngineer';
@@ -69,6 +103,18 @@ export const detectProfession = (title: string): string => {
     if (t.includes('mining engineer') || t.includes('mine engineer')) return 'miningEngineer';
     if (t.includes('telecommunications engineer') || t.includes('telecom engineer')) return 'telecommunicationsEngineer';
     if (t.includes('quantity surveyor') || t.includes('qs ') || t.includes('cost estimator')) return 'quantitySurveyor';
+    
+    // --- NEW ENGINEERING (BATCH 2) ---
+    if (t.includes('construction supervisor')) return 'constructionSupervisor';
+    if (t.includes('foreman') || t.includes('site foreman')) return 'foreman';
+    if (t.includes('industrial electrician')) return 'industrialElectrician';
+    if (t.includes('instrumentation technician') || t.includes('instrument technician')) return 'instrumentationTechnician';
+    if (t.includes('maintenance technician') || t.includes('maintenance tech')) return 'maintenanceTechnician';
+    if (t.includes('site engineer')) return 'siteEngineer';
+    if (t.includes('site supervisor')) return 'siteSupervisor';
+    if (t.includes('surveyor') || t.includes('land surveyor')) return 'surveyor';
+    if (t.includes('textile engineer')) return 'textileEngineer';
+    if (t.includes('textile technician')) return 'textileTechnician';
     
     // --- BUSINESS SPECIFIC ---
     if (t.includes('finance analyst') || t.includes('financial analyst')) return 'financeAnalyst';
@@ -85,7 +131,17 @@ export const detectProfession = (title: string): string => {
     if (t.includes('project manager')) return 'projectManager';
     if (t.includes('business analyst')) return 'businessAnalyst';
     if (t.includes('operations manager')) return 'operationsManager';
+    
+    // ✅ NEW: Investment Banker (banker se PEHLE check karo)
+    if (t.includes('investment banker') || t.includes('investment banking')) return 'investmentBanker';
     if (t.includes('banker')) return 'banker';
+    
+    // --- NEW BUSINESS (BATCH 2) ---
+    if (t.includes('procurement manager')) return 'procurementManager';
+    if (t.includes('sales manager') || t.includes('sales lead')) return 'salesManager';
+    if (t.includes('sales executive') || t.includes('sales representative')) return 'salesExecutive';
+    if (t.includes('store manager')) return 'storeManager';
+    if (t.includes('retail manager')) return 'retailManager';
     
     // --- EDUCATION SPECIFIC (SUBJECT TEACHERS) ---
     if (t.includes('lecturer') || t.includes('lectureship')) return 'lecturer';
@@ -99,6 +155,11 @@ export const detectProfession = (title: string): string => {
     if (t.includes('islamic studies') || t.includes('islamiat')) return 'islamicStudiesTeacher';
     if (t.includes('pakistan studies') || t.includes('pak studies')) return 'pakistanStudiesTeacher';
     if (t.includes('history teacher') || (t.includes('history') && t.includes('teacher'))) return 'historyTeacher';
+    
+    // --- NEW EDUCATION (BATCH 2) ---
+    if (t.includes('special education') || t.includes('special needs teacher')) return 'specialEducationTeacher';
+    if (t.includes('school counselor') || t.includes('guidance counselor')) return 'schoolCounselor';
+    if (t.includes('research assistant') || t.includes('research associate')) return 'researchAssistant';
     
     // --- VOCATIONAL SPECIFIC ---
     if (t.includes('computer operator')) return 'computerOperator';
@@ -116,6 +177,41 @@ export const detectProfession = (title: string): string => {
     if (t.includes('plumber')) return 'plumber';
     if (t.includes('carpenter') || t.includes('carpentry')) return 'carpenter';
     
+    // --- NEW VOCATIONAL (BATCH 2) ---
+    if (t.includes('packaging operator') || t.includes('packaging machine')) return 'packagingOperator';
+    if (t.includes('production manager')) return 'productionManager';
+    if (t.includes('production supervisor')) return 'productionSupervisor';
+    if (t.includes('quality control inspector') || t.includes('qc inspector')) return 'qualityControlInspector';
+    if (t.includes('quality control engineer') || t.includes('qc engineer')) return 'qualityControlEngineer';
+    if (t.includes('solar technician') || t.includes('solar tech')) return 'solarTechnician';
+    if (t.includes('driver') || t.includes('delivery driver')) return 'driver';
+    if (t.includes('tailor') || t.includes('tailoring')) return 'tailor';
+    
+    // --- NEW OFFICE & ADMIN (BATCH 2) ---
+    if (t.includes('office assistant') || t.includes('admin assistant')) return 'officeAssistant';
+    if (t.includes('data entry operator') || t.includes('data entry')) return 'dataEntryOperator';
+    if (t.includes('cashier') || t.includes('cash counter')) return 'cashier';
+    if (t.includes('storekeeper') || t.includes('store keeper')) return 'storekeeper';
+    if (t.includes('warehouse manager') || t.includes('warehouse')) return 'warehouseManager';
+    if (t.includes('warehouse supervisor')) return 'warehouseSupervisor';
+    if (t.includes('logistics coordinator') || t.includes('logistics')) return 'logisticsCoordinator';
+    if (t.includes('freight forwarder') || t.includes('freight')) return 'freightForwarder';
+    
+    // --- NEW SAFETY & SECURITY (BATCH 2) ---
+    if (t.includes('safety officer') || t.includes('safety')) return 'safetyOfficer';
+    if (t.includes('hse officer') || t.includes('hse')) return 'hseOfficer';
+    if (t.includes('food safety officer') || t.includes('food safety')) return 'foodSafetyOfficer';
+    if (t.includes('security guard') || t.includes('security guard')) return 'securityGuard';
+    if (t.includes('security officer') || t.includes('security')) return 'securityOfficer';
+    
+    // --- NEW HOSPITALITY (BATCH 2) ---
+    if (t.includes('hotel receptionist') || t.includes('front desk')) return 'hotelReceptionist';
+    if (t.includes('housekeeping supervisor') || t.includes('housekeeping')) return 'housekeepingSupervisor';
+    if (t.includes('restaurant manager') || t.includes('restaurant')) return 'restaurantManager';
+    if (t.includes('tourism officer') || t.includes('tourism')) return 'tourismOfficer';
+    if (t.includes('travel consultant') || t.includes('travel agent')) return 'travelConsultant';
+    if (t.includes('call center agent') || t.includes('call center') || t.includes('customer service representative')) return 'callCenterAgent';
+    
     // --- OTHER SPECIFIC ---
     if (t.includes('graphic designer')) return 'graphicDesigner';
     if (t.includes('ui/ux') || t.includes('ux designer')) return 'uiux';
@@ -123,17 +219,14 @@ export const detectProfession = (title: string): string => {
     if (t.includes('content creator') || t.includes('writer')) return 'contentCreator';
     if (t.includes('marketing') || t.includes('digital marketing')) return 'marketing';
     if (t.includes('pilot')) return 'pilot';
-    if (t.includes('army') || t.includes('military') || t.includes('officer')) return 'army';
+    if (t.includes('army') || t.includes('military')) return 'army';
     if (t.includes('professor') || t.includes('academic')) return 'professor';
-    
-    // ===== FIXED: SOLAR, RENEWABLE, WIND =====
     if (t.includes('solar')) return 'solar';
     if (t.includes('renewable')) return 'renewable';
     if (t.includes('wind')) return 'wind';
-    
     if (t.includes('entrepreneur') || t.includes('founder')) return 'entrepreneur';
     if (t.includes('freelancer') || t.includes('freelance')) return 'freelancer';
-    if (t.includes('ai') || t.includes('ml') || t.includes('artificial intelligence')) return 'aiMl';
+    if (hasWord(t, 'ai') || hasWord(t, 'ml') || t.includes('artificial intelligence')) return 'aiMl';
     if (t.includes('customer support') || t.includes('customer service') || 
         t.includes('support specialist') || t.includes('customer care')) return 'customerSupportSpecialist';
     if (t.includes('healthcare admin') || t.includes('hospital admin') || 
@@ -142,17 +235,14 @@ export const detectProfession = (title: string): string => {
     
     // ============================================
     // LEVEL 2: CATEGORY-LEVEL PROFESSIONS
-    // (Group matches - medium priority)
     // ============================================
     
-    // --- MEDICAL & HEALTH SCIENCES ---
     if (t.includes('doctor') || t.includes('mbbs') || t.includes('physician') || 
         t.includes('medical') || t.includes('surgeon') || t.includes('pharma') ||
         t.includes('dpt') || t.includes('physical therapy')) {
         return 'doctor';
     }
     
-    // --- COMPUTER SCIENCE & IT ---
     if (t.includes('developer') || t.includes('engineer') || t.includes('software') || 
         t.includes('web') || (t.includes('react') && !t.includes('teacher')) || 
         (t.includes('angular') && !t.includes('teacher')) || 
@@ -160,14 +250,12 @@ export const detectProfession = (title: string): string => {
         return 'developer';
     }
     
-    // --- ENGINEERING ---
     if (t.includes('engineering') || t.includes('civil') || t.includes('electrical') || 
         t.includes('mechanical') || t.includes('chemical') || t.includes('industrial') ||
         t.includes('petroleum') || t.includes('telecommunication')) {
         return 'engineering';
     }
     
-    // --- BUSINESS ADMINISTRATION ---
     if (t.includes('bba') || t.includes('mba') || t.includes('business administration') || 
         t.includes('business management') || (t.includes('marketing') && !t.includes('digital marketing')) || 
         t.includes('supply chain') || t.includes('procurement') || 
@@ -175,36 +263,30 @@ export const detectProfession = (title: string): string => {
         return 'business';
     }
     
-    // --- EDUCATION ---
     if (t.includes('teacher') || t.includes('professor') || t.includes('lecturer') || 
         t.includes('educator') || t.includes('school') || t.includes('b.ed') || t.includes('bed')) {
         return 'teacher';
     }
     
-    // --- COMMERCE, ACCOUNTING & FINANCE ---
     if (t.includes('accountant') || t.includes('accounting') || t.includes('finance') || 
         t.includes('commerce') || t.includes('auditor') || t.includes('quickbooks') ||
         t.includes('tax')) {
         return 'accountant';
     }
     
-    // --- LAW ---
     if (t.includes('law') || t.includes('llb') || t.includes('legal') || t.includes('advocate') ||
         t.includes('attorney') || t.includes('barrister') || t.includes('legal advisor')) {
         return 'law';
     }
     
-    // --- SALES ---
     if (t.includes('sales') || t.includes('business development') || t.includes('account executive')) {
         return 'sales';
     }
     
-    // --- HR ---
-    if (t.includes('hr') || t.includes('human resources') || t.includes('recruiter')) {
+    if (hasWord(t, 'hr') || t.includes('human resources') || t.includes('recruiter')) {
         return 'hr';
     }
     
-    // --- DESIGNER ---
     if (t.includes('designer') || t.includes('graphic') || t.includes('visual')) {
         return 'designer';
     }
@@ -213,21 +295,18 @@ export const detectProfession = (title: string): string => {
     // LEVEL 3: SOCIAL & NATURAL SCIENCES
     // ============================================
     
-    // --- SOCIAL SCIENCES ---
     if (t.includes('social sciences') || t.includes('sociology') || t.includes('political science') || 
         t.includes('anthropology') || t.includes('psychology') || t.includes('economics') ||
         t.includes('social work') || t.includes('international relations')) {
         return 'socialSciences';
     }
     
-    // --- NATURAL SCIENCES ---
     if (t.includes('physics') || t.includes('chemistry') || t.includes('biology') || 
         t.includes('natural sciences') || t.includes('biochemistry') || t.includes('microbiology') ||
         t.includes('zoology') || t.includes('botany')) {
         return 'naturalSciences';
     }
     
-    // --- ARTS & HUMANITIES ---
     if (t.includes('english') || t.includes('urdu') || t.includes('islamic studies') || 
         t.includes('arts') || t.includes('history') || t.includes('philosophy') ||
         t.includes('literature') || t.includes('journalism')) {
@@ -238,4 +317,12 @@ export const detectProfession = (title: string): string => {
     // LEVEL 4: DEFAULT
     // ============================================
     return 'general';
+};
+
+// ============================================
+// NEW HELPER: isUnknownProfession
+// ============================================
+export const isUnknownProfession = (title: string): boolean => {
+    if (!title || !title.trim()) return true;
+    return detectProfession(title) === 'general';
 };

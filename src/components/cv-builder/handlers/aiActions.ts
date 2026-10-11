@@ -6,15 +6,53 @@ import {
     detectProfession,
     generateDescriptionFromData,
     generateAISummary,
-    generateAIExperienceBullets
+    generateAIExperienceBullets,
+    generateAIProjectBullets,
+    generateAIAchievementBullets,
+    getYearsForCurrentExp
 } from '../utils/aiGenerators';
+import { isUnknownProfession } from '../utils/profession/detection';
+import { detectSeniorityStrict } from '../utils/profession/seniorityDetector';
 import { 
     aiEnhancerOptions 
 } from '../constants/aiConfig';
 import { ExperienceItem } from '../types/cvTypes';
 
 // ============================================
-// HELPER: Minimum Delay for Professional Loading
+// ✅ SCALABLE: Summary Title Sanitizer
+// ============================================
+// AI ya system templates level keyword (Junior/Senior/Mid) title mein inject kar dete hain.
+// Yeh function unhe remove karta hai — agar user ke title mein nahi hain.
+// ============================================
+const sanitizeSummaryTitle = (summary: string, userTitle: string): string => {
+    if (!summary || !userTitle) return summary;
+    
+    const userTitleLower = userTitle.toLowerCase().trim();
+    
+    const levelKeywords = [
+        'junior', 'senior', 'mid-level', 'mid level', 'midlevel',
+        'entry-level', 'entry level', 'entrylevel',
+        'lead', 'principal', 'staff', 'associate',
+        'fresher', 'trainee'
+    ];
+    
+    let sanitized = summary;
+    
+    for (const keyword of levelKeywords) {
+        // Agar user ke title mein keyword hai → skip (user ne dala hai)
+        if (userTitleLower.includes(keyword)) continue;
+        
+        // ✅ Starting se remove karo (title ke roop mein)
+        const startRegex = new RegExp(`^${keyword}\\s+`, 'i');
+        sanitized = sanitized.replace(startRegex, '');
+    }
+    
+    sanitized = sanitized.replace(/\s+/g, ' ').trim();
+    return sanitized;
+};
+
+// ============================================
+// HELPER: Minimum Delay
 // ============================================
 const withMinimumDelay = async <T,>(
     promise: Promise<T>,
@@ -123,7 +161,7 @@ const enhanceGrammar = (text: string): string => {
 };
 
 // ============================================
-// APPLY AI ENHANCEMENT - 8 Options (with loading)
+// APPLY AI ENHANCEMENT - 8 Options
 // ============================================
 const applyAIEnhancementLogic = (
     professionalSummary: string,
@@ -154,7 +192,6 @@ const applyAIEnhancementLogic = (
     setAiEnhancerLoading(type);
     toast.loading(`Applying ${type} enhancement...`, { id: 'ai-enhancer' });
     
-    // ✅ Minimum 3-second delay for professional feel
     setTimeout(() => {
         let enhancedText = professionalSummary;
         
@@ -201,7 +238,7 @@ const applyAIEnhancementLogic = (
             }
         });
         setAiEnhancerLoading(null);
-    }, 3000); // ✅ Increased to 3 seconds
+    }, 3000);
 };
 
 export const createAIActions = (
@@ -227,7 +264,6 @@ export const createAIActions = (
     isEnhancerUsed: boolean
 ) => {
 
-    // ✅ Check if experience is valid before generating
     const canGenerateForExperience = (exp: ExperienceItem): boolean => {
         if (!exp.jobLevel || !exp.startDate || !exp.endDate) {
             return true;
@@ -335,7 +371,7 @@ export const createAIActions = (
         }, 1000);
     };
 
-    // ✅ AI Generate Summary - WITH MINIMUM 3-SECOND DELAY (UPDATED: Fresher Support)
+    // ✅ AI Generate Summary
     const handleAIGenerateSummary = async () => {
         const title = personalInfo.title;
         if (!title.trim()) {
@@ -359,7 +395,6 @@ export const createAIActions = (
             const years = getYears(experiences);
             const skillsArray = skills ? skills.split(',').map(s => s.trim()).filter(s => s) : [];
             
-            // ✅ Wrap with minimum 3-second delay
             const summary = await withMinimumDelay(
                 generateAISummary({
                     jobTitle: title,
@@ -368,16 +403,19 @@ export const createAIActions = (
                     profession: profession,
                     skills: skillsArray,
                     experiences: experiences,
-                    educations: educations  // ✅ PASS educations for fresher detection
+                    educations: educations
                 }),
                 3000
             );
+
+            // ✅ SANITIZE: Level keywords remove karo (agar user ke title mein nahi hain)
+            const sanitizedSummary = sanitizeSummaryTitle(summary, title);
 
             if (!originalSummary && !isEnhancerUsed) {
                 setOriginalSummary(professionalSummary);
             }
             
-            setProfessionalSummary(summary);
+            setProfessionalSummary(sanitizedSummary);
             setIsEnhancerUsed(true);
             
             toast.success('✅ AI Summary generated!', {
@@ -401,21 +439,21 @@ export const createAIActions = (
                     border: '1px solid rgba(239, 68, 68, 0.3)',
                 }
             });
-            // Fallback
             const desc = generateDescriptionFromData({
                 type: 'summary',
                 jobTitle: personalInfo.title,
                 companyName: personalInfo.company || '',
                 userData: { personalInfo, experiences, educations, projects, skills, certifications, achievements }
             });
-            setProfessionalSummary(desc);
+            // ✅ SANITIZE fallback summary bhi
+            const sanitizedDesc = sanitizeSummaryTitle(desc, personalInfo.title);
+            setProfessionalSummary(sanitizedDesc);
         }
         setAiGenerating(null);
     };
 
-    // ✅ AI Generate Experience - WITH MINIMUM 3-SECOND DELAY + VALIDATION
+    // ✅ AI Generate Experience — LEVEL-AWARE
     const handleAIGenerateExperience = async (index: number, exp: ExperienceItem) => {
-        // ✅ Check validation first
         if (!canGenerateForExperience(exp)) {
             toast.error('Please fix the Experience Level mismatch before generating AI content.', {
                 position: 'top-center',
@@ -447,24 +485,23 @@ export const createAIActions = (
         toast.loading(`Enhancing experience with AI...`, { id: `ai-exp-${index}` });
 
         try {
-            const level = getLevel(exp.title, 0);
+            const actualYears = getYearsForCurrentExp(exp.startDate || '', exp.endDate || '');
+            const level = detectSeniorityStrict(exp.title, actualYears);
             
-            // ✅ Wrap with minimum 3-second delay
+            console.log(`🎯 Experience level detected: ${level} (years: ${actualYears})`);
+            
             const bullets = await withMinimumDelay(
                 generateAIExperienceBullets({
                     title: exp.title,
                     company: exp.company,
                     description: exp.description,
-                    level: level
+                    level: level,
+                    years: actualYears
                 }),
                 3000
             );
 
-            const updated = [...experiences];
-            updated[index].description = bullets.join('\n');
-            setExperiences(updated);
-
-            toast.success('✅ Experience enhanced with AI!', {
+            toast.success('✅ Bullets generated! Pick as many as you like.', {
                 id: `ai-exp-${index}`,
                 position: 'top-center',
                 duration: 3000,
@@ -474,6 +511,8 @@ export const createAIActions = (
                     border: '1px solid rgba(34, 197, 94, 0.3)',
                 }
             });
+
+            return bullets;
         } catch (error) {
             toast.error('AI enhancement failed. Using fallback.', {
                 id: `ai-exp-${index}`,
@@ -485,10 +524,9 @@ export const createAIActions = (
                     border: '1px solid rgba(239, 68, 68, 0.3)',
                 }
             });
-            // ✅ FIXED: Use exp.title instead of personalInfo.title for experience
             const desc = generateDescriptionFromData({
                 type: 'experience',
-                jobTitle: exp.title || personalInfo.title, // ✅ FIXED: exp.title first
+                jobTitle: exp.title || personalInfo.title,
                 companyName: exp.company,
                 currentStartDate: exp.startDate,
                 currentEndDate: exp.endDate,
@@ -497,13 +535,165 @@ export const createAIActions = (
             const updated = [...experiences];
             updated[index].description = desc;
             setExperiences(updated);
+            return undefined;
+        } finally {
+            setAiGenerating(null);
         }
-        setAiGenerating(null);
     };
 
-    // ✅ Generate Description for field - WITH MINIMUM 3-SECOND DELAY + VALIDATION
+    // ✅ AI Generate Project — Groq-powered (5 bullets, AI Suggestor modal)
+    const handleAIGenerateProject = async (
+        index: number,
+        proj: any,
+    ): Promise<string[] | undefined> => {
+        if (!proj.name?.trim()) {
+            toast.error('Please add project name first', {
+                position: 'top-center',
+                style: {
+                    background: '#1a1a2e',
+                    color: '#fff',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                }
+            });
+            setAiGenerating(null);
+            return undefined;
+        }
+
+        if (!proj.tech?.trim()) {
+            toast.error('Please add Technologies / Tools Used first', {
+                position: 'top-center',
+                style: {
+                    background: '#1a1a2e',
+                    color: '#fff',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                }
+            });
+            setAiGenerating(null);
+            return undefined;
+        }
+
+        setAiGenerating(`proj-${index}`);
+        toast.loading('Generating project bullets with AI...', { id: `ai-proj-${index}` });
+
+        try {
+            const bullets = await withMinimumDelay(
+                generateAIProjectBullets({
+                    projectName: proj.name,
+                    tech: proj.tech || '',
+                    description: proj.details || '',
+                }),
+                3000
+            );
+
+            console.log(
+                `[aiActions] handleAIGenerateProject: generator returned ${bullets?.length ?? 0} bullets`
+            );
+
+            toast.success('✅ Project bullets generated! Pick up to 3 to add.', {
+                id: `ai-proj-${index}`,
+                position: 'top-center',
+                duration: 3000,
+                style: {
+                    background: '#1a1a2e',
+                    color: '#fff',
+                    border: '1px solid rgba(34, 197, 94, 0.3)',
+                }
+            });
+
+            return bullets;
+        } catch (error) {
+            toast.error('AI generation failed. Using fallback.', {
+                id: `ai-proj-${index}`,
+                position: 'top-center',
+                duration: 3000,
+                style: {
+                    background: '#1a1a2e',
+                    color: '#fff',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                }
+            });
+            const desc = generateDescriptionFromData({
+                type: 'project',
+                jobTitle: proj.name,
+                projectName: proj.name,
+                userData: { personalInfo, experiences, educations, projects, skills, certifications, achievements }
+            });
+            const updated = [...projects];
+            updated[index].description = desc;
+            setProjects(updated);
+            return undefined;
+        } finally {
+            setAiGenerating(null);
+        }
+    };
+
+    // ✅ AI Generate Achievement — Groq-powered (3 bullets, shortDescription as AI context)
+    const handleAIGenerateAchievement = async (index: number, ach: any) => {
+        if (!ach.title?.trim()) {
+            toast.error('Please add achievement title first', {
+                position: 'top-center',
+                style: {
+                    background: '#1a1a2e',
+                    color: '#fff',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                }
+            });
+            setAiGenerating(null);
+            return;
+        }
+
+        setAiGenerating(`ach-${index}`);
+        toast.loading('Generating achievement bullets with AI...', { id: `ai-ach-${index}` });
+
+        try {
+            const bullets = await withMinimumDelay(
+                generateAIAchievementBullets({
+                    title: ach.title,
+                    date: ach.date || '',
+                    shortDescription: ach.shortDescription || ''
+                }),
+                3000
+            );
+
+            toast.success('✅ Achievement bullets generated! Pick up to 2.', {
+                id: `ai-ach-${index}`,
+                position: 'top-center',
+                duration: 3000,
+                style: {
+                    background: '#1a1a2e',
+                    color: '#fff',
+                    border: '1px solid rgba(34, 197, 94, 0.3)',
+                }
+            });
+
+            return bullets;
+        } catch (error) {
+            toast.error('AI generation failed. Using fallback.', {
+                id: `ai-ach-${index}`,
+                position: 'top-center',
+                duration: 3000,
+                style: {
+                    background: '#1a1a2e',
+                    color: '#fff',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                }
+            });
+            const desc = generateDescriptionFromData({
+                type: 'achievement',
+                achievementTitle: ach.title,
+                userData: { personalInfo, experiences, educations, projects, skills, certifications, achievements }
+            });
+            const updated = [...achievements];
+            updated[index].description = desc;
+            setAchievements(updated);
+            return undefined;
+        } finally {
+            setAiGenerating(null);
+        }
+    };
+
+    // ✅ Generate Description for field — LEVEL-AWARE
     const generateDescriptionForField = async (type: 'experience' | 'project' | 'achievement' | 'summary', index?: number, currentData?: any) => {
-        // ✅ Check validation for experience
         if (type === 'experience' && currentData) {
             if (!canGenerateForExperience(currentData)) {
                 toast.error('Please fix the Experience Level mismatch before generating AI content.', {
@@ -522,31 +712,175 @@ export const createAIActions = (
         setGenerating(true);
         toast.loading(`Generating professional ${type} content...`, { id: 'desc' });
         
-        // ✅ Wrap with minimum 3-second delay
+        // ✅ EXPERIENCE — Special handling
+        if (type === 'experience' && index !== undefined && currentData) {
+            try {
+                const isUnknown = isUnknownProfession(currentData.title || '');
+                const actualYears = getYearsForCurrentExp(currentData.startDate || '', currentData.endDate || '');
+                const level = detectSeniorityStrict(currentData.title || '', actualYears);
+                
+                console.log(`🎯 Experience level: ${level} (years: ${actualYears})`);
+                
+                let generatedDesc: string;
+                
+                if (!isUnknown) {
+                    console.log(`📋 Existing profession → using system bullets (level: ${level})`);
+                    generatedDesc = await withMinimumDelay(
+                        Promise.resolve(generateDescriptionFromData({
+                            type: 'experience',
+                            jobTitle: currentData.title || personalInfo.title,
+                            companyName: currentData.company || '',
+                            currentStartDate: currentData.startDate,
+                            currentEndDate: currentData.endDate,
+                            userData: { personalInfo, experiences, educations, projects, skills, certifications, achievements }
+                        })),
+                        3000
+                    );
+                } else {
+                    console.log(`🔀 Unknown profession detected → using Groq (level: ${level})`);
+                    const bullets = await withMinimumDelay(
+                        generateAIExperienceBullets({
+                            title: currentData.title || '',
+                            company: currentData.company || '',
+                            description: currentData.description || '',
+                            level: level,
+                            years: actualYears
+                        }),
+                        3000
+                    );
+                    generatedDesc = bullets.join('\n');
+                }
+                
+                const updated = [...experiences];
+                updated[index].description = generatedDesc;
+                setExperiences(updated);
+                
+                toast.success('Content generated!', { 
+                    id: 'desc', 
+                    position: 'top-center',
+                    duration: 3000,
+                    style: {
+                        background: '#1a1a2e',
+                        color: '#fff',
+                        border: '1px solid rgba(168, 85, 247, 0.3)',
+                    }
+                });
+            } catch (error) {
+                console.error('Experience generation failed:', error);
+                toast.error('Failed to generate content', {
+                    id: 'desc',
+                    position: 'top-center',
+                    duration: 3000,
+                    style: {
+                        background: '#1a1a2e',
+                        color: '#fff',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                    }
+                });
+            }
+            setGenerating(false);
+            return;
+        }
+        
+        // ✅ PROJECT — Special handling (Groq-powered)
+        if (type === 'project' && index !== undefined && currentData) {
+            try {
+                console.log('🔀 Project → using Groq (6-7 bullets)');
+                const bullets = await withMinimumDelay(
+                    generateAIProjectBullets({
+                        projectName: currentData.name || '',
+                        tech: currentData.tech || '',
+                        description: currentData.description || ''
+                    }),
+                    3000
+                );
+                
+                const updated = [...projects];
+                updated[index].description = bullets.join('\n');
+                setProjects(updated);
+                
+                toast.success('Content generated!', { 
+                    id: 'desc', 
+                    position: 'top-center',
+                    duration: 3000,
+                    style: {
+                        background: '#1a1a2e',
+                        color: '#fff',
+                        border: '1px solid rgba(168, 85, 247, 0.3)',
+                    }
+                });
+            } catch (error) {
+                console.error('Project generation failed:', error);
+                toast.error('Failed to generate content', {
+                    id: 'desc',
+                    position: 'top-center',
+                    duration: 3000,
+                    style: {
+                        background: '#1a1a2e',
+                        color: '#fff',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                    }
+                });
+            }
+            setGenerating(false);
+            return;
+        }
+        
+        // ✅ ACHIEVEMENT — Special handling (Groq-powered, 3 bullets, shortDescription context)
+        if (type === 'achievement' && index !== undefined && currentData) {
+            try {
+                console.log('🔀 Achievement → using Groq (3 bullets)');
+                const bullets = await withMinimumDelay(
+                    generateAIAchievementBullets({
+                        title: currentData.title || '',
+                        date: currentData.date || '',
+                        shortDescription: currentData.shortDescription || ''
+                    }),
+                    3000
+                );
+                
+                const updated = [...achievements];
+                updated[index].description = bullets.join('\n');
+                setAchievements(updated);
+                
+                toast.success('Content generated!', { 
+                    id: 'desc', 
+                    position: 'top-center',
+                    duration: 3000,
+                    style: {
+                        background: '#1a1a2e',
+                        color: '#fff',
+                        border: '1px solid rgba(168, 85, 247, 0.3)',
+                    }
+                });
+            } catch (error) {
+                console.error('Achievement generation failed:', error);
+                toast.error('Failed to generate content', {
+                    id: 'desc',
+                    position: 'top-center',
+                    duration: 3000,
+                    style: {
+                        background: '#1a1a2e',
+                        color: '#fff',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                    }
+                });
+            }
+            setGenerating(false);
+            return;
+        }
+        
+        // ✅ OTHER TYPES (summary)
         const generateContent = async (): Promise<string> => {
             return new Promise((resolve) => {
                 setTimeout(() => {
-                    // ✅ FIXED: Use correct jobTitle based on type
                     let jobTitle = personalInfo.title;
                     let companyName = '';
-                    
-                    if (type === 'experience' && currentData) {
-                        jobTitle = currentData.title || personalInfo.title; // ✅ FIXED: exp.title first
-                        companyName = currentData.company || '';
-                    } else if (type === 'project' && currentData) {
-                        jobTitle = currentData.name || personalInfo.title;
-                    } else if (type === 'achievement' && currentData) {
-                        jobTitle = currentData.title || personalInfo.title;
-                    }
                     
                     const generatedDesc = generateDescriptionFromData({
                         type,
                         jobTitle: jobTitle,
                         companyName: companyName,
-                        projectName: type === 'project' && currentData?.name,
-                        achievementTitle: type === 'achievement' && currentData?.title,
-                        currentStartDate: type === 'experience' && currentData?.startDate,
-                        currentEndDate: type === 'experience' && currentData?.endDate,
                         userData: { personalInfo, experiences, educations, projects, skills, certifications, achievements }
                     });
                     resolve(generatedDesc);
@@ -558,19 +892,9 @@ export const createAIActions = (
             const generatedDesc = await withMinimumDelay(generateContent(), 3000);
             
             if (type === 'summary') {
-                setProfessionalSummary(generatedDesc);
-            } else if (type === 'experience' && index !== undefined) {
-                const updated = [...experiences];
-                updated[index].description = generatedDesc;
-                setExperiences(updated);
-            } else if (type === 'project' && index !== undefined) {
-                const updated = [...projects];
-                updated[index].description = generatedDesc;
-                setProjects(updated);
-            } else if (type === 'achievement' && index !== undefined) {
-                const updated = [...achievements];
-                updated[index].description = generatedDesc;
-                setAchievements(updated);
+                // ✅ SANITIZE: Level keywords remove karo
+                const sanitizedDesc = sanitizeSummaryTitle(generatedDesc, personalInfo.title);
+                setProfessionalSummary(sanitizedDesc);
             }
             
             toast.success('Content generated!', { 
@@ -598,7 +922,7 @@ export const createAIActions = (
         setGenerating(false);
     };
 
-    // ✅ AI ENHANCER - 8 Options (applyAIEnhancement)
+    // ✅ AI ENHANCER
     const applyAIEnhancement = (type: string) => {
         applyAIEnhancementLogic(
             professionalSummary,
@@ -612,7 +936,7 @@ export const createAIActions = (
         );
     };
 
-    // ✅ UPDATED: getYears - calculates total years from experiences
+    // ✅ getYears
     const getYears = (experiences: ExperienceItem[]): number => {
         if (!experiences || experiences.length === 0) return 0;
         const currentYear = new Date().getFullYear();
@@ -633,51 +957,9 @@ export const createAIActions = (
         return totalYears;
     };
 
-    // ✅ UPDATED: getLevel with Fresher Support
+    // ✅ getLevel — seniorityDetector se (single source of truth)
     const getLevel = (title: string, years: number): string => {
-        const t = title.toLowerCase();
-        
-        // ✅ FIRST: Check if this is a fresher based on title keywords
-        const fresherKeywords = ['fresh', 'graduate', 'intern', 'trainee', 'entry', 'fresher'];
-        if (fresherKeywords.some(k => t.includes(k))) {
-            return 'fresher';
-        }
-        
-        // ✅ SECOND: Check director/executive level
-        if (t.includes('director') || t.includes('chief') || t.includes('head') || 
-            t.includes('cto') || t.includes('ceo') || t.includes('cfo') ||
-            t.includes('vp') || t.includes('vice president')) {
-            return 'director';
-        }
-        
-        // ✅ THIRD: Check manager/lead level
-        if (t.includes('lead') || t.includes('manager') || t.includes('supervisor') ||
-            t.includes('team lead') || t.includes('general manager') || t.includes('gm')) {
-            return 'manager';
-        }
-        
-        // ✅ FOURTH: Check senior level
-        if (t.includes('senior') || t.includes('sr') || t.includes('sr.') || 
-            t.includes('architect') || t.includes('staff')) {
-            return 'senior';
-        }
-        
-        // ✅ FIFTH: Check junior level
-        if (t.includes('junior') || t.includes('jr') || t.includes('jr.') || 
-            t.includes('associate')) {
-            return 'junior';
-        }
-        
-        // ✅ SIXTH: Years-based detection (with fresher check)
-        if (years === 0) {
-            return 'fresher';  // ✅ 0 years = fresher!
-        }
-        if (years >= 10) return 'director';
-        if (years >= 7) return 'senior';
-        if (years >= 3) return 'mid';
-        if (years >= 1) return 'junior';
-        
-        return 'fresher';  // ✅ Default fallback
+        return detectSeniorityStrict(title, years);
     };
 
     return {
@@ -685,6 +967,8 @@ export const createAIActions = (
         expandSkills,
         handleAIGenerateSummary,
         handleAIGenerateExperience,
+        handleAIGenerateProject,
+        handleAIGenerateAchievement,
         generateDescriptionForField,
         applyAIEnhancement,
         getYears,

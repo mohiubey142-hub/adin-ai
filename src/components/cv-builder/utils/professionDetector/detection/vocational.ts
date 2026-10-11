@@ -25,5 +25,15 @@ export const detectVocational = (t: string): Profession | null => {
     if (t.includes('hvac technician') || t.includes('ac technician') || t.includes('air conditioning')) return 'hvac-technician';
     if (t.includes('agricultural technician') || t.includes('agriculture technician')) return 'agricultural-technician';
     
+    // ===== BATCH 2 - NEW VOCATIONAL PROFESSIONS =====
+    if (t.includes('packaging operator') || t.includes('packaging machine')) return 'packaging-operator';
+    if (t.includes('production manager')) return 'production-manager';
+    if (t.includes('production supervisor')) return 'production-supervisor';
+    if (t.includes('quality control inspector') || t.includes('qc inspector')) return 'quality-control-inspector';
+    if (t.includes('quality control engineer') || t.includes('qc engineer')) return 'quality-control-engineer';
+    if (t.includes('solar technician') || t.includes('solar tech')) return 'solar-technician';
+    if (t.includes('driver') || t.includes('delivery driver')) return 'driver';
+    if (t.includes('tailor') || t.includes('tailoring')) return 'tailor';
+    
     return null;
 };

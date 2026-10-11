@@ -1,10 +1,16 @@
+// src/components/cv-builder/components/DownloadButtons.tsx
+// ✅ NEW: PNG download button — added alongside Copy / PDF / TXT.
+//         The actual capture logic lives in the parent (CVBuilder),
+//         which forwards the ref to <CVPreview /> via forwardRef.
+
 import React from 'react';
-import { Copy, Download, File, Trash2 } from 'lucide-react';
+import { Copy, Download, FileText, Trash2, Image as ImageIcon } from 'lucide-react';
 
 interface DownloadButtonsProps {
     onCopy: () => void;
     onDownloadPDF: () => void;
     onDownloadTXT: () => void;
+    onDownloadPNG?: () => void;
     onClear: () => void;
 }
 
@@ -12,41 +18,76 @@ const DownloadButtons: React.FC<DownloadButtonsProps> = ({
     onCopy,
     onDownloadPDF,
     onDownloadTXT,
-    onClear
+    onDownloadPNG,
+    onClear,
 }) => {
     return (
-        // ✅ Mobile optimized: reduced gap, better touch targets
-        <div className="flex gap-1.5 sm:gap-2 lg:gap-4 justify-center flex-wrap">
-            <button 
-                onClick={onCopy} 
-                className="px-3 sm:px-4 lg:px-7 py-1.5 sm:py-2 lg:py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white font-medium transition-all duration-300 hover:scale-105 shadow-lg shadow-green-600/20 hover:shadow-green-600/40 text-[10px] sm:text-sm lg:text-base flex items-center gap-1.5 sm:gap-2 touch-manipulation min-h-[36px] sm:min-h-[40px]"
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
+            <button
+                onClick={onCopy}
+                aria-label="Copy CV"
+                className="group flex flex-col items-center justify-center gap-2.5 py-5 md:py-6 rounded-2xl bg-white border border-slate-200 hover:border-emerald-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-emerald-500/10 focus:outline-none focus:ring-4 focus:ring-emerald-500/15 transition-all duration-200"
             >
-                <Copy size={14} className="flex-shrink-0 sm:size-4 lg:size-5" /> 
-                <span>Copy</span>
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-sm shadow-emerald-500/25 group-hover:scale-105 transition-transform duration-200">
+                    <Copy size={19} className="text-white" strokeWidth={2.4} />
+                </div>
+                <span className="text-xs md:text-sm font-semibold text-slate-800 tracking-tight">
+                    Copy CV
+                </span>
             </button>
-            
-            <button 
-                onClick={onDownloadPDF} 
-                className="px-3 sm:px-4 lg:px-7 py-1.5 sm:py-2 lg:py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-blue-500 text-white font-medium transition-all duration-300 hover:scale-105 shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 text-[10px] sm:text-sm lg:text-base flex items-center gap-1.5 sm:gap-2 touch-manipulation min-h-[36px] sm:min-h-[40px]"
+
+            <button
+                onClick={onDownloadPDF}
+                aria-label="Download PDF"
+                className="group flex flex-col items-center justify-center gap-2.5 py-5 md:py-6 rounded-2xl bg-white border border-slate-200 hover:border-purple-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-purple-500/10 focus:outline-none focus:ring-4 focus:ring-purple-500/15 transition-all duration-200"
             >
-                <Download size={14} className="flex-shrink-0 sm:size-4 lg:size-5" /> 
-                <span>PDF</span>
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-600 to-purple-500 flex items-center justify-center shadow-sm shadow-purple-500/25 group-hover:scale-105 transition-transform duration-200">
+                    <Download size={19} className="text-white" strokeWidth={2.4} />
+                </div>
+                <span className="text-xs md:text-sm font-semibold text-slate-800 tracking-tight">
+                    Download PDF
+                </span>
             </button>
-            
-            <button 
-                onClick={onDownloadTXT} 
-                className="px-3 sm:px-4 lg:px-7 py-1.5 sm:py-2 lg:py-2.5 rounded-xl bg-gray-600 hover:bg-gray-700 text-white font-medium transition-all duration-300 hover:scale-105 shadow-lg shadow-gray-600/20 hover:shadow-gray-600/40 text-[10px] sm:text-sm lg:text-base flex items-center gap-1.5 sm:gap-2 touch-manipulation min-h-[36px] sm:min-h-[40px]"
+
+            {onDownloadPNG && (
+                <button
+                    onClick={onDownloadPNG}
+                    aria-label="Download PNG"
+                    className="group flex flex-col items-center justify-center gap-2.5 py-5 md:py-6 rounded-2xl bg-white border border-slate-200 hover:border-purple-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-purple-500/10 focus:outline-none focus:ring-4 focus:ring-purple-500/15 transition-all duration-200"
+                >
+                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-fuchsia-600 to-purple-500 flex items-center justify-center shadow-sm shadow-fuchsia-500/25 group-hover:scale-105 transition-transform duration-200">
+                        <ImageIcon size={19} className="text-white" strokeWidth={2.4} />
+                    </div>
+                    <span className="text-xs md:text-sm font-semibold text-slate-800 tracking-tight">
+                        Download PNG
+                    </span>
+                </button>
+            )}
+
+            <button
+                onClick={onDownloadTXT}
+                aria-label="Download TXT"
+                className="group flex flex-col items-center justify-center gap-2.5 py-5 md:py-6 rounded-2xl bg-white border border-slate-200 hover:border-slate-400 hover:-translate-y-1 hover:shadow-lg hover:shadow-slate-500/10 focus:outline-none focus:ring-4 focus:ring-slate-500/15 transition-all duration-200"
             >
-                <File size={14} className="flex-shrink-0 sm:size-4 lg:size-5" /> 
-                <span>TXT</span>
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center shadow-sm shadow-slate-500/25 group-hover:scale-105 transition-transform duration-200">
+                    <FileText size={19} className="text-white" strokeWidth={2.4} />
+                </div>
+                <span className="text-xs md:text-sm font-semibold text-slate-800 tracking-tight">
+                    Plain Text
+                </span>
             </button>
-            
-            <button 
-                onClick={onClear} 
-                className="px-3 sm:px-4 lg:px-7 py-1.5 sm:py-2 lg:py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium transition-all duration-300 hover:scale-105 shadow-lg shadow-red-600/20 hover:shadow-red-600/40 text-[10px] sm:text-sm lg:text-base flex items-center gap-1.5 sm:gap-2 touch-manipulation min-h-[36px] sm:min-h-[40px]"
+
+            <button
+                onClick={onClear}
+                aria-label="Clear all data"
+                className="group flex flex-col items-center justify-center gap-2.5 py-5 md:py-6 rounded-2xl bg-white border border-slate-200 hover:border-red-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-red-500/10 focus:outline-none focus:ring-4 focus:ring-red-500/15 transition-all duration-200"
             >
-                <Trash2 size={14} className="flex-shrink-0 sm:size-4 lg:size-5" /> 
-                <span>Clear</span>
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-sm shadow-red-500/25 group-hover:scale-105 transition-transform duration-200">
+                    <Trash2 size={19} className="text-white" strokeWidth={2.4} />
+                </div>
+                <span className="text-xs md:text-sm font-semibold text-slate-800 tracking-tight">
+                    Clear All
+                </span>
             </button>
         </div>
     );

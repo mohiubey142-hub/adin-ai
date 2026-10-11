@@ -1,26 +1,96 @@
 // src/components/cover-letter/utils/letterGeneration.ts
+// =====================================================
+// ✅ FINAL POLISH — Human fallback with realistic 3.5-4s loading delay
+// ✅ BODY-ONLY OUTPUT: PDF template renders date/recipient/RE/greeting/signature.
+// ✅ SILENT MODE: No toasts. Letter is the feedback.
+// ✅ HUMAN FALLBACK: Specific, natural wording (250+ words).
+// =====================================================
 
 import toast from 'react-hot-toast';
 import { generateCoverLetterWithAI, isGroqConfigured } from '../services/groqService';
-import { 
-  extractSkillsList, 
-  formatSkillsForLetter, 
-  capitalizeWords, 
-  getRandomItem,
-  getRandomInt 
+import {
+  extractSkillsList,
+  formatSkillsForLetter,
+  capitalizeWords,
 } from './textHelpers';
-import { getCompanyResearch } from './companyResearch';
 import { canGenerate, isEducationValid, getEducationError } from './validation';
 
-// ============================================================
-// ===== COUNT WORDS =====
-// ============================================================
 export const countWords = (text: string): number => {
   return text.split(/\s+/).filter(w => w.length > 0).length;
 };
 
 // ============================================================
-// ===== FALLBACK LETTER GENERATION =====
+// ===== NORMALIZE JOB TITLE =====
+// ============================================================
+const normalizeJobTitle = (title: string): string => {
+  if (!title) return '';
+  const corrections: Record<string, string> = {
+    'software enginner': 'Software Engineer',
+    'sotware engineer': 'Software Engineer',
+    'software engenier': 'Software Engineer',
+    'frontend developer': 'Frontend Developer',
+    'front end developer': 'Frontend Developer',
+    'backend developer': 'Backend Developer',
+    'back end developer': 'Backend Developer',
+    'full stack developer': 'Full Stack Developer',
+    'fullstack developer': 'Full Stack Developer',
+    'web developer': 'Web Developer',
+    'mobile developer': 'Mobile Developer',
+    'data analyst': 'Data Analyst',
+    'data scientist': 'Data Scientist',
+    'project manager': 'Project Manager',
+    'product manager': 'Product Manager',
+    'ui designer': 'UI Designer',
+    'ux designer': 'UX Designer',
+    'ui ux designer': 'UI/UX Designer',
+    'graphic designer': 'Graphic Designer',
+  };
+
+  const lower = title.toLowerCase().trim();
+  if (corrections[lower]) return corrections[lower];
+
+  return title
+    .split(' ')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+};
+
+// ============================================================
+// ===== DETECT LEVEL =====
+// ============================================================
+const getLevel = (years?: number, title?: string): 'Fresher' | 'Mid-level' | 'Senior' => {
+  const lowerTitle = (title || '').toLowerCase();
+  const isSeniorTitle = /senior|lead|principal|head|manager|director|architect|vp|chief/.test(lowerTitle);
+  const isFresherTitle = /junior|intern|trainee|graduate|entry|fresher/.test(lowerTitle);
+
+  if (years && years >= 6) return 'Senior';
+  if (isSeniorTitle && (!years || years >= 1)) return 'Senior';
+  if (!years || years === 0) {
+    if (isSeniorTitle) return 'Senior';
+    return 'Fresher';
+  }
+  if (isFresherTitle) return 'Fresher';
+  if (years >= 1 && years <= 5) return 'Mid-level';
+  return 'Fresher';
+};
+
+// ============================================================
+// ===== SKILLS PHRASING HELPERS =====
+// ============================================================
+const pickTopSkills = (skillsList: string[], max: number = 3): string[] => {
+  if (skillsList.length <= max) return skillsList;
+  return skillsList.slice(0, max);
+};
+
+const joinSkills = (skills: string[]): string => {
+  if (skills.length === 0) return '';
+  if (skills.length === 1) return skills[0];
+  if (skills.length === 2) return `${skills[0]} and ${skills[1]}`;
+  return `${skills.slice(0, -1).join(', ')}, and ${skills[skills.length - 1]}`;
+};
+
+// ============================================================
+// ===== FALLBACK LETTER GENERATION (BODY-ONLY) =====
 // ============================================================
 export const generateFallbackLetter = (
   userName: string,
@@ -31,172 +101,148 @@ export const generateFallbackLetter = (
   education: string,
   projects: string,
   additionalInfo: string,
-  currentPosition: string, // ✅ NEW
+  currentPosition: string,
   setGeneratedLetter: (val: string) => void,
   setOriginalLetter: (val: string) => void,
   setIsEnhanced: (val: boolean) => void,
-  setStep: (val: number) => void
+  setStep: (val: number) => void,
+  hiringManagerName?: string,
+  currentTitle?: string,
+  currentCompany?: string,
+  yearsOfExperience?: number,
+  jobDescription?: string,
 ) => {
   const skillsList = extractSkillsList(skills);
   const formattedSkills = formatSkillsForLetter(skillsList);
-  const userProjects = projects?.trim() || '';
-  const formattedJobTitle = capitalizeWords(jobTitle);
   const formattedCompany = capitalizeWords(company);
-  const experienceText = experience || '';
-  const additionalInfoText = additionalInfo || '';
-  const currentPositionText = currentPosition?.trim() || '';
+  const formattedJobTitle = normalizeJobTitle(jobTitle);
 
-  const currentDate = new Date().toLocaleDateString('en-US', { 
-    month: 'long', 
-    day: 'numeric', 
-    year: 'numeric' 
-  });
+  const level = getLevel(yearsOfExperience, currentTitle);
+  const isFresher = level === 'Fresher';
+  const hasCurrentRole = !!(currentTitle?.trim() || currentCompany?.trim());
+  const hasSkills = formattedSkills && formattedSkills !== 'my skills' && skillsList.length > 0;
 
-  // ✅ Build current role description based on available info
-  let currentRoleDescription = '';
-  if (currentPositionText) {
-    currentRoleDescription = `my current role at ${currentPositionText}`;
-  } else if (experienceText) {
-    // ✅ Extract industry from experience if possible
-    const industryKeywords = ['banking', 'finance', 'technology', 'software', 'development', 'engineering', 'retail', 'healthcare', 'education'];
-    let industryFound = '';
-    for (const keyword of industryKeywords) {
-      if (experienceText.toLowerCase().includes(keyword)) {
-        industryFound = keyword;
-        break;
-      }
-    }
-    if (industryFound) {
-      currentRoleDescription = `my career in ${industryFound}`;
+  const topSkills = hasSkills ? pickTopSkills(skillsList, 3) : [];
+  const topSkillPhrase = topSkills.length > 0 ? joinSkills(topSkills) : '';
+
+  // ============================================================
+  // PARAGRAPH 1 — OPENING (~3 sentences)
+  // ============================================================
+  let opening = '';
+
+  if (isFresher) {
+    opening =
+      `I came across the ${formattedJobTitle} opening at ${formattedCompany} and felt compelled to apply. ` +
+      `I am at the beginning of my career, and this is exactly the kind of role I have been working toward. ` +
+      `The opportunity to grow with ${formattedCompany} genuinely excites me.`;
+  } else if (hasCurrentRole && currentTitle && currentCompany) {
+    opening =
+      `I am reaching out regarding the ${formattedJobTitle} opening at ${formattedCompany}. ` +
+      `I currently work as a ${currentTitle} at ${currentCompany}, and I have been looking for a role that better matches where I want my career to go. ` +
+      `This position feels like the right next step.`;
+  } else if (hasCurrentRole && currentTitle) {
+    opening =
+      `I am reaching out regarding the ${formattedJobTitle} opening at ${formattedCompany}. ` +
+      `As a ${currentTitle}, I have been keeping an eye out for a role like this one. ` +
+      `The chance to contribute to ${formattedCompany} is something I would genuinely welcome.`;
+  } else if (!isFresher && yearsOfExperience) {
+    opening =
+      `I am writing to apply for the ${formattedJobTitle} position at ${formattedCompany}. ` +
+      `With ${yearsOfExperience} years of experience behind me, I have been looking for a role that offers both stability and room to grow. ` +
+      `This opening caught my attention right away.`;
+  } else {
+    opening =
+      `I am writing to apply for the ${formattedJobTitle} position at ${formattedCompany}. ` +
+      `After reading about the role, I felt it was worth reaching out. ` +
+      `I would welcome the opportunity to be part of your team.`;
+  }
+
+  // ============================================================
+  // PARAGRAPH 2 — BACKGROUND & SKILLS (~4 sentences)
+  // ============================================================
+  let background = '';
+
+  if (topSkills.length > 0) {
+    if (isFresher) {
+      background =
+        `My foundation is built around ${topSkillPhrase}. ` +
+        `I have spent time practicing these skills through small, focused projects, and I keep looking for ways to sharpen them. ` +
+        `I enjoy the process of figuring things out — trying something, seeing what works, and adjusting from there. ` +
+        `I am comfortable learning new tools and I pick things up quickly when I have a real problem to solve.`;
+    } else if (hasCurrentRole && currentTitle) {
+      background =
+        `In my day-to-day work as a ${currentTitle}, I rely heavily on ${topSkillPhrase}. ` +
+        `I have learned to balance hands-on work with clear communication, especially when timelines are tight. ` +
+        `Most of what I know comes from doing the work itself — trying things, fixing what breaks, and improving as I go. ` +
+        `I care about getting the details right and about leaving things better than I found them.`;
     } else {
-      currentRoleDescription = 'my professional career';
+      background =
+        `Most of my experience has been built around ${topSkillPhrase}. ` +
+        `I have learned to work steadily, communicate honestly, and approach each task with care. ` +
+        `Over time, I have figured out how to manage my own work while staying aligned with the people around me. ` +
+        `I take a measured approach — steady, careful, and focused on getting things done well.`;
     }
   } else {
-    currentRoleDescription = 'my professional career';
+    background =
+      `I bring a strong work ethic, a willingness to learn, and a real interest in growing within this field. ` +
+      `I pick up new tools and processes quickly, and I value doing steady, reliable work. ` +
+      `I approach each task with care and I am always looking for small ways to improve. ` +
+      `Wherever the team needs support, I am ready to step in.`;
   }
 
-  const introTemplates = [
-    `I am excited to apply for the ${formattedJobTitle} position at ${formattedCompany}. With a strong background in ${experienceText || 'software engineering'} and a passion for solving complex problems, I am eager to bring my expertise to your team.`,
-    `I am writing to express my strong interest in the ${formattedJobTitle} role at ${formattedCompany}. My experience in ${experienceText || 'technology'} has equipped me with the skills to make meaningful contributions to your organization.`,
-    `The ${formattedJobTitle} position at ${formattedCompany} is an exciting opportunity that aligns with my professional goals. With my background in ${experienceText || 'software development'}, I am confident in my ability to add value to your team.`,
-    `I am thrilled to apply for the ${formattedJobTitle} position at ${formattedCompany}. My journey in ${experienceText || 'technology'} has prepared me to take on challenges and deliver impactful results.`
-  ];
+  // ============================================================
+  // PARAGRAPH 3 — FIT & VALUE (~4 sentences)
+  // ============================================================
+  let fit = '';
 
-  // ✅ NEW: Experience templates that NEVER assume target company as current employer
-  const experienceTemplates = [
-    `Throughout ${currentRoleDescription}, I have focused on delivering high-quality solutions. I have worked on ${userProjects || 'various projects'} that required ${formattedSkills || 'technical expertise and problem-solving'}. My approach combines technical excellence with a commitment to understanding user needs.`,
-    `My professional experience includes ${experienceText || 'software development and project management'}. I have successfully ${userProjects || 'delivered multiple projects'} using ${formattedSkills || 'modern technologies'}. I take pride in writing clean, efficient code.`,
-    `I bring ${experienceText || 'extensive experience'} in ${formattedSkills || 'full-stack development'}. My work on ${userProjects || 'challenging projects'} has taught me the importance of ${getRandomItem(['collaboration', 'innovation', 'quality', 'efficiency'])}.`,
-    `With a strong foundation in ${experienceText || 'software engineering'}, I have developed ${formattedSkills || 'various technical skills'}. I have worked on ${userProjects || 'projects that made a difference'}, focusing on ${getRandomItem(['performance', 'usability', 'scalability', 'security'])}.`
-  ];
+  if (topSkills.length > 0) {
+    const skillFocus = topSkills.length === 1
+      ? `my background in ${topSkills[0]}`
+      : `my background in ${joinSkills(topSkills)}`;
 
-  const companyResearch = getCompanyResearch(formattedCompany);
-  const companyTemplates = [
-    `I am particularly drawn to ${formattedCompany} because of its reputation for ${companyResearch}. I believe in ${getRandomItem(['continuous learning', 'innovation', 'teamwork', 'quality'])} and would be proud to contribute to your success.`,
-    `${formattedCompany} stands out as a leader in ${companyResearch}. I share the company's values of ${getRandomItem(['innovation', 'excellence', 'integrity', 'collaboration'])} and am excited about the opportunity to join your team.`,
-    `What attracts me to ${formattedCompany} is its commitment to ${companyResearch}. I am inspired by organizations that ${getRandomItem(['prioritize innovation', 'value employees', 'make a difference', 'deliver quality'])}.`,
-    `I have long admired ${formattedCompany} for ${companyResearch}. The chance to work with talented professionals and contribute to ${getRandomItem(['meaningful projects', 'company growth', 'industry innovation', 'team success'])} excites me.`
-  ];
+    fit =
+      `What draws me to this role is the chance to bring ${skillFocus} to a team that values doing things well. ` +
+      `I understand that every role has its own way of working, and I am ready to learn yours. ` +
+      `I am not looking to reinvent anything on day one — I want to understand what the team needs, then contribute steadily from there. ` +
+      `I would bring a calm, dependable presence and a real willingness to grow into the responsibilities over time.`;
+  } else {
+    fit =
+      `What draws me to this role is the chance to contribute to a team that clearly cares about doing things well. ` +
+      `I am ready to learn the specifics of the role and to grow into it with the right guidance. ` +
+      `I am not looking to make big changes on day one — I want to understand the work first, then contribute where I can. ` +
+      `I would bring a steady, focused, and dependable presence to the team.`;
+  }
 
-  const qualitiesTemplates = [
-    `Beyond technical skills, I bring ${additionalInfoText || 'strong communication and teamwork abilities'}. I am ${getRandomItem(['adaptable', 'detail-oriented', 'creative', 'collaborative'])} and committed to ${getRandomItem(['continuous improvement', 'delivering value', 'team success', 'quality outcomes'])}.`,
-    `I am known for my ${additionalInfoText || 'dedication and work ethic'}. My approach to work is characterized by ${getRandomItem(['attention to detail', 'creative problem-solving', 'reliability', 'adaptability'])}, and I always strive to exceed expectations.`,
-    `In addition to my professional experience, I offer ${additionalInfoText || 'strong interpersonal skills and a collaborative mindset'}. I believe in ${getRandomItem(['open communication', 'teamwork', 'continuous learning', 'quality work'])} and am always ready to help others succeed.`,
-    `My work philosophy centers around ${additionalInfoText || 'delivering value and building relationships'}. I am ${getRandomItem(['dedicated', 'proactive', 'resourceful', 'enthusiastic'])} and take pride in ${getRandomItem(['solving problems', 'helping others', 'delivering results', 'improving processes'])}.`
-  ];
+  // ============================================================
+  // PARAGRAPH 4 — CLOSING (~3 sentences)
+  // ============================================================
+  const closing =
+    `Thank you for taking the time to read my application. ` +
+    `I would really value the chance to talk through how I can contribute to what ${formattedCompany} is building. ` +
+    `I am available whenever it works for you, and I would be glad to continue the conversation.`;
 
-  const closingTemplates = [
-    `Thank you for considering my application. I would welcome the opportunity to discuss how my skills and experience can benefit ${formattedCompany}.`,
-    `I appreciate your time and consideration. I am eager to discuss how I can contribute to the continued success of ${formattedCompany}.`,
-    `Thank you for reviewing my application. I look forward to the possibility of joining ${formattedCompany} and contributing to your team.`,
-    `I would be delighted to discuss my qualifications further. Thank you for considering me for this exciting opportunity at ${formattedCompany}.`
-  ];
+  // ============================================================
+  // ASSEMBLE — BODY ONLY
+  // ============================================================
+  let fullLetter = `${opening}
 
-  const introText = getRandomItem(introTemplates);
-  const experienceText2 = getRandomItem(experienceTemplates);
-  const companyText = getRandomItem(companyTemplates);
-  const qualitiesText = getRandomItem(qualitiesTemplates);
-  const closingText = getRandomItem(closingTemplates);
+${background}
 
-  let fullLetter = `${currentDate}
+${fit}
 
-Hiring Manager
-${formattedCompany}
+${closing}`;
 
-RE: Application for ${formattedJobTitle}
-
-Dear Hiring Manager,
-
-${introText}
-
-${experienceText2}
-
-${companyText}
-
-${qualitiesText}
-
-${closingText}`;
-
-  fullLetter = fullLetter.replace(/\n{3,}/g, '\n\n');
-  fullLetter = fullLetter.trim();
+  fullLetter = fullLetter.replace(/\n{3,}/g, '\n\n').trim();
 
   const wordCount = fullLetter.split(/\s+/).filter(w => w.length > 0).length;
-  console.log(`📊 Fallback letter word count: ${wordCount}`);
-
-  if (wordCount > 300) {
-    console.log('⚠️ Fallback exceeds 300 words, compressing...');
-    
-    const paragraphs = fullLetter.split(/\n\n+/).filter(p => p.trim().length > 0);
-    
-    if (paragraphs.length > 7) {
-      const headerParts = paragraphs.slice(0, 4);
-      const bodyParts = paragraphs.slice(4, -1);
-      const closingPart = paragraphs[paragraphs.length - 1];
-      
-      let compressedBody: string[] = [];
-      if (bodyParts.length > 3) {
-        const sorted = bodyParts.sort((a, b) => 
-          b.split(/\s+/).filter(w => w.length > 0).length - 
-          a.split(/\s+/).filter(w => w.length > 0).length
-        );
-        compressedBody = sorted.slice(0, 3);
-      } else {
-        compressedBody = bodyParts;
-      }
-      
-      fullLetter = [...headerParts, ...compressedBody, closingPart].join('\n\n');
-      
-      const newWordCount = fullLetter.split(/\s+/).filter(w => w.length > 0).length;
-      console.log(`📊 After fallback compression: ${newWordCount} words`);
-    }
-  }
-
-  const finalWordCount = fullLetter.split(/\s+/).filter(w => w.length > 0).length;
-  if (finalWordCount > 300) {
-    const sentences = fullLetter.match(/[^.!?]+[.!?]+/g) || [fullLetter];
-    let truncated = '';
-    let count = 0;
-    for (const sentence of sentences) {
-      const sentenceWords = sentence.split(/\s+/).filter(w => w.length > 0).length;
-      if (count + sentenceWords <= 280) {
-        truncated += sentence + ' ';
-        count += sentenceWords;
-      } else {
-        break;
-      }
-    }
-    if (truncated.trim().length > 0) {
-      fullLetter = truncated.trim();
-      console.log(`📊 Final fallback truncated to: ${fullLetter.split(/\s+/).filter(w => w.length > 0).length} words`);
-    }
-  }
+  console.log(`📊 Fallback letter word count: ${wordCount} (level: ${level})`);
 
   setGeneratedLetter(fullLetter);
   setOriginalLetter(fullLetter);
   setIsEnhanced(false);
-  
-  const finalCount = fullLetter.split(/\s+/).filter(w => w.length > 0).length;
-  toast.success(`✨ AI cover letter generated! (${finalCount} words)`, { id: 'cover' });
+
+  // ✅ Silent — no success toast
+  toast.dismiss('cover');
   setStep(3);
 };
 
@@ -216,7 +262,12 @@ interface GenerateLetterParams {
   additionalInfo: string;
   selectedStyle: string;
   isPhoneValid: boolean;
-  currentPosition?: string; // ✅ NEW
+  currentPosition?: string;
+  hiringManagerName?: string;
+  currentTitle?: string;
+  currentCompany?: string;
+  yearsOfExperience?: number;
+  jobDescription?: string;
   setGenerating: (val: boolean) => void;
   setGeneratedLetter: (val: string) => void;
   setOriginalLetter: (val: string) => void;
@@ -226,142 +277,94 @@ interface GenerateLetterParams {
 
 export const generateLetter = async (params: GenerateLetterParams) => {
   const {
-    userName,
-    email,
-    phoneNumber,
-    education,
-    jobTitle,
-    company,
-    experience,
-    skills,
-    projects,
-    additionalInfo,
-    selectedStyle,
-    isPhoneValid,
-    currentPosition, // ✅ NEW
-    setGenerating,
-    setGeneratedLetter,
-    setOriginalLetter,
-    setIsEnhanced,
-    setStep
+    userName, email, phoneNumber, education,
+    jobTitle, company, experience, skills, projects, additionalInfo,
+    selectedStyle, isPhoneValid, currentPosition,
+    hiringManagerName, currentTitle, currentCompany,
+    yearsOfExperience, jobDescription,
+    setGenerating, setGeneratedLetter, setOriginalLetter,
+    setIsEnhanced, setStep
   } = params;
 
-  // ✅ Debug log
   console.log('🚀 generateLetter called with values:', {
-    userName, jobTitle, company, experience, skills, education, projects, additionalInfo, currentPosition
+    userName, jobTitle, company, experience, skills, education, projects,
+    additionalInfo, currentPosition, hiringManagerName, currentTitle,
+    currentCompany, yearsOfExperience, hasJobDescription: !!jobDescription,
   });
 
-  // Validation
-  if (!canGenerate(userName, email, phoneNumber, education, jobTitle, company, isPhoneValid)) {
-    if (!userName) toast.error('Please fill your name');
-    else if (!email || !email.includes('@gmail.com')) toast.error('Please enter a valid Gmail address (@gmail.com)');
-    else if (!phoneNumber) toast.error('Please enter your phone number');
-    else if (!isPhoneValid) toast.error('Please enter a valid phone number');
-    else if (!isEducationValid(education)) toast.error(getEducationError(education) || 'Please fill in Degree and University');
-    else if (!jobTitle) toast.error('Please fill your job title');
-    else if (!company) toast.error('Please fill company name');
-    else toast.error('Please fill all required fields');
+  const validationErrors: string[] = [];
+  if (!userName) validationErrors.push('Name');
+  if (!email || !email.includes('@gmail.com')) validationErrors.push('Valid Gmail');
+  if (!phoneNumber) validationErrors.push('Phone');
+  if (!isPhoneValid) validationErrors.push('Valid Phone');
+  if (!jobTitle) validationErrors.push('Target Job Title');
+  if (!company) validationErrors.push('Target Company');
+
+  if (validationErrors.length > 0) {
+    toast.error(`Please fill: ${validationErrors.join(', ')}`);
     return;
   }
 
   setGenerating(true);
 
   const groqAvailable = isGroqConfigured();
-  
+
+  // ============================================================
+  // ✅ FIX: Realistic 3.5-4.2 sec delay before fallback letter
+  // ============================================================
+  // Random between 3500-4200ms → feels natural, like real AI thinking
+  const FALLBACK_DELAY_MS = 3500 + Math.floor(Math.random() * 700);
+
   if (!groqAvailable) {
-    console.log('📝 API key not found. Using fallback template...');
+    console.log(`📝 API key not found. Using fallback template after ${FALLBACK_DELAY_MS}ms...`);
     setTimeout(() => {
       generateFallbackLetter(
-        userName,
-        jobTitle,
-        company,
-        experience,
-        skills,
-        education,
-        projects,
-        additionalInfo,
-        currentPosition || '', // ✅ NEW
-        setGeneratedLetter,
-        setOriginalLetter,
-        setIsEnhanced,
-        setStep
+        userName, jobTitle, company, experience, skills, education,
+        projects, additionalInfo, currentPosition || '',
+        setGeneratedLetter, setOriginalLetter, setIsEnhanced, setStep,
+        hiringManagerName, currentTitle, currentCompany,
+        yearsOfExperience, jobDescription,
       );
       setGenerating(false);
-    }, 800);
+    }, FALLBACK_DELAY_MS);
     return;
   }
 
-  toast.loading('🤖 AI is writing your professional cover letter...', { id: 'cover' });
-
+  // ✅ Silent — no loading toast. Button spinner is enough.
   try {
     const aiBody = await generateCoverLetterWithAI({
-      userName,
-      jobTitle,
-      company,
-      experience,
-      skills,
-      education,
-      projects,
-      additionalInfo,
-      selectedStyle,
-      currentPosition // ✅ NEW - Pass currentPosition to AI
+      userName, jobTitle, company, experience, skills, education,
+      projects, additionalInfo, selectedStyle,
+      hiringManagerName, currentTitle, currentCompany,
+      yearsOfExperience, jobDescription,
     });
 
-    const currentDate = new Date().toLocaleDateString('en-US', { 
-      month: 'long', 
-      day: 'numeric', 
-      year: 'numeric' 
-    });
-
-    const fullLetter = `${currentDate}
-
-Hiring Manager
-${company}
-
-RE: Application for ${jobTitle}
-
-Dear Hiring Manager,
-
-${aiBody}`;
-
-    let cleanedLetter = fullLetter.replace(/\n{3,}/g, '\n\n');
-    cleanedLetter = cleanedLetter.trim();
+    let cleanedLetter = (aiBody || '').replace(/\n{3,}/g, '\n\n').trim();
 
     if (cleanedLetter && cleanedLetter.length > 50) {
       setGeneratedLetter(cleanedLetter);
       setOriginalLetter(cleanedLetter);
       setIsEnhanced(false);
-      
-      const wordCount = cleanedLetter.split(/\s+/).filter(w => w.length > 0).length;
-      toast.success(`✨ AI cover letter generated! (${wordCount} words)`, { id: 'cover' });
       setStep(3);
     } else {
       throw new Error('AI returned empty response');
     }
-    
+
   } catch (error) {
     console.error('AI generation error:', error);
-    console.log('⚠️ AI failed. Generating fallback...');
+    console.log(`⚠️ AI failed. Generating fallback after ${FALLBACK_DELAY_MS}ms...`);
     setTimeout(() => {
       generateFallbackLetter(
-        userName,
-        jobTitle,
-        company,
-        experience,
-        skills,
-        education,
-        projects,
-        additionalInfo,
-        currentPosition || '', // ✅ NEW
-        setGeneratedLetter,
-        setOriginalLetter,
-        setIsEnhanced,
-        setStep
+        userName, jobTitle, company, experience, skills, education,
+        projects, additionalInfo, currentPosition || '',
+        setGeneratedLetter, setOriginalLetter, setIsEnhanced, setStep,
+        hiringManagerName, currentTitle, currentCompany,
+        yearsOfExperience, jobDescription,
       );
       setGenerating(false);
-    }, 500);
+    }, FALLBACK_DELAY_MS);
     return;
   }
-  
+
   setGenerating(false);
 };

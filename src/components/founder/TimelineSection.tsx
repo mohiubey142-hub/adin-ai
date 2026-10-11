@@ -1,5 +1,5 @@
 // src/components/founder/TimelineSection.tsx
-import { Calendar, GraduationCap, Rocket, Award } from "lucide-react";
+import { Calendar, GraduationCap, Rocket } from "lucide-react";
 
 export default function TimelineSection() {
   const timeline = [
@@ -21,43 +21,44 @@ export default function TimelineSection() {
       year: "July 2026",
       title: "Adin AI Launch",
       description: "Launched Adin AI as a complete AI-powered career platform for resumes, cover letters, and career growth. Pakistan's first AI career platform.",
-      // ✅ Using existing icon-192x192.png from public folder
       icon: <img src="/icon-192x192.png" alt="Adin AI" className="w-5 h-5 object-contain rounded" />,
       color: "amber"
     }
   ];
 
   const colorMap: Record<string, string> = {
-    purple: "bg-purple-500/20 border-purple-500/30 text-purple-300",
-    emerald: "bg-emerald-500/20 border-emerald-500/30 text-emerald-300",
-    blue: "bg-blue-500/20 border-blue-500/30 text-blue-300",
-    amber: "bg-amber-500/20 border-amber-500/30 text-amber-300",
+    purple: "bg-purple-50 border-purple-100 text-purple-700",
+    emerald: "bg-emerald-50 border-emerald-100 text-emerald-700",
+    blue: "bg-blue-50 border-blue-100 text-blue-700",
+    amber: "bg-amber-50 border-amber-100 text-amber-700",
   };
 
   return (
-    <section className="py-12 sm:py-16 px-4 sm:px-6 border-t border-zinc-900/50">
+    <section className="py-12 sm:py-16 px-4 sm:px-6 border-t border-slate-200 bg-slate-50">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
-          <Calendar size={24} className="text-purple-400" />
-          <h2 className="text-2xl font-bold text-white">Founder Timeline</h2>
+          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-600 to-purple-500 flex items-center justify-center shadow-md shadow-purple-600/20">
+            <Calendar size={18} className="text-white" />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900">Founder Timeline</h2>
         </div>
 
         <div className="space-y-4">
           {timeline.map((item, index) => (
             <div
               key={index}
-              className={`p-5 rounded-2xl border ${colorMap[item.color]} bg-zinc-900/20`}
+              className="p-5 rounded-2xl border border-slate-200 bg-white shadow-sm hover:shadow-md hover:border-purple-200 transition-all duration-300"
             >
               <div className="flex items-start gap-4">
-                <div className={`p-2 rounded-lg ${colorMap[item.color]} flex-shrink-0`}>
+                <div className={`p-2 rounded-lg border ${colorMap[item.color]} flex-shrink-0`}>
                   {item.icon}
                 </div>
                 <div>
                   <div className="flex items-center gap-3 flex-wrap">
-                    <span className="text-sm font-bold text-white">{item.year}</span>
-                    <span className="text-sm font-medium text-gray-200">{item.title}</span>
+                    <span className="text-sm font-bold text-slate-900">{item.year}</span>
+                    <span className="text-sm font-medium text-slate-700">{item.title}</span>
                   </div>
-                  <p className="text-sm text-gray-400 mt-1">{item.description}</p>
+                  <p className="text-sm text-slate-600 mt-1">{item.description}</p>
                 </div>
               </div>
             </div>

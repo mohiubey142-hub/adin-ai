@@ -1,3 +1,5 @@
+// src/components/cv-builder/preview/constants/templateStyles.ts
+
 import { TemplateStyles } from '../types/previewTypes';
 
 // MODERN TEMPLATE STYLES
@@ -46,7 +48,7 @@ export const getTemplateStyles = (template: 'modern' | 'classic' | 'minimal'): T
     }
 };
 
-// Background style (different from other styles)
+// ✅ Background style — soft slate-100 for clean premium feel
 export const getBackgroundStyle = (): string => {
-    return '#000000';
+    return '#f1f5f9';   // slate-100
 };

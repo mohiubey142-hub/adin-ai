@@ -54,7 +54,8 @@ import {
     detectRenewable,
     detectHospitality,
     detectRealEstate,
-    detectHR
+    detectHR,
+    detectFreelancer
 } from './professionDetector/detection';
 
 // ============================================
@@ -138,6 +139,10 @@ export const detectProfession = (jobTitle: string): Profession => {
     // HR (Specific)
     const hr = detectHR(t);
     if (hr) return hr;
+    
+    // Freelancer (Specific)
+    const freelancer = detectFreelancer(t);
+    if (freelancer) return freelancer;
     
     // ============================================
     // FALLBACK - General

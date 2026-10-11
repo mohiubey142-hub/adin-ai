@@ -1,113 +1,181 @@
-import { useState } from 'react';
-import { 
-    ExperienceItem, EducationItem, ProjectItem, 
-    CertificationItem, LanguageItem, AchievementItem 
+// src/components/cv-builder/hooks/useSections.ts
+// =====================================================
+// ✅ OPTIMIZED: Saare functions useCallback mein wrap
+// ✅ OPTIMIZED: Immutable updates (no mutation)
+// ✅ OPTIMIZED: Stable function references (kam re-renders)
+// ✅ KICKRESUME STYLE: Fast typing, no jank
+// =====================================================
+
+import { useState, useCallback } from 'react';
+import {
+    ExperienceItem, EducationItem, ProjectItem,
+    CertificationItem, LanguageItem, AchievementItem
 } from '../types/cvTypes';
-import { 
-    defaultExperience, defaultEducation, defaultProject, 
-    defaultCertification, defaultLanguage, defaultAchievement 
+import {
+    defaultExperience, defaultEducation, defaultProject,
+    defaultCertification, defaultLanguage, defaultAchievement
 } from '../constants/cvDefaults';
 
 export const useSections = (initialData: any) => {
-    // Experiences
+    // =====================================================
+    // EXPERIENCES
+    // =====================================================
     const [experiences, setExperiences] = useState<ExperienceItem[]>(
         initialData?.experiences || [{ ...defaultExperience }]
     );
-    
-    const addExperience = () => setExperiences([...experiences, { ...defaultExperience }]);
-    const removeExperience = (i: number) => setExperiences(experiences.filter((_, idx) => idx !== i));
-    const updateExperience = (i: number, field: keyof ExperienceItem, value: string) => {
-        const updated = [...experiences];
-        updated[i][field] = value;
-        setExperiences(updated);
-    };
 
-    // Educations
+    const addExperience = useCallback(() => {
+        setExperiences(prev => [...prev, { ...defaultExperience }]);
+    }, []);
+
+    const removeExperience = useCallback((i: number) => {
+        setExperiences(prev => prev.filter((_, idx) => idx !== i));
+    }, []);
+
+    const updateExperience = useCallback((i: number, field: keyof ExperienceItem, value: string) => {
+        setExperiences(prev => {
+            const updated = [...prev];
+            updated[i] = { ...updated[i], [field]: value };  // ✅ Immutable
+            return updated;
+        });
+    }, []);
+
+    // =====================================================
+    // EDUCATIONS
+    // =====================================================
     const [educations, setEducations] = useState<EducationItem[]>(
         initialData?.educations || [{ ...defaultEducation }]
     );
-    
-    const addEducation = () => setEducations([...educations, { ...defaultEducation }]);
-    const removeEducation = (i: number) => setEducations(educations.filter((_, idx) => idx !== i));
-    const updateEducation = (i: number, field: keyof EducationItem, value: string) => {
-        const updated = [...educations];
-        updated[i][field] = value;
-        setEducations(updated);
-    };
 
-    // Projects
+    const addEducation = useCallback(() => {
+        setEducations(prev => [...prev, { ...defaultEducation }]);
+    }, []);
+
+    const removeEducation = useCallback((i: number) => {
+        setEducations(prev => prev.filter((_, idx) => idx !== i));
+    }, []);
+
+    const updateEducation = useCallback((i: number, field: keyof EducationItem, value: string) => {
+        setEducations(prev => {
+            const updated = [...prev];
+            updated[i] = { ...updated[i], [field]: value };  // ✅ Immutable
+            return updated;
+        });
+    }, []);
+
+    // =====================================================
+    // PROJECTS
+    // =====================================================
     const [projects, setProjects] = useState<ProjectItem[]>(
         initialData?.projects || [{ ...defaultProject }]
     );
-    
-    const addProject = () => setProjects([...projects, { ...defaultProject }]);
-    const removeProject = (i: number) => setProjects(projects.filter((_, idx) => idx !== i));
-    const updateProject = (i: number, field: keyof ProjectItem, value: string) => {
-        const updated = [...projects];
-        updated[i][field] = value;
-        setProjects(updated);
-    };
 
-    // Certifications
+    const addProject = useCallback(() => {
+        setProjects(prev => [...prev, { ...defaultProject }]);
+    }, []);
+
+    const removeProject = useCallback((i: number) => {
+        setProjects(prev => prev.filter((_, idx) => idx !== i));
+    }, []);
+
+    const updateProject = useCallback((i: number, field: keyof ProjectItem, value: string) => {
+        setProjects(prev => {
+            const updated = [...prev];
+            updated[i] = { ...updated[i], [field]: value };  // ✅ Immutable
+            return updated;
+        });
+    }, []);
+
+    // =====================================================
+    // CERTIFICATIONS
+    // =====================================================
     const [certifications, setCertifications] = useState<CertificationItem[]>(
         initialData?.certifications || [{ ...defaultCertification }]
     );
-    
-    const addCertification = () => setCertifications([...certifications, { ...defaultCertification }]);
-    const removeCertification = (i: number) => setCertifications(certifications.filter((_, idx) => idx !== i));
-    const updateCertification = (i: number, field: keyof CertificationItem, value: string) => {
-        const updated = [...certifications];
-        updated[i][field] = value;
-        setCertifications(updated);
-    };
 
-    // Languages
+    const addCertification = useCallback(() => {
+        setCertifications(prev => [...prev, { ...defaultCertification }]);
+    }, []);
+
+    const removeCertification = useCallback((i: number) => {
+        setCertifications(prev => prev.filter((_, idx) => idx !== i));
+    }, []);
+
+    const updateCertification = useCallback((i: number, field: keyof CertificationItem, value: string) => {
+        setCertifications(prev => {
+            const updated = [...prev];
+            updated[i] = { ...updated[i], [field]: value };  // ✅ Immutable
+            return updated;
+        });
+    }, []);
+
+    // =====================================================
+    // LANGUAGES
+    // =====================================================
     const [languages, setLanguages] = useState<LanguageItem[]>(
         initialData?.languages || [{ ...defaultLanguage }]
     );
-    
-    const addLanguage = () => setLanguages([...languages, { ...defaultLanguage }]);
-    const removeLanguage = (i: number) => setLanguages(languages.filter((_, idx) => idx !== i));
-    const updateLanguage = (i: number, field: keyof LanguageItem, value: string) => {
-        const updated = [...languages];
-        updated[i][field] = value;
-        setLanguages(updated);
-    };
 
-    // Achievements
+    const addLanguage = useCallback(() => {
+        setLanguages(prev => [...prev, { ...defaultLanguage }]);
+    }, []);
+
+    const removeLanguage = useCallback((i: number) => {
+        setLanguages(prev => prev.filter((_, idx) => idx !== i));
+    }, []);
+
+    const updateLanguage = useCallback((i: number, field: keyof LanguageItem, value: string) => {
+        setLanguages(prev => {
+            const updated = [...prev];
+            updated[i] = { ...updated[i], [field]: value };  // ✅ Immutable
+            return updated;
+        });
+    }, []);
+
+    // =====================================================
+    // ACHIEVEMENTS
+    // =====================================================
     const [achievements, setAchievements] = useState<AchievementItem[]>(
         initialData?.achievements || [{ ...defaultAchievement }]
     );
-    
-    const addAchievement = () => setAchievements([...achievements, { ...defaultAchievement }]);
-    const removeAchievement = (i: number) => setAchievements(achievements.filter((_, idx) => idx !== i));
-    const updateAchievement = (i: number, field: keyof AchievementItem, value: string) => {
-        const updated = [...achievements];
-        updated[i][field] = value;
-        setAchievements(updated);
-    };
+
+    const addAchievement = useCallback(() => {
+        setAchievements(prev => [...prev, { ...defaultAchievement }]);
+    }, []);
+
+    const removeAchievement = useCallback((i: number) => {
+        setAchievements(prev => prev.filter((_, idx) => idx !== i));
+    }, []);
+
+    const updateAchievement = useCallback((i: number, field: keyof AchievementItem, value: string) => {
+        setAchievements(prev => {
+            const updated = [...prev];
+            updated[i] = { ...updated[i], [field]: value };  // ✅ Immutable
+            return updated;
+        });
+    }, []);
 
     return {
         // Experiences
         experiences, setExperiences,
         addExperience, removeExperience, updateExperience,
-        
+
         // Educations
         educations, setEducations,
         addEducation, removeEducation, updateEducation,
-        
+
         // Projects
         projects, setProjects,
         addProject, removeProject, updateProject,
-        
+
         // Certifications
         certifications, setCertifications,
         addCertification, removeCertification, updateCertification,
-        
+
         // Languages
         languages, setLanguages,
         addLanguage, removeLanguage, updateLanguage,
-        
+
         // Achievements
         achievements, setAchievements,
         addAchievement, removeAchievement, updateAchievement,

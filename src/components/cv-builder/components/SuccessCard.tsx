@@ -1,4 +1,9 @@
+// src/components/cv-builder/components/SuccessCard.tsx
+// Clean premium — no sparkle, no over-decoration
+// Gradient border + solid check icon + minimal text
+
 import React from 'react';
+import { CheckCircle2 } from 'lucide-react';
 
 interface SuccessCardProps {
     realWeightedAverage: number;
@@ -10,39 +15,38 @@ interface SuccessCardProps {
     };
 }
 
-const SuccessCard: React.FC<SuccessCardProps> = ({
-    realWeightedAverage,
-    realCompletionPercentage,
-    realQuality
-}) => {
+const SuccessCard: React.FC<SuccessCardProps> = () => {
     return (
-        // ✅ Mobile optimized: reduced padding
-        <div className="p-4 sm:p-5 lg:p-7 rounded-xl bg-gradient-to-r from-purple-600/20 to-blue-600/20 border border-purple-500/30 shadow-xl transition-all duration-500 hover:shadow-2xl hover:shadow-purple-500/20">
-            <div className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 rounded-full bg-gradient-to-r from-purple-600 to-blue-500 flex items-center justify-center mx-auto mb-3 sm:mb-4 shadow-lg shadow-purple-500/30 transition-all duration-500 hover:scale-110 hover:shadow-2xl hover:shadow-purple-500/50 animate-bounce">
-                <span className="text-2xl sm:text-3xl lg:text-4xl">🎉</span>
+        <div className="relative rounded-2xl bg-gradient-to-br from-purple-600 via-purple-500 to-indigo-500 p-[1px] shadow-lg shadow-purple-600/15">
+            <div className="rounded-2xl bg-white p-6 md:p-7">
+                <div className="flex items-start gap-4">
+                    {/* Icon */}
+                    <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-500 flex items-center justify-center shadow-md shadow-purple-600/25">
+                        <CheckCircle2 size={22} className="text-white" strokeWidth={2.6} />
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                        <h3 className="text-lg md:text-xl font-bold text-slate-900 tracking-tight">
+                            Your CV is ready
+                        </h3>
+                        <p className="mt-1.5 text-sm text-slate-600 leading-relaxed">
+                            All required sections are complete. Download your CV and start applying.
+                        </p>
+
+                        {/* Minimal badges */}
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-700 text-[11px] font-semibold">
+                                <CheckCircle2 size={11} strokeWidth={2.8} />
+                                Complete
+                            </span>
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-50 border border-purple-100 text-purple-700 text-[11px] font-semibold">
+                                ATS Ready
+                            </span>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-purple-400 tracking-tight text-center">Professional CV Completed</h3>
-            <div className="mt-3 sm:mt-4 flex justify-center gap-4 sm:gap-6 lg:gap-10 flex-wrap">
-                <div className="text-center">
-                    <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">
-                        {Math.round(realWeightedAverage)}
-                        <span className="text-[8px] sm:text-xs text-gray-400">/100</span>
-                    </p>
-                    <p className="text-[8px] sm:text-[10px] lg:text-xs text-gray-400 font-medium">ATS Score</p>
-                </div>
-                <div className="text-center">
-                    <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">
-                        {Math.round(realCompletionPercentage)}
-                        <span className="text-[8px] sm:text-xs text-gray-400">%</span>
-                    </p>
-                    <p className="text-[8px] sm:text-[10px] lg:text-xs text-gray-400 font-medium">Complete</p>
-                </div>
-                <div className="text-center">
-                    <p className={`text-xl sm:text-2xl lg:text-3xl font-bold ${realQuality.color}`}>{realQuality.icon}</p>
-                    <p className={`text-[8px] sm:text-[10px] lg:text-xs ${realQuality.color} font-medium`}>{realQuality.text}</p>
-                </div>
-            </div>
-            <p className="text-[8px] sm:text-[10px] lg:text-xs text-gray-400 mt-3 sm:mt-4 font-light text-center">Your CV is ready for professional use</p>
         </div>
     );
 };

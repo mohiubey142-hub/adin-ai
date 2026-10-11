@@ -4,14 +4,25 @@ import React from 'react';
 import { countryCodes } from '../constants/cvDefaults';
 import { getFullPhoneNumber } from '../utils/phoneValidation';
 
-// ✅ EXPANDED: Template type with all 6 templates
-export type TemplateType = 'modern' | 'classic' | 'minimal' | 'executive' | 'creative' | 'academic';
+// ✅ EXPANDED: Template type with all 11 templates
+export type TemplateType = 'modern' | 'classic' | 'minimal' | 'executive' | 'creative' | 'academic' | 'teal-curve' | 'standard' | 'corporate' | 'ats-pro';
 
-// ✅ UPDATED: CVBuilderProps with initialTemplateId and onBackToHome
+// ✅ UPDATED: CVBuilderProps with initialTemplateId, onBackToHome, documentId, onBackToDocuments, onDocumentCreated
+// ✅ NEW: onDownloadId, onSetPin (for BackupReminderPopup)
 export interface CVBuilderProps {
     userId: string;
     initialTemplateId?: string;
     onBackToHome?: () => void;
+    /** ✅ agar set ho to specific document load/save karo (multi-CV flow) */
+    documentId?: string;
+    /** ✅ My Documents par wapas jaane ke liye */
+    onBackToDocuments?: () => void;
+    /** ✅ NEW: Jab pehli baar document create ho (user ne meaningful data bhara) */
+    onDocumentCreated?: (documentId: string) => void;
+    /** ✅ NEW: Trigger download of user's backup ID (from BackupReminderPopup) */
+    onDownloadId?: () => void;
+    /** ✅ NEW: Trigger Set PIN modal (from BackupReminderPopup) */
+    onSetPin?: () => void;
 }
 
 // ✅ Personal Info with jobLevel
@@ -24,7 +35,8 @@ export interface PersonalInfo {
     linkedin: string;
     github: string;
     portfolio: string;
-    jobLevel?: string; // ✅ NEW: Junior, Mid, Senior
+    jobLevel?: string;
+    photo?: string;
 }
 
 // ✅ Experience with validation fields
@@ -38,9 +50,9 @@ export interface ExperienceItem {
     location?: string;
     currentlyWorking?: boolean;
     highlights?: string[];
-    jobLevel?: string; // ✅ NEW: Junior, Mid, Senior
-    isValid?: boolean; // ✅ NEW: Validation status
-    yearsOfExperience?: number; // ✅ NEW: Calculated years
+    jobLevel?: string;
+    isValid?: boolean;
+    yearsOfExperience?: number;
 }
 
 export interface EducationItem {
@@ -66,6 +78,15 @@ export interface ProjectItem {
     startDate?: string;
     endDate?: string;
     tech?: string;
+    /**
+     * ✅ NEW: user-provided free-form project information used ONLY as AI context
+     * for bullet generation. It is a separate field from `description` so that
+     * the AI Suggestor output (which merges into `description`) never overwrites
+     * or is confused with the user's own project details.
+     *
+     * Optional for backward compatibility — old saved projects default to "".
+     */
+    details?: string;
 }
 
 export interface CertificationItem {
@@ -83,11 +104,15 @@ export interface LanguageItem {
     proficiency: string;
 }
 
+// ✅ UPDATED: AchievementItem with shortDescription (AI context only)
 export interface AchievementItem {
     id?: string;
     title: string;
-    description: string;
     date?: string;
+    /** ⚠️ AI-context only — NEVER rendered in CV/PDF/TXT. Helps Groq generate accurate bullets. */
+    shortDescription?: string;
+    /** ✅ Rendered in CV/PDF/TXT (AI-generated bullets) */
+    description: string;
 }
 
 export interface SectionStatus {
@@ -96,7 +121,6 @@ export interface SectionStatus {
     weakPoints: string[];
 }
 
-// ✅ NEW: Experience Level Validation Result
 export interface ExperienceValidationResult {
     isValid: boolean;
     years: number;
@@ -105,10 +129,8 @@ export interface ExperienceValidationResult {
     message: string;
 }
 
-// ✅ NEW: Summary Level Types (for fresher support)
 export type SummaryLevel = 'fresher' | 'junior' | 'mid' | 'senior' | 'manager' | 'director';
 
-// ✅ NEW: Summary Variables
 export interface SummaryVariables {
     years: number;
     company: string;
@@ -121,7 +143,6 @@ export interface SummaryVariables {
     isFresher: boolean;
 }
 
-// ✅ NEW: Experience Level Constants
 export const EXPERIENCE_LEVELS = {
     JUNIOR: 'Junior',
     MID: 'Mid',
@@ -173,5 +194,6 @@ export interface PDFParams {
     achievements: AchievementItem[];
     skills: string;
     template: TemplateType;
+    theme?: TemplateType;
     profilePhoto?: string | null;
 }

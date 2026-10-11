@@ -1,49 +1,44 @@
 # ============================================
-# ROBOTS.TXT - Adin AI
-# For: Google, Bing, DuckDuckGo, Brave, Yahoo, AI Crawlers
+# robots.txt — Adin AI
 # ============================================
 
-# ✅ ALLOW ALL CRAWLERS
+# ALLOW ALL
 User-agent: *
 Allow: /
 
-# ✅ SITEMAP LOCATION
+# DISALLOW private tools & user pages
+Disallow: /cv-builder
+Disallow: /cover-letter
+Disallow: /my-documents
+Disallow: /settings
+Disallow: /profile
+
+# SITEMAP
 Sitemap: https://adin-ai-gray.vercel.app/sitemap.xml
 
 # ============================================
-# CRAWL DELAY - Respectful crawling
-# ============================================
-User-agent: *
-Crawl-delay: 2
-
-# ============================================
-# GOOGLE SPECIFIC
+# SPECIFIC BOTS
 # ============================================
 User-agent: Googlebot
 Allow: /
-Crawl-delay: 1
+Disallow: /cv-builder
+Disallow: /cover-letter
+Disallow: /my-documents
 
-# ============================================
-# BING SPECIFIC
-# ============================================
 User-agent: Bingbot
 Allow: /
-Crawl-delay: 2
+Disallow: /cv-builder
+Disallow: /cover-letter
+Disallow: /my-documents
 
-# ============================================
-# DUCKDUCKGO / BRAVE / YAHOO
-# ============================================
 User-agent: DuckDuckBot
-Allow: /
-
-User-agent: Bravebot
 Allow: /
 
 User-agent: Slurp
 Allow: /
 
 # ============================================
-# AI CRAWLERS - ChatGPT, Gemini, Claude, Perplexity, Copilot
+# AI CRAWLERS — allow (for AI search visibility)
 # ============================================
 User-agent: ChatGPT-User
 Allow: /
@@ -57,9 +52,6 @@ Allow: /
 User-agent: PerplexityBot
 Allow: /
 
-User-agent: Omgilibot
-Allow: /
-
 User-agent: FacebookBot
 Allow: /
 
@@ -67,12 +59,7 @@ User-agent: TwitterBot
 Allow: /
 
 # ============================================
-# BLOCK: Admin / Private / Sensitive paths
-# ============================================
-# (kuch nahi blocking - all public accessible hai)
-
-# ============================================
-# BLOCK: Common bad bots (optional)
+# BLOCK SEO scrapers (optional)
 # ============================================
 User-agent: AhrefsBot
 Disallow: /
@@ -81,13 +68,4 @@ User-agent: SemrushBot
 Disallow: /
 
 User-agent: MJ12bot
-Disallow: /
-
-User-agent: DotBot
-Disallow: /
-
-User-agent: Baiduspider
-Disallow: /
-
-User-agent: YandexBot
 Disallow: /

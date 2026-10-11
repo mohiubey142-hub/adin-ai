@@ -1,38 +1,88 @@
+// src/components/cv-builder/components/TemplateSelector.tsx
+// Desktop: buttons | Mobile: dropdown
+
 import React from 'react';
 
 interface TemplateSelectorProps {
-    template: 'modern' | 'minimal';
-    onTemplateChange: (template: 'modern' | 'minimal') => void;
+    template: 'modern' | 'classic' | 'minimal' | 'executive' | 'creative' | 'academic' | 'teal-curve' | 'standard' | 'ats-pro';
+    onTemplateChange: (template: 'modern' | 'classic' | 'minimal' | 'executive' | 'creative' | 'academic' | 'teal-curve' | 'standard' | 'ats-pro') => void;
+    /** ✅ NEW: 'buttons' (desktop) or 'dropdown' (mobile) */
+    variant?: 'buttons' | 'dropdown';
 }
 
 const TemplateSelector: React.FC<TemplateSelectorProps> = ({
     template,
-    onTemplateChange
+    onTemplateChange,
+    variant = 'buttons',
 }) => {
-    return (
-        // ✅ Mobile optimized: reduced sticky top value, smaller padding
-        <div className="sticky top-[52px] sm:top-[56px] lg:top-[64px] z-40 flex justify-center gap-2 sm:gap-2.5 lg:gap-5 py-1.5 sm:py-2.5 lg:py-3.5 border-b border-gray-800 bg-gray-900/50 backdrop-blur-sm px-2 sm:px-4 relative overflow-visible">
-            <button
-                onClick={() => onTemplateChange('modern')}
-                className={`px-3 sm:px-4 lg:px-6 py-1 sm:py-1.5 lg:py-2 rounded-xl text-[10px] sm:text-xs lg:text-sm font-medium transition-all duration-300 whitespace-nowrap tracking-wide touch-manipulation min-h-[32px] sm:min-h-[36px] ${
-                    template === 'modern'
-                        ? 'bg-gradient-to-r from-purple-600 to-blue-500 text-white shadow-lg shadow-purple-500/30 scale-105' 
-                        : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700/50 hover:scale-105 hover:text-gray-200'
-                }`}
-            >
-                Modern
-            </button>
+    const templates = [
+        { id: 'modern', label: 'Modern' },
+        { id: 'minimal', label: 'Minimal' },
+        { id: 'classic', label: 'Classic' },
+        { id: 'teal-curve', label: 'Teal Curve' },
+        { id: 'executive', label: 'Executive' },
+        { id: 'creative', label: 'Creative' },
+        { id: 'academic', label: 'Academic' },
+        { id: 'standard', label: 'Standard' },
+        { id: 'ats-pro', label: 'ATS Pro' },
+    ];
 
-            <button
-                onClick={() => onTemplateChange('minimal')}
-                className={`px-3 sm:px-4 lg:px-6 py-1 sm:py-1.5 lg:py-2 rounded-xl text-[10px] sm:text-xs lg:text-sm font-medium transition-all duration-300 whitespace-nowrap tracking-wide touch-manipulation min-h-[32px] sm:min-h-[36px] ${
-                    template === 'minimal'
-                        ? 'bg-gradient-to-r from-purple-600 to-blue-500 text-white shadow-lg shadow-purple-500/30 scale-105' 
-                        : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700/50 hover:scale-105 hover:text-gray-200'
-                }`}
-            >
-                Minimal
-            </button>
+    // ============ DROPDOWN VARIANT (mobile) ============
+    if (variant === 'dropdown') {
+        return (
+            <div className="flex items-center gap-2">
+                <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider shrink-0">
+                    Template
+                </label>
+                <div className="relative flex-1">
+                    <select
+                        value={template}
+                        onChange={(e) => onTemplateChange(e.target.value as any)}
+                        className="w-full appearance-none rounded-lg bg-white border border-slate-200 hover:border-slate-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 text-slate-900 text-xs font-semibold outline-none transition-all duration-200 px-3 py-2 pr-8 cursor-pointer"
+                    >
+                        {templates.map((t) => (
+                            <option key={t.id} value={t.id}>
+                                {t.label}
+                            </option>
+                        ))}
+                    </select>
+                    <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400">
+                        <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                            <path
+                                d="M3 4.5L6 7.5L9 4.5"
+                                stroke="currentColor"
+                                strokeWidth="1.8"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // ============ BUTTONS VARIANT (desktop) ============
+    return (
+        <div className="flex justify-center gap-2 py-2 px-3 bg-white/80 backdrop-blur-md border-b border-slate-200 overflow-x-auto scrollbar-hide">
+            {templates.map((t) => (
+                <button
+                    key={t.id}
+                    onClick={() => onTemplateChange(t.id as any)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold tracking-tight transition-all duration-200 whitespace-nowrap min-h-[32px] ${
+                        template === t.id
+                            ? 'bg-gradient-to-r from-purple-600 to-purple-500 text-white shadow-sm shadow-purple-600/20'
+                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300'
+                    }`}
+                >
+                    {t.label}
+                </button>
+            ))}
+
+            <style>{`
+                .scrollbar-hide::-webkit-scrollbar { display: none; }
+                .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+            `}</style>
         </div>
     );
 };

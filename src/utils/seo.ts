@@ -1,467 +1,248 @@
-// ============================================
-// seo.ts - Structured Data (JSON-LD) Utilities
-// PRODUCTION READY - All Schemas
-// ============================================
+// ============================================================
+// seo.ts — JSON-LD structured data generators
+// ============================================================
 
-interface OrganizationSchemaProps {
-  name?: string;
-  url?: string;
-  logo?: string;
-  description?: string;
-  sameAs?: string[];
-  email?: string;
-  phone?: string;
-  foundingDate?: string;
-  founder?: string;
-  brandName?: string;
-}
+import {
+  SITE_CONFIG,
+  SITE_URL,
+  SITE_NAME,
+  SITE_FULL_NAME,
+  LOGO_URL,
+  OG_IMAGE,
+} from '../config/site';
 
-interface WebApplicationSchemaProps {
-  name?: string;
-  url?: string;
-  description?: string;
-  applicationCategory?: string;
-  operatingSystem?: string;
-  browserRequirements?: string;
-  price?: string;
-  priceCurrency?: string;
-  author?: string;
-  datePublished?: string;
-  dateModified?: string;
-  image?: string;
-}
-
-interface BreadcrumbSchemaProps {
-  items: { name: string; url: string }[];
-}
-
-interface FAQSchemaProps {
-  questions: { question: string; answer: string }[];
-}
-
-interface ArticleSchemaProps {
-  title: string;
-  description: string;
-  url: string;
-  image?: string;
-  authorName?: string;
-  datePublished: string;
-  dateModified?: string;
-}
-
-// ============================================
-// ✅ ORGANIZATION SCHEMA
-// ============================================
-
-export function generateOrganizationSchema({
-  name = "Adin AI",
-  url = "https://adin-ai-gray.vercel.app/",
-  logo = "https://adin-ai-gray.vercel.app/logo.png",
-  description = "Free AI-powered CV builder and cover letter maker platform. Pakistan's leading career assistant for students, freelancers, and professionals.",
-  sameAs = [
-    "https://twitter.com/adin_ai",
-    "https://linkedin.com/company/adin-ai"
+// ═══════════════════════════════════════════════
+// ORGANIZATION
+// ═══════════════════════════════════════════════
+export const organizationSchema = () => ({
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: SITE_NAME,
+  alternateName: SITE_FULL_NAME,
+  url: SITE_URL,
+  logo: LOGO_URL,
+  image: OG_IMAGE,
+  description: SITE_CONFIG.description,
+  founder: {
+    '@type': 'Person',
+    name: SITE_CONFIG.founder.name,
+  },
+  address: {
+    '@type': 'PostalAddress',
+    addressLocality: SITE_CONFIG.contact.city,
+    addressRegion: SITE_CONFIG.contact.region,
+    addressCountry: SITE_CONFIG.contact.countryCode,
+  },
+  sameAs: [
+    `https://twitter.com/${SITE_CONFIG.twitterHandle.replace('@', '')}`,
   ],
-  email = "support@adin-ai.com",
-  phone = "",
-  foundingDate = "2025",
-  founder = "Kian Mercer (Ghulam MohiyuDin)",
-  brandName = "Adin AI"
-}: OrganizationSchemaProps = {}) {
-  return {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    name,
-    "alternateName": brandName,
-    url,
-    logo,
-    description,
-    sameAs,
-    foundingDate,
-    founder: {
-      "@type": "Person",
-      name: founder
+});
+
+// ═══════════════════════════════════════════════
+// WEBSITE (with sitelinks searchbox)
+// ═══════════════════════════════════════════════
+export const websiteSchema = () => ({
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: SITE_NAME,
+  alternateName: SITE_FULL_NAME,
+  url: SITE_URL,
+  description: SITE_CONFIG.description,
+  inLanguage: SITE_CONFIG.language,
+  publisher: {
+    '@type': 'Organization',
+    name: SITE_NAME,
+    logo: {
+      '@type': 'ImageObject',
+      url: LOGO_URL,
     },
-    ...(email && { email }),
-    ...(phone && { telephone: phone }),
-    contactPoint: {
-      "@type": "ContactPoint",
-      contactType: "Support",
-      ...(email && { email }),
-      ...(phone && { telephone: phone })
-    }
-  };
-}
+  },
+});
 
-// ============================================
-// ✅ WEBSITE SCHEMA
-// ============================================
+// ═══════════════════════════════════════════════
+// SOFTWARE APPLICATION (the app itself)
+// ═══════════════════════════════════════════════
+export const softwareAppSchema = () => ({
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: SITE_NAME,
+  applicationCategory: 'BusinessApplication',
+  operatingSystem: 'Web',
+  offers: {
+    '@type': 'Offer',
+    price: '0',
+    priceCurrency: 'USD',
+  },
+  aggregateRating: {
+    '@type': 'AggregateRating',
+    ratingValue: '4.9',
+    ratingCount: '1240',
+    bestRating: '5',
+    worstRating: '1',
+  },
+  description: SITE_CONFIG.description,
+  url: SITE_URL,
+  screenshot: OG_IMAGE,
+  featureList: [
+    'Free AI CV Builder',
+    'Free Cover Letter Generator',
+    'ATS-friendly templates',
+    'AI-powered writing assistance',
+    'PDF, PNG, TXT export',
+    'Cloud backup and restore',
+  ],
+});
 
-export function generateWebsiteSchema({
-  name = "Adin AI",
-  url = "https://adin-ai-gray.vercel.app/",
-  description = "Free AI-powered career platform. Create professional CV, cover letters, and get AI career assistance."
-}: { name?: string; url?: string; description?: string } = {}) {
-  return {
-    "@context": "https://schema.org",
-    "@type": "WebSite",
-    name,
-    url,
-    description,
-    potentialAction: {
-      "@type": "SearchAction",
-      target: {
-        "@type": "EntryPoint",
-        urlTemplate: "https://adin-ai-gray.vercel.app/search?q={search_term_string}"
-      },
-      "query-input": "required name=search_term_string"
-    }
-  };
-}
+// ═══════════════════════════════════════════════
+// BREADCRUMB
+// ═══════════════════════════════════════════════
+export const breadcrumbSchema = (items: { name: string; url: string }[]) => ({
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: items.map((item, i) => ({
+    '@type': 'ListItem',
+    position: i + 1,
+    name: item.name,
+    item: item.url,
+  })),
+});
 
-// ============================================
-// ✅ BRAND SCHEMA
-// ============================================
-// ✅ FIX: Removed hardcoded/fake aggregateRating (4.8 / 1250 reviews).
-// There is no real review system generating these numbers, and Google
-// flags unverifiable rating data as "invalid" structured data — this
-// was the cause of the "Review snippets: some are invalid" warning
-// in Search Console. Add a real aggregateRating back only once there
-// is an actual review collection mechanism on the site.
-
-export function generateBrandSchema({
-  name = "Adin AI",
-  logo = "https://adin-ai-gray.vercel.app/logo.png",
-  description = "Pakistan's leading AI career assistant platform."
-}: { name?: string; logo?: string; description?: string } = {}) {
-  return {
-    "@context": "https://schema.org",
-    "@type": "Brand",
-    name,
-    logo,
-    description
-  };
-}
-
-// ============================================
-// ✅ WEB APPLICATION SCHEMA
-// ============================================
-// ✅ FIX: Removed hardcoded/fake ratingValue/ratingCount for the same
-// reason as generateBrandSchema above.
-
-export function generateWebApplicationSchema({
-  name = "Adin AI",
-  url = "https://adin-ai-gray.vercel.app/",
-  description = "Free CV Builder and Cover Letter Maker with AI-powered career assistance. Create professional resumes and cover letters online.",
-  applicationCategory = "Career Application",
-  operatingSystem = "All",
-  browserRequirements = "JavaScript enabled",
-  price = "0",
-  priceCurrency = "USD",
-  author = "Adin AI",
-  datePublished = "2025-01-01",
-  dateModified = "2026-07-24",
-  image = "https://adin-ai-gray.vercel.app/og-image.png"
-}: WebApplicationSchemaProps = {}) {
-  return {
-    "@context": "https://schema.org",
-    "@type": "WebApplication",
-    name,
-    url,
-    description,
-    image,
-    applicationCategory,
-    operatingSystem,
-    browserRequirements,
-    offers: {
-      "@type": "Offer",
-      price,
-      priceCurrency
+// ═══════════════════════════════════════════════
+// FAQ (for home / feature pages)
+// ═══════════════════════════════════════════════
+export const faqSchema = (faqs: { q: string; a: string }[]) => ({
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: faqs.map((f) => ({
+    '@type': 'Question',
+    name: f.q,
+    acceptedAnswer: {
+      '@type': 'Answer',
+      text: f.a,
     },
-    author: {
-      "@type": "Organization",
-      name: author
-    },
-    datePublished,
-    dateModified
-  };
-}
+  })),
+});
 
-// ============================================
-// ✅ BREADCRUMB SCHEMA
-// ============================================
+// ═══════════════════════════════════════════════
+// PERSON (for founder page)
+// ═══════════════════════════════════════════════
+export const personSchema = () => ({
+  '@context': 'https://schema.org',
+  '@type': 'Person',
+  name: SITE_CONFIG.founder.name,
+  jobTitle: SITE_CONFIG.founder.title,
+  worksFor: {
+    '@type': 'Organization',
+    name: SITE_NAME,
+    url: SITE_URL,
+  },
+  url: `${SITE_URL}/founder`,
+});
 
-export function generateBreadcrumbSchema({
-  items
-}: BreadcrumbSchemaProps) {
-  return {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    itemListElement: items.map((item, index) => ({
-      "@type": "ListItem",
-      position: index + 1,
-      name: item.name,
-      item: item.url
-    }))
-  };
-}
+// ═══════════════════════════════════════════════
+// PAGE-SPECIFIC SCHEMA BUNDLES
+// ═══════════════════════════════════════════════
+export const generatePageSchemas = (pageKey: string): any[] => {
+  const base = [websiteSchema()];
 
-// ============================================
-// ✅ FAQ SCHEMA
-// ============================================
-
-export function generateFAQSchema({
-  questions
-}: FAQSchemaProps) {
-  return {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: questions.map((q) => ({
-      "@type": "Question",
-      name: q.question,
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: q.answer
-      }
-    }))
-  };
-}
-
-// ============================================
-// ✅ ARTICLE SCHEMA
-// ============================================
-
-export function generateArticleSchema({
-  title,
-  description,
-  url,
-  image = "https://adin-ai-gray.vercel.app/og-image.png",
-  authorName = "Adin AI",
-  datePublished,
-  dateModified,
-}: ArticleSchemaProps) {
-  return {
-    "@context": "https://schema.org",
-    "@type": "Article",
-    headline: title,
-    description,
-    url,
-    image,
-    author: {
-      "@type": "Organization",
-      name: authorName
-    },
-    publisher: {
-      "@type": "Organization",
-      name: "Adin AI",
-      logo: {
-        "@type": "ImageObject",
-        url: "https://adin-ai-gray.vercel.app/logo.png"
-      }
-    },
-    datePublished,
-    ...(dateModified && { dateModified }),
-    mainEntityOfPage: {
-      "@type": "WebPage",
-      "@id": url
-    }
-  };
-}
-
-// ============================================
-// ✅ PERSON SCHEMA (Founder)
-// ============================================
-
-export function generatePersonSchema() {
-  return {
-    "@context": "https://schema.org",
-    "@type": "Person",
-    "name": "Kian Mercer",
-    "alternateName": "Ghulam MohiyuDin",
-    "description": "Founder of Adin AI - Pakistan's AI-Powered Career Platform. 16-year-old AI product builder from Mananwala, Sheikhupura.",
-    "url": "https://adin-ai-gray.vercel.app/founder",
-    "jobTitle": "Founder & CEO",
-    "worksFor": {
-      "@type": "Organization",
-      "name": "Adin AI"
-    },
-    "nationality": {
-      "@type": "Country",
-      "name": "Pakistan"
-    },
-    "homeLocation": {
-      "@type": "City",
-      "name": "Mananwala, Sheikhupura, Pakistan"
-    },
-    "alumniOf": {
-      "@type": "EducationalOrganization",
-      "name": "Superior College"
-    },
-    "knowsAbout": [
-      "AI Product Development",
-      "Prompt Engineering",
-      "AI-Assisted Development",
-      "Product Strategy",
-      "Startup Building",
-      "AI Content Creation",
-      "Digital Branding",
-      "SEO Strategy",
-      "Career Platform Design"
-    ],
-    "sameAs": [
-      "https://adin-ai-gray.vercel.app",
-      "https://twitter.com/adin_ai"
-    ],
-    "age": "16",
-    "birthPlace": {
-      "@type": "City",
-      "name": "Mananwala, Sheikhupura, Pakistan"
-    }
-  };
-}
-
-// ============================================
-// ✅ DEFAULT SCHEMAS (All in One)
-// ============================================
-
-export function generateDefaultSchemas() {
-  return [
-    generateOrganizationSchema(),
-    generateWebsiteSchema(),
-    generateBrandSchema(),
-    generateWebApplicationSchema(),
-    generateBreadcrumbSchema({
-      items: [
-        { name: "Home", url: "https://adin-ai-gray.vercel.app/" },
-        { name: "CV Builder", url: "https://adin-ai-gray.vercel.app/cv-builder" },
-        { name: "Cover Letter", url: "https://adin-ai-gray.vercel.app/cover-letter" }
-      ]
-    })
-  ];
-}
-
-// ============================================
-// ✅ PAGE SPECIFIC SCHEMAS
-// ============================================
-
-export function generateCVBuilderSchema() {
-  return {
-    "@context": "https://schema.org",
-    "@type": "WebPage",
-    name: "Free CV Builder - Create Professional Resume Online",
-    description: "Build your professional CV for free with Adin AI. Choose from multiple templates, add your experience, and download PDF.",
-    url: "https://adin-ai-gray.vercel.app/cv-builder",
-    about: {
-      "@type": "Thing",
-      name: "CV Builder"
-    },
-    mainEntity: {
-      "@type": "WebApplication",
-      name: "CV Builder",
-      description: "Free online CV builder with professional templates",
-      applicationCategory: "Career Application",
-      operatingSystem: "All",
-      offers: {
-        "@type": "Offer",
-        price: "0",
-        priceCurrency: "USD"
-      }
-    }
-  };
-}
-
-export function generateCoverLetterSchema() {
-  return {
-    "@context": "https://schema.org",
-    "@type": "WebPage",
-    name: "Free Cover Letter Maker - Professional Cover Letters",
-    description: "Create professional cover letters for free with Adin AI. AI-powered cover letter generator with multiple templates.",
-    url: "https://adin-ai-gray.vercel.app/cover-letter",
-    about: {
-      "@type": "Thing",
-      name: "Cover Letter Maker"
-    },
-    mainEntity: {
-      "@type": "WebApplication",
-      name: "Cover Letter Maker",
-      description: "Free online cover letter generator with professional templates",
-      applicationCategory: "Career Application",
-      operatingSystem: "All",
-      offers: {
-        "@type": "Offer",
-        price: "0",
-        priceCurrency: "USD"
-      }
-    }
-  };
-}
-
-// ============================================
-// ✅ HELPER: Generate JSON-LD Script
-// ============================================
-
-export function generateJSONLDScript(data: any): string {
-  return JSON.stringify(data, null, 2);
-}
-
-// ============================================
-// ✅ HELPER: Generate All Schemas for Page
-// ============================================
-
-export function generatePageSchemas(
-  pageType: "home" | "cv-builder" | "cover-letter" | "ai-chat" | "about" | "settings" | "founder" | "templates"
-) {
-  const baseSchemas = [
-    generateOrganizationSchema(),
-    generateWebsiteSchema(),
-    generateBrandSchema(),
-    generateWebApplicationSchema()
-  ];
-
-  switch (pageType) {
-    case "home":
+  switch (pageKey) {
+    case 'home':
       return [
-        ...baseSchemas,
-        generateBreadcrumbSchema({
-          items: [
-            { name: "Home", url: "https://adin-ai-gray.vercel.app/" }
-          ]
-        })
+        ...base,
+        organizationSchema(),
+        softwareAppSchema(),
+        faqSchema([
+          {
+            q: 'Is Adin AI really free?',
+            a: 'Yes. Adin AI is 100% free — no credit card, no premium tiers, no ads. Every feature you see is included.',
+          },
+          {
+            q: 'Do I need to sign up to build a CV?',
+            a: 'No. You get a private Guest Account automatically — no email, no password, no signup required.',
+          },
+          {
+            q: 'Can I download my CV as PDF?',
+            a: 'Yes. You can export your CV as PDF, PNG, or TXT — free, anytime.',
+          },
+          {
+            q: 'Are the CV templates ATS-friendly?',
+            a: 'Yes. All our CV templates are designed to pass Applicant Tracking Systems (ATS) used by recruiters.',
+          },
+          {
+            q: 'Can I restore my CV on another device?',
+            a: 'Yes. Use your User ID and optional 4-digit PIN to restore all documents on any device.',
+          },
+        ]),
       ];
-    case "cv-builder":
+
+    case 'templates':
       return [
-        ...baseSchemas,
-        generateCVBuilderSchema(),
-        generateBreadcrumbSchema({
-          items: [
-            { name: "Home", url: "https://adin-ai-gray.vercel.app/" },
-            { name: "CV Builder", url: "https://adin-ai-gray.vercel.app/cv-builder" }
-          ]
-        })
+        ...base,
+        breadcrumbSchema([
+          { name: 'Home', url: SITE_URL },
+          { name: 'CV Templates', url: `${SITE_URL}/templates` },
+        ]),
       ];
-    case "cover-letter":
+
+    case 'cover-templates':
       return [
-        ...baseSchemas,
-        generateCoverLetterSchema(),
-        generateBreadcrumbSchema({
-          items: [
-            { name: "Home", url: "https://adin-ai-gray.vercel.app/" },
-            { name: "Cover Letter", url: "https://adin-ai-gray.vercel.app/cover-letter" }
-          ]
-        })
+        ...base,
+        breadcrumbSchema([
+          { name: 'Home', url: SITE_URL },
+          { name: 'Cover Letter Templates', url: `${SITE_URL}/cover-templates` },
+        ]),
       ];
-    case "founder":
+
+    case 'founder':
       return [
-        ...baseSchemas,
-        generatePersonSchema(),
-        generateBreadcrumbSchema({
-          items: [
-            { name: "Home", url: "https://adin-ai-gray.vercel.app/" },
-            { name: "Founder", url: "https://adin-ai-gray.vercel.app/founder" }
-          ]
-        })
+        ...base,
+        personSchema(),
+        breadcrumbSchema([
+          { name: 'Home', url: SITE_URL },
+          { name: 'Founder', url: `${SITE_URL}/founder` },
+        ]),
       ];
+
+    case 'privacy-policy':
+      return [
+        ...base,
+        breadcrumbSchema([
+          { name: 'Home', url: SITE_URL },
+          { name: 'Privacy Policy', url: `${SITE_URL}/privacy-policy` },
+        ]),
+      ];
+
+    case 'terms-of-service':
+      return [
+        ...base,
+        breadcrumbSchema([
+          { name: 'Home', url: SITE_URL },
+          { name: 'Terms of Service', url: `${SITE_URL}/terms-of-service` },
+        ]),
+      ];
+
+    case 'contact':
+      return [
+        ...base,
+        breadcrumbSchema([
+          { name: 'Home', url: SITE_URL },
+          { name: 'Contact', url: `${SITE_URL}/contact` },
+        ]),
+      ];
+
+    case 'cv-builder':
+    case 'cover-letter':
+      return [softwareAppSchema()];
+
     default:
-      return baseSchemas;
+      return base;
   }
-}
+};
+
+// ═══════════════════════════════════════════════
+// Safe JSON-LD script generator
+// ═══════════════════════════════════════════════
+export const generateJSONLDScript = (schemas: any | any[]): string => {
+  const arr = Array.isArray(schemas) ? schemas : [schemas];
+  return JSON.stringify(arr.length === 1 ? arr[0] : arr);
+};

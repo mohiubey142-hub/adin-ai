@@ -23,3 +23,15 @@ export { detectRenewable } from './renewable';
 export { detectHospitality } from './hospitality';
 export { detectRealEstate } from './realestate';
 export { detectHR } from './hr';
+export { detectOfficeAdmin } from './officeAdmin';
+export { detectSafetySecurity } from './safetySecurity';
+
+// ============================================
+// NEW: FREELANCER DETECTION (Inlined)
+// ============================================
+import { Profession } from '../types';
+
+export const detectFreelancer = (t: string): Profession | null => {
+    if (t.includes('freelancer') || t.includes('freelance')) return 'freelancer';
+    return null;
+};

@@ -1,5 +1,15 @@
 // src/components/cover-letter/utils/pdfHelpers.ts
-import jsPDF from 'jspdf';
+// =====================================================
+// ✅ UPDATED: cleanLetterBody — aggressive Dear/name/greeting removal
+// Handles:
+//   - "Dear Midhat Sultan," / "Dear Midhat Sultan"
+//   - "Dear Hiring Manager," / "Dear Hiring Team,"
+//   - Bare "Dear\n"
+//   - "Dear I am writing..." (no name)
+//   - Multiple "Dear" leaks (5-pass safety net)
+//   - Hiring manager name at start (full + first name)
+//   - Duplicate date/RE/company lines
+// =====================================================
 
 // ============================================
 // CLEAN TEXT - Remove emojis and special chars
@@ -99,49 +109,193 @@ export const makeCircularImage = (imageDataUrl: string): Promise<string> => {
 };
 
 // ============================================
-// ADD FOOTER
+// ✅ UPGRADED: CLEAN LETTER BODY
 // ============================================
-export const addFooter = (pdf: jsPDF, pageWidth: number, pageHeight: number, marginX: number, userName: string, totalPages: number, footerText: string = 'Cover Letter') => {
-    const nameForFooter = cleanText(userName || 'CV');
+// Removes (in order):
+//   1. Leading date (multiple formats)
+//   2. "Hiring Manager" literal
+//   3. "RE: ..." line
+//   4. "Dear [Name],", "Dear Hiring Manager,", "Dear Hiring Team,"
+//   5. Bare "Dear" (no name)
+//   6. "Dear I am..." (no name, direct body)
+//   7. Hiring manager name at start (full name + first name + safety net)
+//   8. Final "Dear" safety net (5 passes)
+//   9. Leading punctuation/whitespace
+//
+// Ensures body starts with a letter.
+// ============================================
+export const cleanLetterBody = (
+    letter: string,
+    hiringManagerName?: string
+): string => {
+    if (!letter) return '';
     
-    for (let i = 1; i <= totalPages; i++) {
-        pdf.setPage(i);
-        
-        pdf.setDrawColor(220, 225, 230);
-        pdf.setLineWidth(0.15);
-        pdf.line(marginX, pageHeight - 13, pageWidth - marginX, pageHeight - 13);
-        
-        pdf.setFontSize(7);
-        pdf.setFont('helvetica', 'normal');
-        pdf.setTextColor(180, 180, 180);
-        
-        const pageText = `Page ${i} of ${totalPages}`;
-        const pageWidth_ = pdf.getTextWidth(pageText);
-        pdf.text(pageText, pageWidth - marginX - pageWidth_, pageHeight - 7.5);
-        
-        pdf.setTextColor(185, 185, 185);
-        const leftText = `${nameForFooter} · ${footerText}`;
-        pdf.text(leftText, marginX, pageHeight - 7.5);
-    }
-};
-
-// ============================================
-// CLEAN LETTER BODY - Remove duplicate dates
-// ============================================
-export const cleanLetterBody = (letter: string): string => {
     let cleaned = letter;
     
-    // Remove any date line from the beginning (e.g., "July 1, 2026")
-    cleaned = cleaned.replace(/^\w+ \d{1,2}, \d{4}\s*\n/, '');
+    // ============================================
+    // Step 1: Remove leading DATE (multiple formats)
+    // ============================================
+    for (let i = 0; i < 3; i++) {
+        const before = cleaned;
+        // "September 27, 2026" / "Sept 27, 2026"
+        cleaned = cleaned.replace(
+            /^\s*(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\s+\d{1,2},?\s+\d{4}\s*[\n\r]+/i,
+            ''
+        );
+        // "27 September 2026" / "27 Sept 2026"
+        cleaned = cleaned.replace(
+            /^\s*\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\s+\d{4}\s*[\n\r]+/i,
+            ''
+        );
+        // Fallback: any "Word 27, 2026"
+        cleaned = cleaned.replace(
+            /^\s*\w+\s+\d{1,2},?\s+\d{4}\s*[\n\r]+/,
+            ''
+        );
+        if (cleaned === before) break;
+    }
     
-    // Remove "Hiring Manager" if it appears as first line
-    cleaned = cleaned.replace(/^Hiring Manager\s*\n/, '');
+    // ============================================
+    // Step 2: Remove "Hiring Manager" literal (own line)
+    // ============================================
+    for (let i = 0; i < 2; i++) {
+        const before = cleaned;
+        cleaned = cleaned.replace(/^\s*Hiring Manager\s*[\n\r]+/i, '');
+        if (cleaned === before) break;
+    }
     
-    // Remove "RE:" line if it appears as first line
-    cleaned = cleaned.replace(/^RE:.*\n/, '');
+    // ============================================
+    // Step 3: Remove "RE: ..." line
+    // ============================================
+    for (let i = 0; i < 2; i++) {
+        const before = cleaned;
+        cleaned = cleaned.replace(/^\s*RE:\s*[^\n\r]*[\n\r]+/i, '');
+        cleaned = cleaned.replace(/^\s*RE:\s*[^\n\r]*$/im, '');
+        if (cleaned === before) break;
+    }
     
-    // Remove "Dear Hiring Manager" if it appears as first line
-    cleaned = cleaned.replace(/^Dear Hiring Manager,\s*\n/, '');
+    // ============================================
+    // Step 4: Remove "Dear [Name]," (case-sensitive name match)
+    // Handles: "Dear Midhat Sultan,", "Dear Midhat Sultan", "Dear Sarah Johnson,"
+    // ============================================
+    for (let i = 0; i < 3; i++) {
+        const before = cleaned;
+        cleaned = cleaned.replace(
+            /^\s*Dear\s+(?:[A-Z][A-Za-z.'-]*(?:\s+[A-Z][A-Za-z.'-]*)*)\s*[,:]?\s*[\n\r]+/,
+            ''
+        );
+        if (cleaned === before) break;
+    }
+    
+    // ============================================
+    // Step 4.1: Remove "Dear Hiring Manager," / "Dear Hiring Team," / etc.
+    // ============================================
+    for (let i = 0; i < 3; i++) {
+        const before = cleaned;
+        cleaned = cleaned.replace(
+            /^\s*Dear\s+Hiring\s+(?:Manager|Team|Committee|Director|Recruiter|HR|Personnel)\s*[,:]?\s*[\n\r]+/i,
+            ''
+        );
+        if (cleaned === before) break;
+    }
+    
+    // ============================================
+    // Step 4.5: Remove BARE "Dear" (no name after)
+    // Handles: "Dear\n", "Dear,", "Dear \n"
+    // ============================================
+    for (let i = 0; i < 3; i++) {
+        const before = cleaned;
+        cleaned = cleaned.replace(/^\s*Dear\s*[,:]?\s*[\n\r]+/i, '');
+        if (cleaned === before) break;
+    }
+    
+    // ============================================
+    // Step 4.6: Remove "Dear I am..." / "Dear We are..." (no name, direct body)
+    // ============================================
+    cleaned = cleaned.replace(
+        /^\s*Dear\s+(?=(?:I|We|My|Our|This|Thank|As|With|Having|Being|It)\b)/i,
+        ''
+    );
+    
+    // ============================================
+    // Step 4.7: Remove "Dear [any lowercase word]" (fallback)
+    // Handles edge cases where name has lowercase
+    // ============================================
+    cleaned = cleaned.replace(
+        /^\s*Dear\s+[a-z][A-Za-z.'-]*\s*[,:]?\s*[\n\r]+/i,
+        ''
+    );
+    
+    // ============================================
+    // Step 5: Remove HIRING MANAGER NAME at start (if provided)
+    // ============================================
+    if (hiringManagerName && hiringManagerName.trim()) {
+        const name = hiringManagerName.trim();
+        const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        
+        for (let i = 0; i < 3; i++) {
+            const before = cleaned;
+            
+            // Full name at start (case-insensitive)
+            cleaned = cleaned.replace(
+                new RegExp(`^\\s*${escapedName}\\s*[,:.\\-]?[\\s\\n]+`, 'i'),
+                ''
+            );
+            
+            // First name only at start (if >= 3 chars)
+            const firstName = name.split(/\s+/)[0];
+            if (firstName && firstName.length >= 3) {
+                const escapedFirst = firstName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                cleaned = cleaned.replace(
+                    new RegExp(`^\\s*${escapedFirst}\\s*[,:.\\-]?[\\s\\n]+`, 'i'),
+                    ''
+                );
+            }
+            
+            if (cleaned === before) break;
+        }
+        
+        // Safety net: search full name in first 150 chars
+        const firstChunk = cleaned.slice(0, 150);
+        const lowerName = name.toLowerCase();
+        const idx = firstChunk.toLowerCase().indexOf(lowerName);
+        
+        if (idx >= 0 && idx < 80) {
+            cleaned =
+                cleaned.slice(0, idx) +
+                cleaned.slice(idx + name.length).replace(/^[\s,.:;\-]+/, '');
+        }
+    }
+    
+    // ============================================
+    // Step 6: FINAL SAFETY — 5-pass force strip anything starting with "Dear"
+    // Handles pathological cases: multiple "Dear" leaks
+    // ============================================
+    for (let i = 0; i < 5; i++) {
+        const before = cleaned;
+        // Strip "Dear" + anything up to first newline (max 60 chars)
+        cleaned = cleaned.replace(/^\s*Dear\b[\s\S]{0,60}?[\n\r]+/i, '');
+        // Also try: just "Dear" with no newline after
+        cleaned = cleaned.replace(/^\s*Dear\b\s*[,:]?\s*/i, '');
+        if (cleaned === before) break;
+    }
+    
+    // ============================================
+    // Step 7: Ensure body starts with a letter
+    // ============================================
+    cleaned = cleaned.replace(/^[^A-Za-z]+/, '');
+    
+    // ============================================
+    // Step 8: Normalize newlines
+    // ============================================
+    cleaned = cleaned.replace(/\r\n/g, '\n');
+    cleaned = cleaned.replace(/\r/g, '\n');
+    cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+    
+    // ============================================
+    // Step 9: FINAL FINAL SAFETY — if still starts with "Dear", just strip it
+    // ============================================
+    cleaned = cleaned.replace(/^\s*Dear\b[\s\S]{0,80}?(?=[A-Z][a-z])/, '').trim();
     
     return cleaned.trim();
 };

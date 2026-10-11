@@ -1,6 +1,6 @@
 // utils/professionDetector/types/professionTypes.ts
 // ============================================
-// PROFESSION TYPES - 100+ Professions
+// PROFESSION TYPES - 280+ Professions
 // ============================================
 
 export type Profession = 
@@ -32,6 +32,18 @@ export type Profession =
     | 'physician-assistant'
     | 'medical-sales-representative'
     
+    // ===== HEALTHCARE - BATCH 2 (10) =====
+    | 'dental-assistant'
+    | 'dental-technician'
+    | 'dietitian'
+    | 'emergency-medical-technician'
+    | 'lab-assistant'
+    | 'medical-assistant'
+    | 'medical-coder'
+    | 'midwife'
+    | 'public-health-officer'
+    | 'caregiver'
+    
     // ===== EDUCATION & TEACHING =====
     | 'teacher'
     | 'professor'
@@ -47,6 +59,11 @@ export type Profession =
     | 'islamic-studies-teacher'
     | 'pakistan-studies-teacher'
     | 'history-teacher'
+    
+    // ===== EDUCATION - BATCH 2 (3) =====
+    | 'special-education-teacher'
+    | 'school-counselor'
+    | 'research-assistant'
     
     // ===== IT & TECHNOLOGY =====
     | 'software'
@@ -71,13 +88,20 @@ export type Profession =
     | 'network-engineer'
     | 'software-architect'
     
-    // ===== IT - NEW (7) =====
+    // ===== IT - NEW (6) =====
     | 'software-engineer'
     | 'ai-research-engineer'
     | 'embedded-systems-engineer'
     | 'database-administrator'
     | 'mechatronics-engineer'
     | 'data-engineer'
+    
+    // ===== IT - BATCH 2 (5) =====
+    | 'computer-hardware-technician'
+    | 'computer-programmer'
+    | 'electronics-technician'
+    | 'it-technician'
+    | 'software-tester'
     
     // ===== BUSINESS & MANAGEMENT =====
     | 'business'
@@ -98,6 +122,13 @@ export type Profession =
     | 'business-development-executive'
     | 'supply-chain-analyst'
     
+    // ===== BUSINESS - BATCH 2 (5) =====
+    | 'procurement-manager'
+    | 'sales-manager'
+    | 'sales-executive'
+    | 'store-manager'
+    | 'retail-manager'
+    
     // ===== ENGINEERING =====
     | 'engineering'
     | 'civil-engineer'
@@ -117,6 +148,18 @@ export type Profession =
     | 'mining-engineer'
     | 'telecommunications-engineer'
     | 'quantity-surveyor'
+    
+    // ===== ENGINEERING - BATCH 2 (10) =====
+    | 'construction-supervisor'
+    | 'foreman'
+    | 'industrial-electrician'
+    | 'instrumentation-technician'
+    | 'maintenance-technician'
+    | 'site-engineer'
+    | 'site-supervisor'
+    | 'surveyor'
+    | 'textile-engineer'
+    | 'textile-technician'
     
     // ===== COMMERCE & FINANCE =====
     | 'accountant'
@@ -217,6 +260,16 @@ export type Profession =
     | 'hvac-technician'
     | 'agricultural-technician'
     
+    // ===== VOCATIONAL - BATCH 2 (8) =====
+    | 'packaging-operator'
+    | 'production-manager'
+    | 'production-supervisor'
+    | 'quality-control-inspector'
+    | 'quality-control-engineer'
+    | 'solar-technician'
+    | 'driver'
+    | 'tailor'
+    
     // ===== RENEWABLE ENERGY =====
     | 'renewable'
     | 'solar-installer'
@@ -228,9 +281,34 @@ export type Profession =
     | 'hotel-manager'
     | 'event-planner'
     
+    // ===== HOSPITALITY - BATCH 2 (6) =====
+    | 'hotel-receptionist'
+    | 'housekeeping-supervisor'
+    | 'restaurant-manager'
+    | 'tourism-officer'
+    | 'travel-consultant'
+    | 'call-center-agent'
+    
     // ===== REAL ESTATE =====
     | 'real-estate-agent'
     | 'insurance-agent'
+    
+    // ===== OFFICE & ADMIN - BATCH 2 (8) =====
+    | 'office-assistant'
+    | 'data-entry-operator'
+    | 'cashier'
+    | 'storekeeper'
+    | 'warehouse-manager'
+    | 'warehouse-supervisor'
+    | 'logistics-coordinator'
+    | 'freight-forwarder'
+    
+    // ===== SAFETY & SECURITY - BATCH 2 (5) =====
+    | 'safety-officer'
+    | 'hse-officer'
+    | 'food-safety-officer'
+    | 'security-guard'
+    | 'security-officer'
     
     // ===== FREELANCER =====
     | 'freelancer'

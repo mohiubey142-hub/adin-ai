@@ -33,12 +33,14 @@ export default function FAQSection() {
   };
 
   return (
-    <section className="py-12 sm:py-16 px-4 sm:px-6 border-t border-zinc-900/50">
+    <section className="py-12 sm:py-16 px-4 sm:px-6 border-t border-slate-200 bg-slate-50">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-3 mb-8">
-          <HelpCircle size={24} className="text-purple-400" />
-          <h2 className="text-2xl font-bold text-white">Frequently Asked Questions</h2>
+          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-600 to-purple-500 flex items-center justify-center shadow-md shadow-purple-600/20">
+            <HelpCircle size={18} className="text-white" />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900">Frequently Asked Questions</h2>
         </div>
 
         {/* FAQs */}
@@ -46,30 +48,30 @@ export default function FAQSection() {
           {faqs.map((faq, index) => (
             <div
               key={index}
-              className="rounded-2xl border border-purple-500/10 bg-zinc-900/20 overflow-hidden transition-all duration-300 hover:border-purple-500/20"
+              className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden transition-all duration-300 hover:border-purple-200 hover:shadow-md"
             >
               <button
                 onClick={() => toggleFAQ(index)}
-                className="w-full flex items-center justify-between p-5 text-left hover:bg-purple-500/5 transition-colors duration-200"
+                className="w-full flex items-center justify-between p-5 text-left hover:bg-purple-50/60 transition-colors duration-200"
               >
-                <span className="text-sm font-medium text-white pr-4">
+                <span className="text-sm font-semibold text-slate-900 pr-4">
                   {faq.question}
                 </span>
                 <ChevronDown
                   size={18}
-                  className={`text-purple-400 flex-shrink-0 transition-transform duration-300 ${
+                  className={`text-purple-600 flex-shrink-0 transition-transform duration-300 ${
                     openIndex === index ? "rotate-180" : ""
                   }`}
                 />
               </button>
-              
+
               <div
                 className={`overflow-hidden transition-all duration-300 ease-in-out ${
                   openIndex === index ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
                 }`}
               >
                 <div className="px-5 pb-5 pt-1">
-                  <p className="text-sm text-gray-400 leading-relaxed">
+                  <p className="text-sm text-slate-600 leading-relaxed">
                     {faq.answer}
                   </p>
                 </div>

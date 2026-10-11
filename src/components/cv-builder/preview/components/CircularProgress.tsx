@@ -24,7 +24,7 @@ const CircularProgress: React.FC<CircularProgressProps> = ({
                         cy={size / 2}
                         r={radius}
                         fill="none"
-                        stroke="rgba(255,255,255,0.1)"
+                        stroke="rgba(15,23,42,0.1)"
                         strokeWidth={strokeWidth}
                     />
                     <circle
@@ -48,13 +48,13 @@ const CircularProgress: React.FC<CircularProgressProps> = ({
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                     {icon && <span className="text-xs">{icon}</span>}
-                    <span className="text-sm font-bold text-white">
+                    <span className="text-sm font-bold text-slate-900">
                         {Math.round(validScore)}
-                        <span className="text-[8px] text-gray-400">%</span>
+                        <span className="text-[8px] text-slate-500">%</span>
                     </span>
                 </div>
             </div>
-            {label && <span className="text-[10px] text-gray-400 mt-1">{label}</span>}
+            {label && <span className="text-[10px] text-slate-500 mt-1">{label}</span>}
         </div>
     );
 };

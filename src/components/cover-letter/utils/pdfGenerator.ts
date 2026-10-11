@@ -18,6 +18,7 @@ interface CoverLetterPDFData {
     selectedStyle: string;
     profilePhoto: string | null;
     selectedTemplate?: string;
+    hiringManagerName?: string;   // ✅ NEW
 }
 
 export const generateCoverLetterPDF = async (data: CoverLetterPDFData): Promise<Blob> => {

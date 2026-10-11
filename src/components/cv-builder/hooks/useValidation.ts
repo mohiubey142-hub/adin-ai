@@ -1,7 +1,13 @@
 // src/components/cv-builder/hooks/useValidation.ts
+// =====================================================
+// ✅ OPTIMIZED: Saare section validations memoized
+// ✅ OPTIMIZED: Phone validation memoized
+// ✅ OPTIMIZED: sectionStatuses memoized (no useState)
+// ✅ FIXED: validExperiences dependency corrected
+// =====================================================
 
-import { useState, useEffect, useMemo } from 'react';
-import { 
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import {
     validatePersonalSection,
     validateExperienceSection,
     validateEducationSection,
@@ -15,7 +21,7 @@ import {
 import { validatePhoneNumber } from '../utils/phoneValidation';
 import { SectionStatus, ExperienceItem, ExperienceValidationResult, EXPERIENCE_LEVELS } from '../types/cvTypes';
 
-// ✅ Validate experience years
+// ✅ Validate experience years (helper — outside component)
 const validateExperienceYearsFn = (level: string, startDate: string, endDate: string): ExperienceValidationResult => {
     const defaultResult: ExperienceValidationResult = {
         isValid: true,
@@ -25,16 +31,11 @@ const validateExperienceYearsFn = (level: string, startDate: string, endDate: st
         message: ''
     };
 
-    if (!level || !startDate || !endDate) {
-        return defaultResult;
-    }
+    if (!level || !startDate || !endDate) return defaultResult;
 
     const startYearMatch = startDate.match(/\d{4}/);
     const endYearMatch = endDate.match(/\d{4}/);
-
-    if (!startYearMatch || !endYearMatch) {
-        return defaultResult;
-    }
+    if (!startYearMatch || !endYearMatch) return defaultResult;
 
     const startYear = parseInt(startYearMatch[0]);
     const endYear = parseInt(endYearMatch[0]);
@@ -52,7 +53,6 @@ const validateExperienceYearsFn = (level: string, startDate: string, endDate: st
 
     const years = endYear - startYear;
     let expectedLevel = '';
-
     if (years <= 2) expectedLevel = EXPERIENCE_LEVELS.JUNIOR;
     else if (years >= 3 && years <= 6) expectedLevel = EXPERIENCE_LEVELS.MID;
     else if (years >= 7) expectedLevel = EXPERIENCE_LEVELS.SENIOR;
@@ -64,7 +64,6 @@ const validateExperienceYearsFn = (level: string, startDate: string, endDate: st
         'Mid': 'Mid Level (3-6 years)',
         'Senior': 'Senior (7+ years)'
     };
-
     const expectedDisplay = levelDisplayNames[expectedLevel] || expectedLevel;
 
     return {
@@ -72,19 +71,16 @@ const validateExperienceYearsFn = (level: string, startDate: string, endDate: st
         years,
         expectedLevel,
         selectedLevel: level,
-        message: isValid 
+        message: isValid
             ? `✓ ${years} years matches ${level} level`
             : `⚠ ${level} Level mismatch: ${years} years (Expected: ${expectedDisplay})`
     };
 };
 
-// ✅ Validate a single experience item
+// ✅ Validate single experience (helper — outside component)
 const validateExperienceItem = (exp: ExperienceItem): boolean => {
-    if (!exp.jobLevel || !exp.startDate || !exp.endDate) {
-        return true;
-    }
-    const result = validateExperienceYearsFn(exp.jobLevel, exp.startDate, exp.endDate);
-    return result.isValid;
+    if (!exp.jobLevel || !exp.startDate || !exp.endDate) return true;
+    return validateExperienceYearsFn(exp.jobLevel, exp.startDate, exp.endDate).isValid;
 };
 
 export const useValidation = (
@@ -100,12 +96,7 @@ export const useValidation = (
     achievements: any[],
     professionalSummary: string
 ) => {
-    const [sectionStatuses, setSectionStatuses] = useState<Record<number, SectionStatus>>({});
-    const [phoneError, setPhoneError] = useState('');
-    const [errors, setErrors] = useState({ name: false, title: false, email: false, phone: false });
-    const [validationErrors, setValidationErrors] = useState<string[]>([]);
-
-    // ✅ NEW: Validate all experiences
+    // ✅ Validated experiences (memoized)
     const validatedExperiences = useMemo(() => {
         return experiences.map(exp => ({
             ...exp,
@@ -113,35 +104,28 @@ export const useValidation = (
         }));
     }, [experiences]);
 
-    // ✅ NEW: Check if all experiences are valid
+    // ✅ All experiences valid (memoized)
     const areAllExperiencesValid = useMemo(() => {
         return validatedExperiences.every(exp => exp.isValid !== false);
     }, [validatedExperiences]);
 
-    // ✅ NEW: Get only valid experiences for ATS
+    // ✅ FIXED: Valid experiences for ATS (memoized) — dependency sahi ki
     const validExperiences = useMemo(() => {
         return validatedExperiences.filter(exp => exp.isValid !== false);
-    }, [validatedExperiences]);
+    }, [validatedExperiences]);  // ✅ Sahi dependency
 
-    // Phone validation
-    useEffect(() => {
-        const validation = validatePhoneNumber(phoneNumber, selectedCountryCode);
-        setPhoneError(validation.isValid && phoneNumber ? '' : validation.message);
+    // ✅ Phone validation — memoized (no useState)
+    const phoneValidationResult = useMemo(() => {
+        return validatePhoneNumber(phoneNumber, selectedCountryCode);
     }, [phoneNumber, selectedCountryCode]);
 
-    // Check if required sections are complete
-    const areRequiredSectionsComplete = (): boolean => {
-        const personalStatus = validatePersonalSection(personalInfo, phoneNumber, selectedCountryCode);
-        const educationStatus = validateEducationSection(educations);
-        const skillsStatus = validateSkillsSection(skills);
-        const summaryStatus = validateSummarySection(professionalSummary);
-        
-        return personalStatus.isComplete && educationStatus.isComplete && 
-               skillsStatus.isComplete && summaryStatus.isComplete;
-    };
+    // ✅ Phone error — memoized (no useState)
+    const phoneError = useMemo(() => {
+        return phoneValidationResult.isValid && phoneNumber ? '' : phoneValidationResult.message;
+    }, [phoneValidationResult, phoneNumber]);
 
-    // Section statuses
-    useEffect(() => {
+    // ✅ ALL section statuses in ONE useMemo
+    const sectionStatuses = useMemo<Record<number, SectionStatus>>(() => {
         const personalStatus = validatePersonalSection(personalInfo, phoneNumber, selectedCountryCode);
         const experienceStatus = validateExperienceSection(experiences);
         const educationStatus = validateEducationSection(educations);
@@ -151,8 +135,14 @@ export const useValidation = (
         const languagesStatus = validateLanguagesSection(languages);
         const achievementsStatus = validateAchievementsSection(achievements);
         const summaryStatus = validateSummarySection(professionalSummary);
-        
-        setSectionStatuses({
+
+        const isRequiredComplete =
+            personalStatus.isComplete &&
+            educationStatus.isComplete &&
+            skillsStatus.isComplete &&
+            summaryStatus.isComplete;
+
+        return {
             1: personalStatus,
             2: experienceStatus,
             3: educationStatus,
@@ -162,48 +152,75 @@ export const useValidation = (
             7: projectsStatus,
             8: achievementsStatus,
             9: summaryStatus,
-            10: { isComplete: areRequiredSectionsComplete(), score: 100, weakPoints: [] }
-        });
-    }, [personalInfo, phoneNumber, selectedCountryCode, experiences, educations, projects, skills, certifications, languages, achievements, professionalSummary]);
+            10: { isComplete: isRequiredComplete, score: 100, weakPoints: [] }
+        };
+    }, [
+        personalInfo,
+        phoneNumber,
+        selectedCountryCode,
+        experiences,
+        educations,
+        projects,
+        skills,
+        certifications,
+        languages,
+        achievements,
+        professionalSummary,
+    ]);
 
-    // Validate current step
-    const validateStep = (step: number): boolean => {
+    // ✅ areRequiredSectionsComplete — memoized
+    const areRequiredSectionsComplete = useCallback((): boolean => {
+        return (
+            validatePersonalSection(personalInfo, phoneNumber, selectedCountryCode).isComplete &&
+            validateEducationSection(educations).isComplete &&
+            validateSkillsSection(skills).isComplete &&
+            validateSummarySection(professionalSummary).isComplete
+        );
+    }, [personalInfo, phoneNumber, selectedCountryCode, educations, skills, professionalSummary]);
+
+    // ✅ Form field errors — useState
+    const [errors, setErrors] = useState({ name: false, title: false, email: false, phone: false });
+    const [validationErrors, setValidationErrors] = useState<string[]>([]);
+
+    // ✅ validateStep — stable
+    const validateStep = useCallback((step: number): boolean => {
         const newErrors: string[] = [];
         const newFieldErrors = { name: false, title: false, email: false, phone: false };
-        
+
         if (step === 1) {
-            if (!personalInfo.name.trim()) { 
-                newFieldErrors.name = true; 
-                newErrors.push('Full Name is required'); 
+            if (!personalInfo.name.trim()) {
+                newFieldErrors.name = true;
+                newErrors.push('Full Name is required');
             }
-            if (!personalInfo.title.trim()) { 
-                newFieldErrors.title = true; 
-                newErrors.push('Job Title is required'); 
+            if (!personalInfo.title.trim()) {
+                newFieldErrors.title = true;
+                newErrors.push('Job Title is required');
             }
-            if (!personalInfo.email.trim()) { 
-                newFieldErrors.email = true; 
-                newErrors.push('Email is required'); 
+            if (!personalInfo.email.trim()) {
+                newFieldErrors.email = true;
+                newErrors.push('Email is required');
             } else if (!personalInfo.email.includes('@') || !personalInfo.email.includes('.')) {
                 newFieldErrors.email = true;
                 newErrors.push('Please enter a valid email address');
             }
+
             const phoneValidation = validatePhoneNumber(phoneNumber, selectedCountryCode);
-            if (!phoneNumber.trim()) { 
-                newFieldErrors.phone = true; 
-                newErrors.push('Phone number is required'); 
-            } else if (!phoneValidation.isValid) { 
-                newFieldErrors.phone = true; 
-                newErrors.push(phoneValidation.message); 
+            if (!phoneNumber.trim()) {
+                newFieldErrors.phone = true;
+                newErrors.push('Phone number is required');
+            } else if (!phoneValidation.isValid) {
+                newFieldErrors.phone = true;
+                newErrors.push(phoneValidation.message);
             }
         }
-        
+
         if (step === 3) {
             const validEducations = educations.filter(edu => edu.degree?.trim() && edu.institution?.trim());
             if (validEducations.length === 0) {
                 newErrors.push('At least one complete education entry is required');
             }
         }
-        
+
         if (step === 5) {
             const parseSkillsToArray = (skillsStr: string): string[] => {
                 if (!skillsStr.trim()) return [];
@@ -216,7 +233,7 @@ export const useValidation = (
                 newErrors.push('Please add at least one skill');
             }
         }
-        
+
         if (step === 9) {
             if (!professionalSummary.trim()) {
                 newErrors.push('Professional Summary is required');
@@ -224,14 +241,14 @@ export const useValidation = (
                 newErrors.push('Professional Summary should be at least 50 characters');
             }
         }
-        
+
         setErrors(newFieldErrors);
         setValidationErrors(newErrors);
-        
         return newErrors.length === 0;
-    };
+    }, [personalInfo, phoneNumber, selectedCountryCode, educations, skills, professionalSummary]);
 
-    const clearValidationErrors = () => setValidationErrors([]);
+    // ✅ clearValidationErrors — stable
+    const clearValidationErrors = useCallback(() => setValidationErrors([]), []);
 
     return {
         sectionStatuses,

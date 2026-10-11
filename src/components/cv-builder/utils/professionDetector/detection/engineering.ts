@@ -17,11 +17,26 @@ export const detectEngineering = (t: string): Profession | null => {
     if (t.includes('environmental engineer')) return 'environmental-engineer';
     if (t.includes('biomedical engineer')) return 'biomedical-engineer';
     if (t.includes('robotics engineer') || t.includes('robotics')) return 'robotics-engineer';
+    if (t.includes('mechatronics') || t.includes('mechatronic')) return 'mechatronics-engineer';
     if (t.includes('architect') || t.includes('architecture')) return 'architect';
     
     // ===== NEW ENGINEERING PROFESSIONS =====
     if (t.includes('telecommunications engineer') || t.includes('telecom engineer')) return 'telecommunications-engineer';
     if (t.includes('quantity surveyor') || t.includes('qs ') || t.includes('cost estimator')) return 'quantity-surveyor';
+    if (t.includes('automobile engineer') || t.includes('automotive engineer')) return 'automobile-engineer';
+    if (t.includes('mining engineer') || t.includes('mining')) return 'mining-engineer';
+    
+    // ===== BATCH 2 - NEW ENGINEERING PROFESSIONS =====
+    if (t.includes('construction supervisor')) return 'construction-supervisor';
+    if (t.includes('foreman') || t.includes('site foreman')) return 'foreman';
+    if (t.includes('industrial electrician')) return 'industrial-electrician';
+    if (t.includes('instrumentation technician') || t.includes('instrument technician')) return 'instrumentation-technician';
+    if (t.includes('maintenance technician') || t.includes('maintenance tech')) return 'maintenance-technician';
+    if (t.includes('site engineer')) return 'site-engineer';
+    if (t.includes('site supervisor')) return 'site-supervisor';
+    if (t.includes('surveyor') || t.includes('land surveyor')) return 'surveyor';
+    if (t.includes('textile engineer')) return 'textile-engineer';
+    if (t.includes('textile technician')) return 'textile-technician';
     
     // ===== GENERAL ENGINEERING (Baad me check) =====
     if (t.includes('engineering') || t.includes('engineer')) return 'engineering';

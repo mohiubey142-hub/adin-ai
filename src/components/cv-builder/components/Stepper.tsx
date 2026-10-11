@@ -53,7 +53,7 @@ const Stepper: React.FC<StepperProps> = ({
     return (
         <div 
             ref={scrollContainerRef}
-            className="sticky top-[52px] sm:top-[56px] lg:top-[60px] z-30 px-3 sm:px-3 lg:px-6 py-2.5 sm:py-2 lg:py-2.5 mt-2 sm:mt-0 lg:mt-0 border-b border-gray-800 bg-black/95 backdrop-blur-sm overflow-x-auto scroll-smooth stepper-scrollbar"
+            className="sticky top-[52px] sm:top-[56px] lg:top-[60px] z-30 px-3 sm:px-3 lg:px-6 py-2.5 sm:py-2 lg:py-2.5 mt-2 sm:mt-0 lg:mt-0 border-b border-slate-200 bg-white/90 backdrop-blur-sm overflow-x-auto scroll-smooth stepper-scrollbar"
         >
             <div className="flex justify-between min-w-[900px] md:min-w-[800px] lg:min-w-[700px] xl:min-w-[900px] gap-6 sm:gap-1.5 lg:gap-3">
                 {stepIcons.map((s, idx) => {
@@ -83,10 +83,10 @@ const Stepper: React.FC<StepperProps> = ({
                                 
                                 <div className={`relative w-8.5 h-8.5 sm:w-8 sm:h-8 lg:w-10 lg:h-10 rounded-full flex items-center justify-center mx-auto transition-all duration-300 ${
                                     isStepActive 
-                                        ? 'bg-gradient-to-r from-purple-600 to-blue-500 text-white shadow-lg shadow-purple-500/40 scale-110 ring-2 ring-purple-400/30 ring-offset-2 ring-offset-black' 
+                                        ? 'bg-gradient-to-r from-purple-600 to-blue-500 text-white shadow-lg shadow-purple-500/40 scale-110 ring-2 ring-purple-400/30 ring-offset-2 ring-offset-white' 
                                         : showCheckmark
-                                            ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-lg shadow-emerald-500/30 ring-1 ring-emerald-400/20 ring-offset-1 ring-offset-black'
-                                            : 'bg-gray-800/80 text-gray-500 border border-purple-500/15 group-hover:bg-gray-700/80 group-hover:scale-110 group-hover:text-gray-300 group-hover:border-purple-500/30'
+                                            ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-lg shadow-emerald-500/30 ring-1 ring-emerald-400/20 ring-offset-1 ring-offset-white'
+                                            : 'bg-slate-100 text-slate-400 border border-slate-200 group-hover:bg-slate-200 group-hover:scale-110 group-hover:text-slate-600 group-hover:border-purple-200'
                                 }`}>
                                     {showCheckmark ? (
                                         <svg className="w-4.5 h-4.5 sm:w-4 sm:h-4 lg:w-5 lg:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -98,9 +98,9 @@ const Stepper: React.FC<StepperProps> = ({
                                 </div>
                                 
                                 <div className={`text-[10px] sm:text-[7px] lg:text-[9px] mt-1 sm:mt-1 transition-all duration-300 font-medium tracking-wide ${
-                                    isStepActive ? 'text-purple-400 font-semibold' : 
-                                    showCheckmark ? 'text-green-400' :
-                                    'text-gray-500 group-hover:text-gray-300'
+                                    isStepActive ? 'text-purple-600 font-semibold' : 
+                                    showCheckmark ? 'text-emerald-600' :
+                                    'text-slate-400 group-hover:text-slate-600'
                                 }`}>
                                     <span className="hidden sm:inline">{s.name}</span>
                                     <span className="sm:hidden"><IconComponent size={9.5} /></span>
@@ -114,7 +114,7 @@ const Stepper: React.FC<StepperProps> = ({
                                             ? 'bg-gradient-to-r from-purple-500 to-blue-500 shadow-[0_0_10px_rgba(168,85,247,0.6)]' 
                                             : currentStep === s.num
                                                 ? 'bg-gradient-to-r from-purple-500/50 to-blue-500/50 shadow-[0_0_6px_rgba(168,85,247,0.3)]'
-                                                : 'bg-gray-700'
+                                                : 'bg-slate-200'
                                     }`}>
                                         {currentStep >= s.num && (
                                             <div className={`absolute inset-0 blur-[3px] ${
@@ -140,21 +140,21 @@ const Stepper: React.FC<StepperProps> = ({
                         width: 14px;
                     }
                     .stepper-scrollbar::-webkit-scrollbar-track {
-                        background: rgba(31, 41, 55, 0.5);
+                        background: rgba(226, 232, 240, 0.6);
                         border-radius: 10px;
                     }
                     .stepper-scrollbar::-webkit-scrollbar-thumb {
-                        background: linear-gradient(to right, rgba(168, 85, 247, 0.8), rgba(59, 130, 246, 0.8));
+                        background: linear-gradient(to right, rgba(147, 51, 234, 0.7), rgba(59, 130, 246, 0.7));
                         border-radius: 10px;
                         transition: all 0.3s ease;
                     }
                     .stepper-scrollbar::-webkit-scrollbar-thumb:hover {
-                        background: linear-gradient(to right, rgba(168, 85, 247, 1), rgba(59, 130, 246, 1));
-                        box-shadow: 0 0 20px rgba(168, 85, 247, 0.3);
+                        background: linear-gradient(to right, rgba(147, 51, 234, 0.9), rgba(59, 130, 246, 0.9));
+                        box-shadow: 0 0 20px rgba(147, 51, 234, 0.25);
                     }
                     .stepper-scrollbar {
                         scrollbar-width: thin;
-                        scrollbar-color: rgba(168, 85, 247, 0.8) rgba(31, 41, 55, 0.5);
+                        scrollbar-color: rgba(147, 51, 234, 0.7) rgba(226, 232, 240, 0.6);
                     }
                 }
                 /* Desktop scrollbar styles - unchanged */
@@ -164,22 +164,22 @@ const Stepper: React.FC<StepperProps> = ({
                         height: 6px;
                     }
                     .stepper-scrollbar::-webkit-scrollbar-track {
-                        background: rgba(31, 41, 55, 0.3);
+                        background: rgba(226, 232, 240, 0.5);
                         border-radius: 10px;
                     }
                     .stepper-scrollbar::-webkit-scrollbar-thumb {
-                        background: linear-gradient(to bottom, rgba(168, 85, 247, 0.5), rgba(59, 130, 246, 0.5));
+                        background: linear-gradient(to bottom, rgba(147, 51, 234, 0.5), rgba(59, 130, 246, 0.5));
                         border-radius: 10px;
                         transition: all 0.3s ease;
                         min-height: 30px;
                     }
                     .stepper-scrollbar::-webkit-scrollbar-thumb:hover {
-                        background: linear-gradient(to bottom, rgba(168, 85, 247, 0.8), rgba(59, 130, 246, 0.8));
-                        box-shadow: 0 0 20px rgba(168, 85, 247, 0.3);
+                        background: linear-gradient(to bottom, rgba(147, 51, 234, 0.8), rgba(59, 130, 246, 0.8));
+                        box-shadow: 0 0 20px rgba(147, 51, 234, 0.25);
                     }
                     .stepper-scrollbar {
                         scrollbar-width: thin;
-                        scrollbar-color: rgba(168, 85, 247, 0.5) rgba(31, 41, 55, 0.3);
+                        scrollbar-color: rgba(147, 51, 234, 0.5) rgba(226, 232, 240, 0.5);
                     }
                 }
             `}</style>

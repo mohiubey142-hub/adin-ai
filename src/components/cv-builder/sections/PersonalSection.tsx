@@ -1,11 +1,24 @@
-// PersonalSection.tsx - Phone Input with Dynamic Hint + Image Cropper
+// src/components/cv-builder/sections/PersonalSection.tsx
+// =====================================================
+// ✅ HYBRID IMAGE STORAGE — Compress on upload + IndexedDB save
+// ✅ ZERO feature break: phone validation, email suggestion, cropper — all intact
+// ✅ Image compress: 3MB → ~100KB (canvas, JPEG 0.75, max 400x400)
+// ✅ Profile Photo section moved to TOP
+// ✅ UPDATED: Smaller upload/remove buttons, bigger photo circle
+// =====================================================
 
-import React, { RefObject, useState, useRef, useEffect } from 'react';
+import React, { RefObject, useState, useRef } from 'react';
+import {
+    User, Briefcase, Mail, Phone, MapPin, Linkedin, Github, Globe,
+    Camera, CheckCircle2, AlertCircle, Upload, Trash2, Loader2,
+} from 'lucide-react';
 import { PersonalInfo } from '../types/cvTypes';
 import { countryCodes } from '../constants/cvDefaults';
-import { validatePhoneNumber, formatPhoneNumber, getCountryFormat } from '../utils/phoneValidation';
+import { formatPhoneNumber, getCountryFormat } from '../utils/phoneValidation';
 import { validateAndSuggestEmail } from '../utils/aiGenerators';
 import ImageCropperModal from '../components/ImageCropperModal';
+// ✅ NEW: Compression helper
+import { compressImage } from '../utils/imageUtils';
 
 interface PersonalSectionProps {
     personalInfo: PersonalInfo;
@@ -18,6 +31,7 @@ interface PersonalSectionProps {
     fileInputRef: RefObject<HTMLInputElement>;
     handlePhotoUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
     handleChangePhoto: () => void;
+    onRemovePhoto?: () => void;
     errors: { name: boolean; title: boolean; email: boolean; phone: boolean };
     phoneError: string;
 }
@@ -33,26 +47,31 @@ const PersonalSection: React.FC<PersonalSectionProps> = ({
     fileInputRef,
     handlePhotoUpload,
     handleChangePhoto,
+    onRemovePhoto,
     errors,
-    phoneError
+    phoneError,
 }) => {
     const currentCountry = countryCodes.find(c => c.code === selectedCountryCode);
     const [emailSuggestion, setEmailSuggestion] = useState<string | null>(null);
     const titleInputRef = useRef<HTMLInputElement>(null);
 
-    // ✅ Image Cropper State
     const [isCropModalOpen, setIsCropModalOpen] = useState(false);
     const [tempImage, setTempImage] = useState<string | null>(null);
+    // ✅ NEW: loading state during compression
+    const [isCompressing, setIsCompressing] = useState(false);
 
-    // ✅ Get dynamic placeholder based on country
+    // =====================================================
+    // Phone helpers — UNCHANGED
+    // =====================================================
     const getPhonePlaceholder = (): string => {
         const countryFormat = getCountryFormat(selectedCountryCode);
-        if (countryFormat) {
-            return countryFormat.example;
-        }
-        return currentCountry?.example || "3123456789";
+        if (countryFormat) return countryFormat.example;
+        return currentCountry?.example || '3123456789';
     };
 
+    // =====================================================
+    // Email helpers — UNCHANGED
+    // =====================================================
     const handleEmailChange = (value: string) => {
         updatePersonalInfo('email', value);
         if (value) {
@@ -74,13 +93,14 @@ const PersonalSection: React.FC<PersonalSectionProps> = ({
         }
     };
 
-    // ✅ Handle phone change with formatting
+    // =====================================================
+    // Phone handlers — UNCHANGED
+    // =====================================================
     const handlePhoneInputChange = (value: string) => {
         const formatted = formatPhoneNumber(value, selectedCountryCode);
         handlePhoneChange(formatted);
     };
 
-    // ✅ Handle country change with re-formatting
     const handleCountryChange = (code: string) => {
         setSelectedCountryCode(code);
         if (phoneNumber) {
@@ -90,10 +110,19 @@ const PersonalSection: React.FC<PersonalSectionProps> = ({
         }
     };
 
-    // ✅ Handle file selection - open cropper instead of saving directly
+    // =====================================================
+    // ✅ UPDATED: File select with size validation
+    // =====================================================
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+            // ✅ Hard limit: 10MB (before compression)
+            if (file.size > 10 * 1024 * 1024) {
+                alert('Image too large (max 10MB). Please choose a smaller image.');
+                e.target.value = '';
+                return;
+            }
+
             const reader = new FileReader();
             reader.onloadend = () => {
                 setTempImage(reader.result as string);
@@ -104,204 +133,369 @@ const PersonalSection: React.FC<PersonalSectionProps> = ({
         e.target.value = '';
     };
 
-    // ✅ Save cropped image
-    const handleCropSave = (croppedImage: string) => {
-        fetch(croppedImage)
-            .then(res => res.blob())
-            .then(blob => {
-                const file = new File([blob], 'profile.jpg', { type: 'image/jpeg' });
-                const dataTransfer = new DataTransfer();
-                dataTransfer.items.add(file);
-                const newEvent = {
-                    target: { files: dataTransfer.files }
-                } as unknown as React.ChangeEvent<HTMLInputElement>;
-                handlePhotoUpload(newEvent);
+    // =====================================================
+    // ✅ UPDATED: Crop save — compress then pass to parent
+    // =====================================================
+    const handleCropSave = async (croppedImage: string) => {
+        setIsCompressing(true);
+        try {
+            // ✅ Step 1: Compress (3MB → ~100KB)
+            const result = await compressImage(croppedImage, {
+                maxWidth: 400,
+                maxHeight: 400,
+                quality: 0.75,
+                format: 'image/jpeg',
             });
+
+            console.log(
+                `📸 Image compressed: ${result.originalKB}KB → ${result.sizeKB}KB (${result.savedPercent}% saved)`
+            );
+
+            // ✅ Step 2: Convert compressed dataURL → File → pass to parent
+            const blob = await fetch(result.dataUrl).then(r => r.blob());
+            const file = new File([blob], 'profile.jpg', { type: 'image/jpeg' });
+
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+
+            const newEvent = {
+                target: { files: dataTransfer.files },
+            } as unknown as React.ChangeEvent<HTMLInputElement>;
+
+            handlePhotoUpload(newEvent);
+
+            // ✅ Show compression info (only if meaningful savings)
+            if (result.savedPercent >= 30) {
+                console.log(
+                    `✅ Photo optimized: ${result.originalKB}KB → ${result.sizeKB}KB`
+                );
+            }
+
+            // ✅ Close crop modal
+            setTempImage(null);
+            setIsCropModalOpen(false);
+        } catch (err) {
+            console.error('Failed to compress image:', err);
+            alert('Failed to process image. Please try a different photo.');
+        } finally {
+            setIsCompressing(false);
+        }
     };
 
-    // ✅ Cancel crop
     const handleCropCancel = () => {
         setTempImage(null);
         setIsCropModalOpen(false);
     };
 
+    // =====================================================
+    // Remove photo — UNCHANGED (parent handles IndexedDB delete)
+    // =====================================================
+    const handleRemovePhotoClick = () => {
+        if (onRemovePhoto) {
+            onRemovePhoto();
+        } else {
+            console.warn('[PersonalSection] onRemovePhoto handler not connected from parent yet.');
+        }
+    };
+
+    // =====================================================
+    // Input styles
+    // =====================================================
+    const baseInput =
+        'w-full rounded-xl bg-white border text-slate-900 placeholder:text-slate-400 outline-none transition-all duration-200 px-4 py-3 text-sm';
+    const normalInput =
+        'border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 hover:border-slate-300';
+    const errorInput =
+        'border-red-400 focus:border-red-500 focus:ring-4 focus:ring-red-500/10';
+
     return (
         <div className="space-y-5">
-            <h2 className="text-xl font-semibold text-white mb-4">Personal Information</h2>
-            <p className="text-xs text-gray-500 mb-2">Fields marked with <span className="text-red-400">*</span> are required</p>
-            
-            {/* Full Name - Required */}
+            {/* ============ PROFILE PHOTO (MOVED TO TOP) ============ */}
             <div>
-                <label className="text-sm text-gray-300 mb-1 block">Full Name <span className="text-red-400">*</span></label>
-                <input 
-                    type="text" 
-                    placeholder="e.g., Ahmed Khan" 
-                    value={personalInfo.name} 
-                    onChange={e => updatePersonalInfo('name', e.target.value)} 
-                    className={`w-full p-3 rounded-xl bg-gray-800 border ${errors.name ? 'border-red-500' : 'border-gray-700'} text-white outline-none focus:border-purple-500`} 
-                />
-                {errors.name && <p className="text-xs text-red-400 mt-1">⚠ Full Name is required</p>}
-            </div>
-            
-            {/* ✅ Job Title - Simple text input (Level removed) */}
-            <div>
-                <label className="text-sm text-gray-300 mb-1 block">Job Title <span className="text-red-400">*</span></label>
-                <input 
-                    ref={titleInputRef}
-                    type="text" 
-                    placeholder="e.g., Software Engineer" 
-                    value={personalInfo.title} 
-                    onChange={e => updatePersonalInfo('title', e.target.value)} 
-                    className={`w-full p-3 rounded-xl bg-gray-800 border ${errors.title ? 'border-red-500' : 'border-gray-700'} text-white outline-none focus:border-purple-500`} 
-                />
-                {errors.title && <p className="text-xs text-red-400 mt-1">⚠ Job Title is required</p>}
-            </div>
-            
-            {/* Email - Required with validation */}
-            <div>
-                <label className="text-sm text-gray-300 mb-1 block">Email <span className="text-red-400">*</span></label>
-                <input 
-                    type="email" 
-                    placeholder="you@example.com" 
-                    value={personalInfo.email} 
-                    onChange={e => handleEmailChange(e.target.value)} 
-                    className={`w-full p-3 rounded-xl bg-gray-800 border ${errors.email ? 'border-red-500' : 'border-gray-700'} text-white outline-none focus:border-purple-500`} 
-                />
-                {errors.email && <p className="text-xs text-red-400 mt-1">⚠ Email is required</p>}
-                {emailSuggestion && (
-                    <p className="text-xs text-yellow-400 mt-1 flex items-center gap-2">
-                        ⚠ Did you mean <button onClick={applyEmailSuggestion} className="text-purple-400 underline">{emailSuggestion}</button>?
-                    </p>
-                )}
-            </div>
-            
-            {/* ✅ Phone Number - Full width centered country select */}
-            <div>
-                <label className="text-sm text-gray-300 mb-1 block">Phone Number <span className="text-red-400">*</span></label>
-                <div className="space-y-2">
-                    {/* Line 1: Dial code - Full width, centered text */}
-                    <select 
-                        value={selectedCountryCode} 
-                        onChange={e => handleCountryChange(e.target.value)} 
-                        className="w-full p-3 rounded-xl bg-gray-800 border border-gray-700 text-white text-center outline-none focus:border-purple-500 appearance-none"
-                        style={{ textAlignLast: 'center' }}
-                    >
-                        {countryCodes.map(cc => (
-                            <option key={cc.code} value={cc.code} className="text-left">
-                                {cc.flag} {cc.dialCode} ({cc.country})
-                            </option>
-                        ))}
-                    </select>
-                    
-                    {/* Line 2: Number input - Full width */}
-                    <input 
-                        type="tel" 
-                        placeholder={getPhonePlaceholder()} 
-                        value={phoneNumber} 
-                        onChange={e => handlePhoneInputChange(e.target.value)} 
-                        className={`w-full p-3 rounded-xl bg-gray-800 border ${(errors.phone || phoneError) && phoneNumber ? 'border-red-500' : 'border-gray-700'} text-white text-center outline-none focus:border-purple-500`} 
-                    />
-                    
-                    {/* Line 3: Validation message - Center aligned */}
-                    <div className="flex justify-center items-center gap-2">
-                        {phoneNumber ? (
-                            phoneError ? (
-                                <span className="text-xs text-red-400">⚠ {phoneError}</span>
+                <div className="flex items-center gap-2 mb-3">
+                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+                    <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+                        Profile Photo
+                    </span>
+                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+                </div>
+
+                <div className="flex items-center gap-4 flex-wrap">
+                    {/* ✅ BIGGER PHOTO CIRCLE: 16 → 24 (64px → 96px) */}
+                    {profilePhoto ? (
+                        <div className="relative flex-shrink-0">
+                            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-purple-600 to-purple-500 p-0.5 shadow-md shadow-purple-600/20">
+                                <img
+                                    src={profilePhoto}
+                                    alt="Profile"
+                                    className="w-full h-full rounded-full object-cover bg-white"
+                                />
+                            </div>
+                            <div className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center">
+                                <CheckCircle2 size={13} className="text-white" strokeWidth={3} />
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex-shrink-0 w-24 h-24 rounded-full bg-white border-2 border-dashed border-slate-200 flex items-center justify-center">
+                            <Camera size={28} className="text-slate-400" />
+                        </div>
+                    )}
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                        {/* ✅ SMALLER UPLOAD BUTTON: px-4 py-2.5 → px-3 py-1.5 */}
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isCompressing}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white text-xs font-semibold transition-all duration-200 shadow-md shadow-purple-600/20 hover:shadow-lg hover:shadow-purple-600/30 focus:outline-none focus:ring-4 focus:ring-purple-500/20 disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                            {isCompressing ? (
+                                <>
+                                    <Loader2 size={12} className="animate-spin" />
+                                    Optimizing...
+                                </>
                             ) : (
-                                <span className="text-xs text-green-400">✓ Valid {currentCountry?.country} number</span>
-                            )
-                        ) : (
-                            <span className="text-xs text-gray-500">
-                                {currentCountry?.flag} {currentCountry?.country} • Example: {currentCountry?.example || "3123456789"}
+                                <>
+                                    <Upload size={12} />
+                                    {profilePhoto ? 'Replace' : 'Upload'}
+                                </>
+                            )}
+                        </button>
+
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleFileSelect}
+                            className="hidden"
+                        />
+
+                        {profilePhoto && (
+                            <button
+                                onClick={handleRemovePhotoClick}
+                                disabled={isCompressing}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 border border-red-100 hover:border-red-200 text-red-600 text-xs font-semibold transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-red-500/15 disabled:opacity-60 disabled:cursor-not-allowed"
+                            >
+                                <Trash2 size={12} />
+                                Remove
+                            </button>
+                        )}
+
+                        {!profilePhoto && !isCompressing && (
+                            <span className="text-[10px] text-slate-400">
+                                PNG, JPEG, WEBP
                             </span>
                         )}
                     </div>
                 </div>
             </div>
-            
-            {/* Address - Optional */}
+
+            {/* ============ FULL NAME ============ */}
             <div>
-                <label className="text-sm text-gray-300 mb-1 block">Address <span className="text-gray-500">(Optional)</span></label>
-                <input 
-                    type="text" 
-                    placeholder="e.g., Faisalabad, Pakistan" 
-                    value={personalInfo.address} 
-                    onChange={e => updatePersonalInfo('address', e.target.value)} 
-                    className="w-full p-3 rounded-xl bg-gray-800 border border-gray-700 text-white outline-none focus:border-purple-500" 
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-1.5">
+                    <User size={14} className="text-purple-600" />
+                    Full Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                    type="text"
+                    placeholder="e.g., Ahmed Khan"
+                    value={personalInfo.name}
+                    onChange={e => updatePersonalInfo('name', e.target.value)}
+                    className={`${baseInput} ${errors.name ? errorInput : normalInput}`}
                 />
+                {errors.name && (
+                    <p className="flex items-center gap-1.5 text-xs text-red-600 mt-1.5">
+                        <AlertCircle size={13} />
+                        Full Name is required
+                    </p>
+                )}
             </div>
-            
-            {/* LinkedIn - Optional */}
+
+            {/* ============ JOB TITLE ============ */}
             <div>
-                <label className="text-sm text-gray-300 mb-1 block">LinkedIn URL <span className="text-gray-500">(Optional)</span></label>
-                <input 
-                    type="text" 
-                    placeholder="https://linkedin.com/in/username" 
-                    value={personalInfo.linkedin} 
-                    onChange={e => updatePersonalInfo('linkedin', e.target.value)} 
-                    className="w-full p-3 rounded-xl bg-gray-800 border border-gray-700 text-white outline-none focus:border-purple-500" 
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-1.5">
+                    <Briefcase size={14} className="text-purple-600" />
+                    Job Title <span className="text-red-500">*</span>
+                </label>
+                <input
+                    ref={titleInputRef}
+                    type="text"
+                    placeholder="e.g., Software Engineer"
+                    value={personalInfo.title}
+                    onChange={e => updatePersonalInfo('title', e.target.value)}
+                    className={`${baseInput} ${errors.title ? errorInput : normalInput}`}
                 />
+                {errors.title && (
+                    <p className="flex items-center gap-1.5 text-xs text-red-600 mt-1.5">
+                        <AlertCircle size={13} />
+                        Job Title is required
+                    </p>
+                )}
             </div>
-            
-            {/* GitHub - Optional */}
+
+            {/* ============ EMAIL ============ */}
             <div>
-                <label className="text-sm text-gray-300 mb-1 block">GitHub URL <span className="text-gray-500">(Optional)</span></label>
-                <input 
-                    type="text" 
-                    placeholder="https://github.com/username" 
-                    value={personalInfo.github} 
-                    onChange={e => updatePersonalInfo('github', e.target.value)} 
-                    className="w-full p-3 rounded-xl bg-gray-800 border border-gray-700 text-white outline-none focus:border-purple-500" 
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-1.5">
+                    <Mail size={14} className="text-purple-600" />
+                    Email <span className="text-red-500">*</span>
+                </label>
+                <input
+                    type="email"
+                    placeholder="you@example.com"
+                    value={personalInfo.email}
+                    onChange={e => handleEmailChange(e.target.value)}
+                    className={`${baseInput} ${errors.email ? errorInput : normalInput}`}
                 />
-            </div>
-            
-            {/* Portfolio - Optional */}
-            <div>
-                <label className="text-sm text-gray-300 mb-1 block">Portfolio URL <span className="text-gray-500">(Optional)</span></label>
-                <input 
-                    type="text" 
-                    placeholder="https://yourportfolio.com" 
-                    value={personalInfo.portfolio} 
-                    onChange={e => updatePersonalInfo('portfolio', e.target.value)} 
-                    className="w-full p-3 rounded-xl bg-gray-800 border border-gray-700 text-white outline-none focus:border-purple-500" 
-                />
-            </div>
-            
-            {/* ✅ Profile Photo - Updated with Cropper */}
-            <div>
-                <label className="text-sm text-gray-300 mb-1 block">Profile Photo <span className="text-gray-500">(Optional)</span></label>
-                <div className="flex items-center gap-3 flex-wrap">
-                    <button 
-                        onClick={() => fileInputRef.current?.click()} 
-                        className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white transition text-sm"
-                    >
-                        📸 Upload Image
-                    </button>
-                    <input 
-                        ref={fileInputRef} 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={handleFileSelect} 
-                        className="hidden" 
-                    />
-                    {profilePhoto && (
-                        <>
-                            <span className="text-green-400 text-sm">✓ Photo added</span>
-                            <button 
-                                onClick={handleChangePhoto} 
-                                className="px-3 py-1.5 rounded-lg bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 text-sm transition"
+                {errors.email && (
+                    <p className="flex items-center gap-1.5 text-xs text-red-600 mt-1.5">
+                        <AlertCircle size={13} />
+                        Email is required
+                    </p>
+                )}
+                {emailSuggestion && (
+                    <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700">
+                        <AlertCircle size={13} className="flex-shrink-0" />
+                        <span>
+                            Did you mean{' '}
+                            <button
+                                onClick={applyEmailSuggestion}
+                                className="font-semibold text-purple-700 underline decoration-purple-300 hover:decoration-purple-600 underline-offset-2 transition-colors"
                             >
-                                🔄 Change Image
+                                {emailSuggestion}
                             </button>
-                        </>
-                    )}
-                    {!profilePhoto && (
-                        <span className="text-xs text-gray-500">PNG, JPEG, WEBP supported</span>
-                    )}
+                            ?
+                        </span>
+                    </div>
+                )}
+            </div>
+
+            {/* ============ PHONE ============ */}
+            <div>
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-1.5">
+                    <Phone size={14} className="text-purple-600" />
+                    Phone Number <span className="text-red-500">*</span>
+                </label>
+                <div className="space-y-2">
+                    <div className="relative">
+                        <select
+                            value={selectedCountryCode}
+                            onChange={e => handleCountryChange(e.target.value)}
+                            className="w-full appearance-none rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-900 text-sm font-medium text-center outline-none transition-all duration-200 px-4 py-3 cursor-pointer"
+                            style={{ textAlignLast: 'center' }}
+                        >
+                            {countryCodes.map(cc => (
+                                <option key={cc.code} value={cc.code} className="text-left">
+                                    {cc.flag} {cc.dialCode} ({cc.country})
+                                </option>
+                            ))}
+                        </select>
+                        <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                                <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <input
+                        type="tel"
+                        placeholder={getPhonePlaceholder()}
+                        value={phoneNumber}
+                        onChange={e => handlePhoneInputChange(e.target.value)}
+                        className={`${baseInput} text-center tracking-wide ${
+                            (errors.phone || phoneError) && phoneNumber ? errorInput : normalInput
+                        }`}
+                    />
+                    <div className="flex justify-center">
+                        {phoneNumber ? (
+                            phoneError ? (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 border border-red-100 text-xs font-medium text-red-600">
+                                    <AlertCircle size={12} />
+                                    {phoneError}
+                                </span>
+                            ) : (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-100 text-xs font-medium text-emerald-600">
+                                    <CheckCircle2 size={12} />
+                                    Valid {currentCountry?.country} number
+                                </span>
+                            )
+                        ) : (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-slate-100 text-xs text-slate-500">
+                                <span>{currentCountry?.flag}</span>
+                                <span>{currentCountry?.country} • Example: {currentCountry?.example || '3123456789'}</span>
+                            </span>
+                        )}
+                    </div>
                 </div>
             </div>
 
-            {/* ✅ Image Cropper Modal */}
+            {/* ============ ADDRESS ============ */}
+            <div>
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-1.5">
+                    <MapPin size={14} className="text-purple-600" />
+                    Address <span className="text-slate-400 font-normal">(Optional)</span>
+                </label>
+                <input
+                    type="text"
+                    placeholder="e.g., Faisalabad, Pakistan"
+                    value={personalInfo.address}
+                    onChange={e => updatePersonalInfo('address', e.target.value)}
+                    className={`${baseInput} ${normalInput}`}
+                />
+            </div>
+
+            {/* ============ ONLINE PRESENCE ============ */}
+            <div className="pt-1">
+                <div className="flex items-center gap-2 mb-3">
+                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+                    <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+                        Online Presence
+                    </span>
+                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+                </div>
+
+                <div className="space-y-4">
+                    <div>
+                        <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-1.5">
+                            <Linkedin size={14} className="text-purple-600" />
+                            LinkedIn URL <span className="text-slate-400 font-normal">(Optional)</span>
+                        </label>
+                        <input
+                            type="text"
+                            placeholder="https://linkedin.com/in/username"
+                            value={personalInfo.linkedin}
+                            onChange={e => updatePersonalInfo('linkedin', e.target.value)}
+                            className={`${baseInput} ${normalInput}`}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-1.5">
+                            <Github size={14} className="text-purple-600" />
+                            GitHub URL <span className="text-slate-400 font-normal">(Optional)</span>
+                        </label>
+                        <input
+                            type="text"
+                            placeholder="https://github.com/username"
+                            value={personalInfo.github}
+                            onChange={e => updatePersonalInfo('github', e.target.value)}
+                            className={`${baseInput} ${normalInput}`}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-1.5">
+                            <Globe size={14} className="text-purple-600" />
+                            Portfolio URL <span className="text-slate-400 font-normal">(Optional)</span>
+                        </label>
+                        <input
+                            type="text"
+                            placeholder="https://yourportfolio.com"
+                            value={personalInfo.portfolio}
+                            onChange={e => updatePersonalInfo('portfolio', e.target.value)}
+                            className={`${baseInput} ${normalInput}`}
+                        />
+                    </div>
+                </div>
+            </div>
+
             <ImageCropperModal
                 isOpen={isCropModalOpen}
                 imageSrc={tempImage}

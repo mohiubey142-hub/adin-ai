@@ -1,3 +1,8 @@
+// src/components/cover-letter/components/ImageCropperModal.tsx
+// ✅ FIXED: onCropSave now awaits async callback before closing
+// ✅ FIXED: Modal stays open until compression + save completes
+// ✅ Preview and other features unchanged
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Cropper from 'react-easy-crop';
@@ -8,7 +13,7 @@ interface ImageCropperModalProps {
     isOpen: boolean;
     imageSrc: string | null;
     onClose: () => void;
-    onCropSave: (croppedImage: string) => void;
+    onCropSave: (croppedImage: string) => void | Promise<void>;
 }
 
 const ImageCropperModal: React.FC<ImageCropperModalProps> = ({
@@ -24,8 +29,15 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({
     const [isSaving, setIsSaving] = useState(false);
     const [rotation, setRotation] = useState(0);
     const imageRef = useRef<HTMLImageElement | null>(null);
+    // ✅ FIX: track mounted state
+    const mountedRef = useRef(true);
 
-    // ✅ LOCK BODY SCROLL WHEN MODAL IS OPEN (using document.body.style.overflow)
+    useEffect(() => {
+        mountedRef.current = true;
+        return () => { mountedRef.current = false; };
+    }, []);
+
+    // ✅ LOCK BODY SCROLL WHEN MODAL IS OPEN
     useEffect(() => {
         if (isOpen) {
             document.body.style.overflow = 'hidden';
@@ -70,6 +82,7 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({
         });
     };
 
+    // ✅ FIXED: await onCropSave before closing modal
     const getCroppedImage = useCallback(async () => {
         if (!croppedAreaPixels || !imageSrc) return;
 
@@ -77,11 +90,9 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({
 
         try {
             const image = await createImage(imageSrc);
-            
             const imageWidth = image.naturalWidth || image.width;
             const imageHeight = image.naturalHeight || image.height;
 
-            // ✅ croppedAreaPixels is ALREADY in PIXELS - use directly
             const cropX = croppedAreaPixels.x;
             const cropY = croppedAreaPixels.y;
             const cropWidth = croppedAreaPixels.width;
@@ -100,7 +111,7 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({
             canvas.height = outputSize;
 
             ctx.clearRect(0, 0, outputSize, outputSize);
-            
+
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = 'high';
 
@@ -117,13 +128,23 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({
             );
 
             const croppedDataUrl = canvas.toDataURL('image/png');
-            
-            onCropSave(croppedDataUrl);
-            setIsSaving(false);
-            onClose();
+            console.log('🔍 ImageCropperModal: onCropSave firing — dataUrl length:', croppedDataUrl.length);
+
+            // ✅ FIX: Await the async onCropSave so compression completes before closing
+            await Promise.resolve(onCropSave(croppedDataUrl));
+
+            console.log('🔍 ImageCropperModal: onCropSave completed');
+
+            // ✅ Only close AFTER onCropSave finishes
+            if (mountedRef.current) {
+                setIsSaving(false);
+                onClose();
+            }
         } catch (error) {
             console.error('❌ Error cropping image:', error);
-            setIsSaving(false);
+            if (mountedRef.current) {
+                setIsSaving(false);
+            }
         }
     }, [croppedAreaPixels, imageSrc, onCropSave, onClose]);
 
@@ -139,17 +160,14 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({
         setZoom(prev => Math.max(prev - 0.2, 0.5));
     };
 
-    // ✅ EARLY RETURN AFTER ALL HOOKS ARE CALLED
     if (!isOpen || !imageSrc) return null;
 
-    // ✅ Use React Portal to render at root level (like CV Builder)
     return createPortal(
         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-            <div 
+            <div
                 className="relative w-full max-w-2xl bg-gray-900/95 backdrop-blur-xl border border-purple-500/20 rounded-2xl shadow-2xl shadow-purple-500/10 overflow-hidden max-h-[90vh]"
                 onClick={(e) => e.stopPropagation()}
             >
-                {/* Header */}
                 <div className="flex items-center justify-between p-4 sm:p-5 border-b border-gray-700/50">
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
@@ -161,20 +179,19 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({
                     </div>
                     <button
                         onClick={onClose}
-                        className="w-8 h-8 rounded-lg hover:bg-gray-700/50 transition-colors flex items-center justify-center text-gray-400 hover:text-white"
+                        disabled={isSaving}
+                        className="w-8 h-8 rounded-lg hover:bg-gray-700/50 transition-colors flex items-center justify-center text-gray-400 hover:text-white disabled:opacity-50"
                     >
                         <X size={20} />
                     </button>
                 </div>
 
-                {/* Instructions */}
                 <div className="px-4 sm:px-5 pt-3 pb-1">
                     <p className="text-xs text-gray-400">
                         Drag to reposition • Scroll to zoom • 1:1 square crop
                     </p>
                 </div>
 
-                {/* Cropper - Fixed aspect ratio */}
                 <div className="relative w-full aspect-square max-h-[55vh] bg-gray-800/50">
                     <Cropper
                         image={imageSrc}
@@ -196,13 +213,12 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({
                     />
                 </div>
 
-                {/* Controls */}
                 <div className="p-4 sm:p-5 border-t border-gray-700/50 space-y-4">
-                    {/* Zoom Controls */}
                     <div className="flex items-center gap-3">
                         <button
                             onClick={handleZoomOut}
-                            className="w-8 h-8 rounded-lg bg-gray-700/50 hover:bg-gray-600/50 transition-colors flex items-center justify-center text-gray-300 hover:text-white"
+                            disabled={isSaving}
+                            className="w-8 h-8 rounded-lg bg-gray-700/50 hover:bg-gray-600/50 transition-colors flex items-center justify-center text-gray-300 hover:text-white disabled:opacity-50"
                         >
                             <ZoomOut size={16} />
                         </button>
@@ -213,24 +229,26 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({
                             step="0.1"
                             value={zoom}
                             onChange={handleZoomChange}
-                            className="flex-1 h-1.5 bg-gray-700 rounded-full appearance-none cursor-pointer accent-purple-500"
+                            disabled={isSaving}
+                            className="flex-1 h-1.5 bg-gray-700 rounded-full appearance-none cursor-pointer accent-purple-500 disabled:opacity-50"
                             style={{
                                 background: `linear-gradient(to right, #a855f7 ${((zoom - 0.5) / 2.5) * 100}%, #374151 ${((zoom - 0.5) / 2.5) * 100}%)`
                             }}
                         />
                         <button
                             onClick={handleZoomIn}
-                            className="w-8 h-8 rounded-lg bg-gray-700/50 hover:bg-gray-600/50 transition-colors flex items-center justify-center text-gray-300 hover:text-white"
+                            disabled={isSaving}
+                            className="w-8 h-8 rounded-lg bg-gray-700/50 hover:bg-gray-600/50 transition-colors flex items-center justify-center text-gray-300 hover:text-white disabled:opacity-50"
                         >
                             <ZoomIn size={16} />
                         </button>
                     </div>
 
-                    {/* Action Buttons */}
                     <div className="flex gap-3">
                         <button
                             onClick={onClose}
-                            className="flex-1 px-4 py-2.5 rounded-xl bg-gray-700/50 hover:bg-gray-600/50 text-white font-medium transition-colors text-sm"
+                            disabled={isSaving}
+                            className="flex-1 px-4 py-2.5 rounded-xl bg-gray-700/50 hover:bg-gray-600/50 text-white font-medium transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Cancel
                         </button>

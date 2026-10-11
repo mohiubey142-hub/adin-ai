@@ -39,8 +39,8 @@ export default function StarRating({
           <Star
             className={`${iconSize} ${
               star <= rating
-                ? 'fill-yellow-400 text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.4)]'
-                : 'text-gray-600 hover:text-gray-400 transition-colors'
+                ? 'fill-amber-400 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.4)]'
+                : 'text-slate-300 hover:text-slate-400 transition-colors'
             } transition-all duration-300 ${
               !disabled && star <= rating ? 'animate-pulse' : ''
             }`}

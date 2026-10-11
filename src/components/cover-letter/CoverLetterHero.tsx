@@ -1,100 +1,117 @@
+// src/components/cover-letter/CoverLetterHero.tsx
+// ✅ UPDATED: SVG cloud icon size 16
+
 import React from 'react';
-import { Save, ArrowLeft, Maximize2, Minimize2 } from 'lucide-react';
+import { Loader2, CloudOff, AlertCircle } from 'lucide-react';
+import SidebarToggle from '../global/SidebarToggle';
+import { useSaveStatus } from '../../hooks/useSaveStatus';
 
 interface CoverLetterHeroProps {
-  completion: number;
-  isSaved: boolean;
-  onBackToHome?: () => void;
-  toggleFullscreen?: () => void;
-  isFullscreen?: boolean;
+    onOpenSidebar: () => void;
+    saveStatus: 'saved' | 'saving';
+    title?: string;
+    subtitle?: string;
 }
 
-const CoverLetterHero: React.FC<CoverLetterHeroProps> = ({ 
-  completion, 
-  isSaved,
-  onBackToHome,
-  toggleFullscreen,
-  isFullscreen = false
+// ✅ Custom SVG: Solid cloud with checkmark
+const SavedCloudIcon: React.FC<{ size?: number; className?: string }> = ({
+    size = 16,
+    className = '',
+}) => (
+    <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className={className}
+    >
+        <path
+            d="M6.5 19C4.01472 19 2 16.9853 2 14.5C2 12.1564 3.79151 10.2313 6.07901 10.0309C6.49946 6.65144 9.37418 4 12.85 4C16.3917 4 19.3076 6.76373 19.5765 10.2378C21.5676 10.5467 23 12.2665 23 14.3C23 16.5673 21.1623 18.4 18.9 18.4H6.5V19Z"
+            fill="currentColor"
+        />
+        <path
+            d="M10 13.5L11.5 15L14.5 12"
+            stroke="white"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        />
+    </svg>
+);
+
+const CoverLetterHero: React.FC<CoverLetterHeroProps> = ({
+    onOpenSidebar,
+    saveStatus,
+    title = 'Adin AI Cover Letter',
+    subtitle = 'Create professional cover letters • ATS Optimized',
 }) => {
-  return (
-    <div className="relative mb-4 sm:mb-6 overflow-hidden rounded-xl bg-black/95 backdrop-blur-sm border-b border-purple-500/20">
-      {/* ✅ Mobile optimized: 0 padding on mobile, only desktop padding */}
-      <div className="flex justify-between items-center px-0 sm:px-3 lg:px-0 py-0 sm:py-3 lg:py-4 flex-wrap gap-0 sm:gap-3">
-        
-        {/* ✅ Back to Templates - Mobile: Purple gradient box, full left alignment */}
-        {onBackToHome && (
-          <button 
-            onClick={onBackToHome}
-            className="px-3 sm:px-3.5 lg:px-5 py-0 sm:py-2 rounded-lg sm:rounded-xl bg-gradient-to-r from-purple-600 to-blue-500 hover:opacity-90 text-white font-medium shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all duration-300 hover:scale-105 flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs lg:text-sm min-h-[36px] sm:min-h-[40px] touch-manipulation"
-          >
-            <ArrowLeft 
-              size={15} 
-              className="flex-shrink-0 sm:size-4 text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.3)] sm:drop-shadow-none" 
-            />
-            <span className="hidden sm:inline">Templates</span>
-          </button>
-        )}
-        
-        {/* ✅ Centered Title - Mobile: +6px (19→25), Desktop: +10px (24→34) */}
-        <div className="text-center flex-1 absolute left-1/2 transform -translate-x-1/2 pointer-events-none px-1 w-[calc(100%-100px)]">
-          <h1 className="text-[25px] sm:text-[34px] lg:text-[34px] font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent tracking-tight whitespace-normal sm:whitespace-nowrap leading-tight">
-            📄 Adin AI Cover Letter
-          </h1>
-          <p className="text-[8px] sm:text-sm text-gray-400 hidden sm:block font-light tracking-wide">
-            Create professional cover letters • ATS Optimized
-          </p>
-        </div>
-        
-        {/* ✅ Right - Fullscreen + Progress + Save Status */}
-        <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-4 ml-auto">
-          {/* ✅ Progress Ring - Mobile optimized */}
-          <div className="relative w-7 h-7 sm:w-10 sm:h-10 flex-shrink-0">
-            <svg className="w-7 h-7 sm:w-10 sm:h-10 transform -rotate-90">
-              <circle cx="14" cy="14" r="12" fill="none" stroke="rgba(139,92,246,0.2)" strokeWidth="2.5" />
-              <circle cx="14" cy="14" r="12" fill="none" stroke="url(#heroGradient)" strokeWidth="2.5" strokeDasharray="75.4" strokeDashoffset={75.4 - (completion / 100) * 75.4} strokeLinecap="round" />
-              <defs>
-                <linearGradient id="heroGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#a855f7" />
-                  <stop offset="100%" stopColor="#3b82f6" />
-                </linearGradient>
-              </defs>
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-[7px] sm:text-[10px] font-bold text-white">{completion}%</span>
+    const combinedStatus = useSaveStatus({ localSaveStatus: saveStatus });
+
+    const renderStatus = () => {
+        switch (combinedStatus) {
+            case 'saving':
+                return (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-purple-600 transition-all duration-300">
+                        <Loader2 size={13} className="animate-spin" />
+                        <span className="hidden sm:inline">Saving...</span>
+                    </span>
+                );
+            case 'syncing':
+                return (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-purple-600 transition-all duration-300">
+                        <Loader2 size={13} className="animate-spin" />
+                        <span className="hidden sm:inline">Syncing...</span>
+                    </span>
+                );
+            case 'failed':
+                return (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-red-600 transition-all duration-300">
+                        <AlertCircle size={13} />
+                        <span className="hidden sm:inline">Sync failed</span>
+                    </span>
+                );
+            case 'offline':
+                return (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 transition-all duration-300">
+                        <CloudOff size={13} />
+                        <span className="hidden sm:inline">Offline</span>
+                    </span>
+                );
+            case 'saved':
+            default:
+                return (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 transition-all duration-300">
+                        <SavedCloudIcon size={16} className="text-emerald-600" />
+                        <span className="hidden sm:inline">Saved</span>
+                    </span>
+                );
+        }
+    };
+
+    return (
+        <div className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200 flex-shrink-0">
+            <div className="relative flex items-center justify-between gap-3 px-3 sm:px-4 lg:px-6 h-16">
+
+                <div className="flex items-center shrink-0 z-10">
+                    <SidebarToggle onOpen={onOpenSidebar} />
+                </div>
+
+                <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 pointer-events-none max-w-[60%] sm:max-w-[55%] text-center">
+                    <h1 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent tracking-tight truncate">
+                        {title}
+                    </h1>
+                    <p className="hidden sm:block text-[13px] text-slate-500 truncate mt-0.5">
+                        {subtitle}
+                    </p>
+                </div>
+
+                <div className="flex items-center shrink-0 z-10 ml-auto">
+                    {renderStatus()}
+                </div>
             </div>
-          </div>
-          
-          {/* ✅ Save Status - Hidden on mobile, visible on desktop */}
-          <span className={`hidden sm:inline-block text-[8px] sm:text-[10px] lg:text-xs transition-all duration-300 font-medium ${
-            isSaved ? 'text-green-400' : 'text-purple-400 animate-pulse'
-          }`}>
-            {isSaved ? '✓ Saved' : 'Saving...'}
-          </span>
-          
-          {/* ✅ Fullscreen Button - Mobile: Purple gradient box, full right alignment */}
-          {toggleFullscreen && (
-            <button 
-              onClick={toggleFullscreen}
-              className="px-3 sm:px-3.5 lg:px-5 py-0 sm:py-2 rounded-lg sm:rounded-xl bg-gradient-to-r from-purple-600 to-blue-500 hover:opacity-90 text-white font-medium shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all duration-300 hover:scale-105 text-[10px] sm:text-xs lg:text-sm flex items-center gap-1.5 sm:gap-2 min-h-[36px] sm:min-h-[40px] touch-manipulation"
-            >
-              {isFullscreen ? (
-                <Minimize2 
-                  size={15} 
-                  className="flex-shrink-0 sm:size-4 text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.3)] sm:drop-shadow-none" 
-                />
-              ) : (
-                <Maximize2 
-                  size={15} 
-                  className="flex-shrink-0 sm:size-4 text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.3)] sm:drop-shadow-none" 
-                />
-              )}
-              <span className="hidden sm:inline">{isFullscreen ? 'Exit' : 'Fullscreen'}</span>
-            </button>
-          )}
         </div>
-      </div>
-    </div>
-  );
+    );
 };
 
 export default CoverLetterHero;

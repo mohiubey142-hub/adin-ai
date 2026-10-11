@@ -1,4 +1,5 @@
 // src/components/cover-letter/templates/ModernTemplate.ts
+// ✅ FIXED: cleanLetterBody now receives cleanHiringManager to strip name/Dear
 import jsPDF from 'jspdf';
 import { 
     cleanText, 
@@ -10,8 +11,42 @@ import {
 } from '../utils/pdfHelpers';
 import { CoverLetterData, PDFTemplate } from './BaseTemplate';
 
+// ====================================================================
+// TEXT SANITIZATION (WinAnsi-safety pass)
+// ====================================================================
+function sanitizeTextForPdf(text: string): string {
+  if (!text) return text;
+  return text
+    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2015]/g, '-')
+    .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
+    .replace(/\u2026/g, '...')
+    .replace(/[\u00A0\u2000-\u200A\u202F\u205F]/g, ' ')
+    .replace(/[\u200B\u200C\u200D\uFEFF]/g, '')
+    .replace(/[^\x00-\xFF]/g, '');
+}
+
+// Recursively walks any value and sanitizes every string
+function deepSanitizeForPdf<T>(value: T): T {
+  if (typeof value === 'string') {
+    return sanitizeTextForPdf(value) as unknown as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => deepSanitizeForPdf(item)) as unknown as T;
+  }
+  if (value !== null && typeof value === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const key of Object.keys(value as Record<string, unknown>)) {
+      result[key] = deepSanitizeForPdf((value as Record<string, unknown>)[key]);
+    }
+    return result as T;
+  }
+  return value;
+}
+
 export class ModernTemplate implements PDFTemplate {
     async render(data: CoverLetterData): Promise<Blob> {
+        const sanitizedData = deepSanitizeForPdf(data);
         const { 
             userName, 
             email, 
@@ -26,8 +61,7 @@ export class ModernTemplate implements PDFTemplate {
             hiringManagerName,
             preferredFont,
             showBulletPoints,
-            footerSize,
-        } = data;
+        } = sanitizedData;
 
         // ===== FONT CONFIGURATION =====
         const FONT_CHOICES = {
@@ -63,7 +97,6 @@ export class ModernTemplate implements PDFTemplate {
         const PRIMARY_COLOR = [124, 58, 237];
         const SECONDARY_COLOR = [168, 85, 247];
         const DARK_COLOR = [31, 41, 55];
-        const GRAY_COLOR = [107, 114, 128];
         const LIGHT_GRAY = [156, 163, 175];
 
         // ===== LAYOUT ENGINE: Intelligent spacing optimization =====
@@ -116,7 +149,8 @@ export class ModernTemplate implements PDFTemplate {
             hasBulletPoints: boolean;
             needsFormatting: boolean;
         } => {
-            const clean = cleanLetterBody(text);
+            // ✅ UPDATED: Pass cleanHiringManager (uses outer scope var)
+            const clean = cleanLetterBody(text, cleanHiringManager);
             const paragraphs = clean.split(/\n\n+/).filter(p => p.trim() !== '');
             let totalLines = 0;
             let hasSignature = false;
@@ -151,9 +185,8 @@ export class ModernTemplate implements PDFTemplate {
                 const trimmed = line.trim();
                 const bulletMatch = trimmed.match(/^([•\-*]|\d+\.)\s+(.*)/);
                 if (bulletMatch && showBulletPoints !== false) {
-                    const bulletChar = bulletMatch[1];
-                    const content = bulletMatch[2];
-                    formattedLines.push(`• ${content}`);
+                    const bulletContent = bulletMatch[2];
+                    formattedLines.push(`• ${bulletContent}`);
                 } else {
                     formattedLines.push(trimmed);
                 }
@@ -197,36 +230,6 @@ export class ModernTemplate implements PDFTemplate {
         };
 
         // ============================================
-        // HELPER: Render centered wrapped text
-        // ============================================
-        const renderCenteredWrappedText = (
-            text: string,
-            y: number,
-            fontSize: number,
-            fontStyle: string,
-            color: [number, number, number],
-            maxWidth: number
-        ): number => {
-            if (!text) return y;
-            
-            pdf.setFontSize(fontSize);
-            const fontFamily_ = fontStyle.includes('bold') ? fontFamily : fontFamily;
-            pdf.setFont(fontFamily_, fontStyle);
-            pdf.setTextColor(color[0], color[1], color[2]);
-            
-            const wrappedLines = pdf.splitTextToSize(text, maxWidth);
-            const lineHeight = fontSize * 0.55;
-            
-            for (let i = 0; i < wrappedLines.length; i++) {
-                const line = wrappedLines[i];
-                const lineWidth = pdf.getTextWidth(line);
-                pdf.text(line, pageWidth / 2 - lineWidth / 2, y + (i * lineHeight));
-            }
-            
-            return y + (wrappedLines.length * lineHeight);
-        };
-
-        // ============================================
         // HELPER: Render left-aligned wrapped text
         // ============================================
         const renderLeftWrappedText = (
@@ -262,150 +265,215 @@ export class ModernTemplate implements PDFTemplate {
         const cleanTitle = cleanText(jobTitle || 'Job Title');
         const cleanCompany = cleanText(company || '');
         const cleanHiringManager = cleanText(hiringManagerName || 'Hiring Manager');
-        const centerX = pageWidth / 2;
         const MAX_TEXT_WIDTH = pageWidth - marginX * 2;
 
-        const contactParts1: string[] = [];
-        const contactParts2: string[] = [];
+        // Contact items keep their order (email, phone, linkedin, address).
+        // They flow across the FULL content width (see section 4 below).
+        const contactItems: string[] = [];
 
         if (email) {
             const cleanEmailStr = cleanEmail(email);
-            if (cleanEmailStr) contactParts1.push(cleanEmailStr);
+            if (cleanEmailStr) contactItems.push(`Email: ${cleanEmailStr}`);
         }
         if (phoneNumber && selectedCountryCode) {
             const cleanPhone = cleanPhoneNumber(phoneNumber, selectedCountryCode);
-            if (cleanPhone) contactParts1.push(cleanPhone);
-        }
-
-        if (address) {
-            const cleanAddress = cleanText(address);
-            if (cleanAddress) contactParts2.push(cleanAddress);
+            if (cleanPhone) contactItems.push(`Phone: ${cleanPhone}`);
         }
         if (linkedin) {
             const cleanLinkedinStr = cleanLinkedin(linkedin);
-            if (cleanLinkedinStr) contactParts2.push(cleanLinkedinStr);
+            if (cleanLinkedinStr) contactItems.push(`LinkedIn: ${cleanLinkedinStr}`);
+        }
+        if (address) {
+            const cleanAddress = cleanText(address);
+            if (cleanAddress) contactItems.push(`Address: ${cleanAddress}`);
         }
 
-        const contactLine1 = contactParts1.join(' • ');
-        const contactLine2 = contactParts2.join(' • ');
-
         // ============================================
-        // 1. PROFILE IMAGE - OPTIONAL ONLY
+        // 1-5. HEADER - TealCurve style: full-width dark band across the top,
+        //      circular photo beside Name + Job Title (white), contact line
+        //      below it. No dividers anywhere in the header.
+        //      Every size / gap / color is the TealCurve value, named once.
         // ============================================
-        const photoSize = 28;
-        let imageAdded = false;
-        const IDENTITY_BLOCK_OFFSET = 4.5;
-        let identityBlockY = currentY + IDENTITY_BLOCK_OFFSET;
 
-        // ✅ FIX: Image OPTIONAL - Sirf tab show ho jab user ne di ho
+        // This document works in mm, TealCurve works in pt - one conversion factor.
+        const PT_TO_MM = 1 / pdf.internal.scaleFactor;
+
+        // TealCurve header colors
+        const HEADER_BACKGROUND_COLOR: [number, number, number] = [13, 43, 43];
+        const HEADER_NAME_COLOR: [number, number, number] = [255, 255, 255];
+        const HEADER_TITLE_COLOR: [number, number, number] = [255, 255, 255];
+        const HEADER_CONTACT_COLOR: [number, number, number] = [200, 220, 220];
+
+        // TealCurve header typography (pt)
+        const NAME_FONT_SIZE = 22;
+        const TITLE_FONT_SIZE = 13;
+        const CONTACT_FONT_SIZE = 9.5;
+        // Contact line only: nudged 0.5mm to the right (name + job title unchanged)
+        const CONTACT_EXTRA_RIGHT = 0.5;
+
+        // TealCurve header geometry (pt, converted to mm through PT_TO_MM)
+        const HEADER_PHOTO_SIZE_PT = 83;
+        const PHOTO_TO_TEXT_GAP_PT = 15;
+        const NAME_TO_TITLE_GAP_PT = 6;
+        const photoSize = HEADER_PHOTO_SIZE_PT * PT_TO_MM;
+        const PHOTO_TO_TEXT_GAP = PHOTO_TO_TEXT_GAP_PT * PT_TO_MM;
+        const NAME_TO_TITLE_GAP = NAME_TO_TITLE_GAP_PT * PT_TO_MM;
+
+        // Helvetica ink geometry as a fraction of font size (same ratios TealCurve uses)
+        const HEADER_ASCENT_RATIO = 0.718;
+        const HEADER_DESCENT_RATIO = 0.207;
+
+        // Wrapped-line spacing, same factor renderLeftWrappedText() draws with
+        const HEADER_LINE_HEIGHT_FACTOR = 0.55;
+
+        // Spacing (mm): header top inset, content -> band bottom edge
+        // (TealCurve's 4mm side gap + 1mm extra), band bottom edge -> date
+        // Header top inset: base value minus a 1mm reduction. Photo, name, title,
+        // contact, band bottom edge and everything below follow it upward.
+        const HEADER_TOP_OFFSET_BASE = 4;
+        const HEADER_TOP_REDUCTION = 1;
+        const HEADER_TOP_OFFSET = HEADER_TOP_OFFSET_BASE - HEADER_TOP_REDUCTION;
+        // Name + job title only: nudged 1mm down (contact, photo and band are NOT moved)
+        const NAME_TITLE_EXTRA_DOWN = 1;
+        const HEADER_CONTENT_TO_BAND_EDGE_GAP = 4;
+        const HEADER_CONTENT_TO_BAND_EDGE_EXTRA_GAP = 1;
+        const HEADER_BAND_TO_DATE_GAP = 5.5;
+        const headerStartY = currentY + HEADER_TOP_OFFSET;
+
+        let headerImage: string | null = null;
         if (profilePhoto && profilePhoto.startsWith('data:image')) {
             try {
-                const circularImage = await makeCircularImage(profilePhoto);
-                const imgX = centerX - photoSize / 2;
-                const imgY = identityBlockY - 4.5;
-                
-                pdf.addImage(circularImage, 'PNG', imgX, imgY, photoSize, photoSize);
-                identityBlockY += photoSize + 6;
-                imageAdded = true;
+                headerImage = await makeCircularImage(profilePhoto);
             } catch (err) {
                 console.error('Failed to add profile photo to PDF:', err);
-                imageAdded = false;
+                headerImage = null;
             }
         }
+        const hasHeaderPhoto = !!headerImage;
 
-        // ✅ FIX: Agar image nahi hai toh sirf 3.5 units gap set karo (no initials)
-        if (!imageAdded) {
-            // ✅ Sirf gap add karo - koi initials/circle nahi
-            identityBlockY += 3.5; // Top se 3.5 units gap
-        }
+        const headerTextX = hasHeaderPhoto ? marginX + photoSize + PHOTO_TO_TEXT_GAP : marginX;
+        const headerTextW = pageWidth - headerTextX - marginX;
 
-        // ============================================
-        // 2. NAME - With professional wrapping
-        // ============================================
-        const nameY = renderCenteredWrappedText(
-            cleanName,
-            identityBlockY - 2.5,
-            15,
-            'bold',
-            DARK_COLOR,
-            MAX_TEXT_WIDTH
-        );
-        identityBlockY = nameY + 3.5;
+        const headerName = cleanName;
 
-        // ============================================
-        // 3. JOB TITLE - With professional wrapping
-        // ============================================
-        const titleY = renderCenteredWrappedText(
-            cleanTitle,
-            identityBlockY - 3.5,
-            12,
-            'bold',
-            PRIMARY_COLOR,
-            MAX_TEXT_WIDTH
-        );
-        identityBlockY = titleY + 1.5;
-
-        // ============================================
-        // 4. CONTACT - With professional wrapping
-        // ============================================
-        pdf.setFontSize(8.5);
+        // Contact items flow across the text column (same column as name/title);
+        // an item is never cut in the middle, a new line starts only when the
+        // next one won't fit.
+        pdf.setFontSize(CONTACT_FONT_SIZE);
         pdf.setFont(fontFamily, 'normal');
-        pdf.setTextColor(GRAY_COLOR[0], GRAY_COLOR[1], GRAY_COLOR[2]);
+        const CONTACT_SEPARATOR = '     ';
+        const contactLines: string[] = [];
+        let currentContactLine = '';
+        for (const item of contactItems) {
+            const candidate = currentContactLine ? `${currentContactLine}${CONTACT_SEPARATOR}${item}` : item;
+            if (!currentContactLine || pdf.getTextWidth(candidate) <= headerTextW) {
+                currentContactLine = candidate;
+            } else {
+                contactLines.push(currentContactLine);
+                currentContactLine = item;
+            }
+        }
+        if (currentContactLine) contactLines.push(currentContactLine);
+        const contactText = contactLines.join('\n');
 
-        if (contactLine1) {
-            const contactY = renderCenteredWrappedText(
-                contactLine1,
-                identityBlockY - 1.5,
-                8.5,
+        const measureLineCount = (text: string, fontSize: number, fontStyle: string, maxWidth: number): number => {
+            if (!text) return 0;
+            pdf.setFontSize(fontSize);
+            pdf.setFont(fontFamily, fontStyle);
+            return pdf.splitTextToSize(text, maxWidth).length;
+        };
+
+        const nameLineCount = measureLineCount(headerName, NAME_FONT_SIZE, 'normal', headerTextW);
+        const titleLineCount = measureLineCount(cleanTitle, TITLE_FONT_SIZE, 'normal', headerTextW);
+        const contactLineCount = measureLineCount(contactText, CONTACT_FONT_SIZE, 'normal', headerTextW);
+
+        const nameAscent = NAME_FONT_SIZE * HEADER_ASCENT_RATIO * PT_TO_MM;
+        const nameAdvance = NAME_FONT_SIZE * PT_TO_MM;
+        const nameLineHeight = NAME_FONT_SIZE * HEADER_LINE_HEIGHT_FACTOR;
+        const titleAscent = TITLE_FONT_SIZE * HEADER_ASCENT_RATIO * PT_TO_MM;
+        const titleLineHeight = TITLE_FONT_SIZE * HEADER_LINE_HEIGHT_FACTOR;
+        const titleDescent = TITLE_FONT_SIZE * HEADER_DESCENT_RATIO * PT_TO_MM;
+        const contactAscent = CONTACT_FONT_SIZE * HEADER_ASCENT_RATIO * PT_TO_MM;
+        const contactDescent = CONTACT_FONT_SIZE * HEADER_DESCENT_RATIO * PT_TO_MM;
+        const contactLineHeight = CONTACT_FONT_SIZE * HEADER_LINE_HEIGHT_FACTOR;
+
+        // One visible gap between lines: the whitespace between the name and the
+        // job title. The job title -> contact gap reuses this SAME value, so the
+        // two gaps can never differ.
+        const HEADER_LINE_GAP = nameAdvance + NAME_TO_TITLE_GAP - titleAscent;
+
+        // Name + title + contact block, measured relative to the name's first baseline.
+        const titleBaselineRel = (nameLineCount - 1) * nameLineHeight + nameAdvance + NAME_TO_TITLE_GAP;
+        const titleLastBaselineRel = titleBaselineRel + (titleLineCount - 1) * titleLineHeight;
+        const contactBaselineRel = titleLastBaselineRel + HEADER_LINE_GAP + contactAscent;
+        const blockTopRel = -nameAscent;
+        const blockBottomRel = contactLineCount > 0
+            ? contactBaselineRel + (contactLineCount - 1) * contactLineHeight + contactDescent
+            : titleLastBaselineRel + titleDescent;
+        const textBlockHeight = blockBottomRel - blockTopRel;
+
+        // Same start position with or without a photo: the text block is always
+        // centered against the (reserved) photo area, so the letter starts at the
+        // same height either way.
+        const textBlockTopY = headerStartY + Math.max(0, (photoSize - textBlockHeight) / 2);
+        const nameBaselineY = textBlockTopY - blockTopRel;
+        const titleBaselineY = nameBaselineY + titleBaselineRel;
+        const contactBaselineY = nameBaselineY + contactBaselineRel;
+        const textBlockBottomY = textBlockTopY + textBlockHeight;
+
+        const photoBottomY = headerStartY + photoSize;
+        const headerContentBottomY = Math.max(photoBottomY, textBlockBottomY);
+        const headerBandBottomY =
+            headerContentBottomY + HEADER_CONTENT_TO_BAND_EDGE_GAP + HEADER_CONTENT_TO_BAND_EDGE_EXTRA_GAP;
+
+        // Band is painted first so photo/text land on top of it.
+        pdf.setFillColor(HEADER_BACKGROUND_COLOR[0], HEADER_BACKGROUND_COLOR[1], HEADER_BACKGROUND_COLOR[2]);
+        pdf.rect(0, 0, pageWidth, headerBandBottomY, 'F');
+
+        if (headerImage) {
+            pdf.addImage(headerImage, 'PNG', marginX, headerStartY, photoSize, photoSize);
+        }
+
+        renderLeftWrappedText(
+            headerName,
+            headerTextX,
+            nameBaselineY + NAME_TITLE_EXTRA_DOWN,
+            NAME_FONT_SIZE,
+            'normal',
+            HEADER_NAME_COLOR,
+            headerTextW
+        );
+
+        renderLeftWrappedText(
+            cleanTitle,
+            headerTextX,
+            titleBaselineY + NAME_TITLE_EXTRA_DOWN,
+            TITLE_FONT_SIZE,
+            'normal',
+            HEADER_TITLE_COLOR,
+            headerTextW
+        );
+
+        if (contactText) {
+            renderLeftWrappedText(
+                contactText,
+                headerTextX + CONTACT_EXTRA_RIGHT,
+                contactBaselineY,
+                CONTACT_FONT_SIZE,
                 'normal',
-                GRAY_COLOR,
-                MAX_TEXT_WIDTH
+                HEADER_CONTACT_COLOR,
+                headerTextW
             );
-            identityBlockY = contactY + 1;
         }
 
-        if (contactLine2) {
-            const contactY2 = renderCenteredWrappedText(
-                contactLine2,
-                identityBlockY - 1.5,
-                8.5,
-                'normal',
-                GRAY_COLOR,
-                MAX_TEXT_WIDTH
-            );
-            identityBlockY = contactY2 + 0.5;
-        } else if (!contactLine1) {
-            identityBlockY += 1;
-        }
-
-        if (contactLine1 && !contactLine2) {
-            identityBlockY += 1;
-        }
-
-        currentY = identityBlockY;
-
-        // ============================================
-        // 5. PREMIUM DIVIDER - Double Lines
-        // ============================================
-        currentY += 0;
-
-        pdf.setDrawColor(PRIMARY_COLOR[0], PRIMARY_COLOR[1], PRIMARY_COLOR[2]);
-        pdf.setLineWidth(0.8);
-        pdf.line(marginX, currentY, pageWidth - marginX, currentY);
-
-        currentY += 1;
-        pdf.setDrawColor(LIGHT_GRAY[0], LIGHT_GRAY[1], LIGHT_GRAY[2]);
-        pdf.setLineWidth(0.2);
-        pdf.line(marginX + 15, currentY, pageWidth - marginX - 15, currentY);
-
-        currentY += 5;
+        currentY = headerBandBottomY + HEADER_BAND_TO_DATE_GAP;
 
         // ============================================
         // 6. DATE - RIGHT Aligned
         // ============================================
         pdf.setFontSize(9.5);
         pdf.setFont(fontFamily, 'normal');
-        pdf.setTextColor(GRAY_COLOR[0], GRAY_COLOR[1], GRAY_COLOR[2]);
+        pdf.setTextColor(DARK_COLOR[0], DARK_COLOR[1], DARK_COLOR[2]);
         const today = new Date().toLocaleDateString('en-US', {
             month: 'long',
             day: 'numeric',
@@ -418,16 +486,25 @@ export class ModernTemplate implements PDFTemplate {
         // ============================================
         // 7. RECIPIENT
         // ============================================
-        const hiringManagerY = renderLeftWrappedText(
-            cleanHiringManager,
-            marginX,
-            currentY,
-            10.5,
-            'bold',
-            DARK_COLOR,
-            MAX_TEXT_WIDTH
-        );
-        currentY = hiringManagerY + 1.5;
+        // Show the name line only when a real name was given. With no name,
+        // the recipient block starts with the company and the salutation
+        // stays "Dear Hiring Manager," (no duplicate "Hiring Manager" line).
+        const hasRealHiringManagerName =
+            !!(hiringManagerName && hiringManagerName.trim()) &&
+            cleanHiringManager.trim().toLowerCase() !== 'hiring manager';
+
+        if (hasRealHiringManagerName) {
+            const hiringManagerY = renderLeftWrappedText(
+                cleanHiringManager,
+                marginX,
+                currentY,
+                10.5,
+                'bold',
+                DARK_COLOR,
+                MAX_TEXT_WIDTH
+            );
+            currentY = hiringManagerY + 1.5;
+        }
 
         if (cleanCompany) {
             const companyY = renderLeftWrappedText(
@@ -436,7 +513,7 @@ export class ModernTemplate implements PDFTemplate {
                 currentY,
                 10,
                 'normal',
-                GRAY_COLOR,
+                DARK_COLOR,
                 MAX_TEXT_WIDTH
             );
             currentY = companyY + 1.5;
@@ -478,7 +555,8 @@ export class ModernTemplate implements PDFTemplate {
         pdf.setLineHeightFactor(1.6);
         pdf.setTextColor(DARK_COLOR[0], DARK_COLOR[1], DARK_COLOR[2]);
 
-        let cleanLetter = cleanLetterBody(generatedLetter);
+        // ✅ FIXED: Pass cleanHiringManager to cleanLetterBody
+        let cleanLetter = cleanLetterBody(generatedLetter, cleanHiringManager);
         cleanLetter = cleanLetter.replace(/\r\n/g, '\n');
         cleanLetter = cleanLetter.replace(/\r/g, '\n');
 
@@ -486,11 +564,6 @@ export class ModernTemplate implements PDFTemplate {
         
         const optimizedResult = optimizeSpacing(cleanLetter);
         cleanLetter = optimizedResult.optimized;
-        
-        // ✅ FIX: No compression - line spacing consistent
-        // if (optimizedResult.compression > 0) {
-        //     currentY -= optimizedResult.compression * 0.3; // ✅ REMOVED
-        // }
 
         const paragraphs = cleanLetter.split(/\n\n+/);
         const totalParagraphs = paragraphs.length;
@@ -509,6 +582,7 @@ export class ModernTemplate implements PDFTemplate {
             if (trimmedParagraph === cleanName) continue;
             if (trimmedParagraph === cleanTitle) continue;
             if (trimmedParagraph.toLowerCase().includes('dear hiring manager')) continue;
+            if (trimmedParagraph.toLowerCase().startsWith('dear ')) continue;
             if (trimmedParagraph.startsWith('Hiring Manager')) continue;
             
             if (trimmedParagraph.includes('@') && 
@@ -567,76 +641,54 @@ export class ModernTemplate implements PDFTemplate {
             }
         }
 
-        // Purple accent line - FULL WIDTH
-        pdf.setDrawColor(PRIMARY_COLOR[0], PRIMARY_COLOR[1], PRIMARY_COLOR[2]);
-        pdf.setLineWidth(0.4);
-        pdf.line(marginX, currentY, pageWidth - marginX, currentY);
-        currentY += 3.5;
+        // Extra nudges (mm) for the "Sincerely," line and the signer's name only —
+        // named so nothing here is a bare magic number. Everything downstream keeps
+        // flowing from the un-nudged baseline.
+        const SINCERELY_EXTRA_DOWN = 3;
+        const SINCERELY_EXTRA_RIGHT = 1;
+        const SIGNATURE_NAME_EXTRA_DOWN = 2;
+        // Signature name size: original 14pt increased by 30%, then reduced by 30% in total
+        const SIGNATURE_NAME_BASE_FONT_SIZE = 14 * 1.3;
+        const SIGNATURE_NAME_FONT_SIZE_DECREASE = 0.30;
+        const SIGNATURE_NAME_FONT_SIZE = SIGNATURE_NAME_BASE_FONT_SIZE * (1 - SIGNATURE_NAME_FONT_SIZE_DECREASE);
 
-        // "Sincerely" - Left aligned
+        // Sincerely's font size, bumped 10% above the original base size.
+        const SINCERELY_BASE_FONT_SIZE = 10;
+        const SINCERELY_FONT_SIZE_INCREASE = 0.15;
+        const SINCERELY_FONT_SIZE = SINCERELY_BASE_FONT_SIZE * (1 + SINCERELY_FONT_SIZE_INCREASE);
+
+        // No divider above the signature any more, so the space it used to take
+        // is not kept as empty gap: the block starts right where the body ends.
+        // Baseline the rest of the signature block continues from (un-nudged).
+        const signatureBlockBaseline = currentY;
+
+        const sincerelyBaseY = signatureBlockBaseline + 2;
         const sincerelyY = renderLeftWrappedText(
             'Sincerely,',
-            marginX,
-            currentY + 2,
-            10,
+            marginX + SINCERELY_EXTRA_RIGHT,
+            sincerelyBaseY + SINCERELY_EXTRA_DOWN,
+            SINCERELY_FONT_SIZE,
             'normal',
-            GRAY_COLOR,
+            DARK_COLOR,
             MAX_TEXT_WIDTH
         );
-        currentY = sincerelyY + 1.5;
+        // Continue the flow as if unshifted (subtract the nudge back out) so the
+        // name's baseline isn't thrown off by the "Sincerely," move.
+        const sincerelyBlockEndY = sincerelyY - SINCERELY_EXTRA_DOWN + 1.5;
 
-        // Name - Large, Purple, Bold
+        const sigNameBaseY = sincerelyBlockEndY + 2;
         const sigNameY = renderLeftWrappedText(
             cleanName,
             marginX,
-            currentY + 2,
-            14,
+            sigNameBaseY + SIGNATURE_NAME_EXTRA_DOWN,
+            SIGNATURE_NAME_FONT_SIZE,
             'bold',
-            PRIMARY_COLOR,
+            DARK_COLOR,
             MAX_TEXT_WIDTH
         );
-        currentY = sigNameY + 0.5;
-
-        // Job Title - Gray with wrapping
-        const sigTitleY = renderLeftWrappedText(
-            cleanTitle,
-            marginX,
-            currentY + 2,
-            9.5,
-            'normal',
-            GRAY_COLOR,
-            MAX_TEXT_WIDTH
-        );
-        currentY = sigTitleY + 1.5;
-
-        // ============================================
-        // 11. FOOTER - Enhanced with customizable size
-        // ============================================
-        const totalPages = pdf.getNumberOfPages();
-        const nameForFooter = cleanName;
-        const footerFontSize = footerSize || 7;
-
-        for (let i = 1; i <= totalPages; i++) {
-            pdf.setPage(i);
-
-            pdf.setDrawColor(220, 225, 230);
-            pdf.setLineWidth(0.15);
-            pdf.line(marginX, pageHeight - 13, pageWidth - marginX, pageHeight - 13);
-
-            pdf.setFontSize(footerFontSize);
-            pdf.setFont(fontFamily, 'normal');
-            pdf.setTextColor(LIGHT_GRAY[0], LIGHT_GRAY[1], LIGHT_GRAY[2]);
-
-            const pageText = `Page ${i} of ${totalPages}`;
-            const pageWidth_ = pdf.getTextWidth(pageText);
-            pdf.text(pageText, pageWidth - marginX - pageWidth_, pageHeight - 7.5);
-
-            const leftText = `${nameForFooter} · ${cleanTitle || 'Cover Letter'}`;
-            const wrappedLeftText = pdf.splitTextToSize(leftText, MAX_TEXT_WIDTH);
-            for (let j = 0; j < wrappedLeftText.length; j++) {
-                pdf.text(wrappedLeftText[j], marginX, pageHeight - 7.5 + (j * 3));
-            }
-        }
+        // Strip the name's extra nudge back out; no job title below the signature.
+        const sigNameBlockEndY = sigNameY - SIGNATURE_NAME_EXTRA_DOWN + 0.5;
+        currentY = sigNameBlockEndY;
 
         return pdf.output('blob');
     }

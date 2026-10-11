@@ -1,14 +1,17 @@
 // utils/aiGenerators.ts
 // ============================================
-// AI GENERATOR - ENTRY POINT
+// AI GENERATOR - ENTRY POINT (UPDATED)
 // ============================================
 // 
 // 🚀 UPDATED: Fresher Detection Support
-// 🚀 UPDATED: Passes hasExperience to summary generator
-// 🚀 FIXED: Import path for helpers (now uses ./profession/summaries/helpers)
-// 🔍 DEBUG: Added console logs for debugging
-// ✅ FIXED: Summary capitalization bug — using fixGrammar instead of polishText/enhanceCVText
-// 
+// 🚀 UPDATED: Level-aware Groq (junior/mid/senior)
+// 🚀 FIXED: Experience bullets — level properly passed
+// ✅ UPDATED: Existing profession → system templates DIRECTLY (no AI)
+// ✅ UPDATED: Unknown profession → Groq (level-aware)
+// ✅ NEW: Fresher experience bullets → ALWAYS Groq AI (profession-aware)
+// ✅ UPDATED: Summary logic — sanitizer added (level keywords removed)
+// ✅ UPDATED: Project bullets → Groq (6-7 bullets)
+// ✅ UPDATED: Achievement bullets → Groq (3 bullets, shortDescription context)
 // ============================================
 
 console.log("🚀 AI GENERATOR - PAKISTAN EDITION (80+ Professions) 🚀");
@@ -24,7 +27,7 @@ export { initializeAI, isAIInitialized, resetAI } from './config';
 export { detectProfession, getBulletsByProfession, getProfessionalSummary } from './profession';
 
 // ============================================
-// HELPERS - ✅ FIXED: Now imports from correct path
+// HELPERS
 // ============================================
 import { 
     normalizeJobTitle, 
@@ -100,24 +103,26 @@ export type { QAResponse, GeneratedContent };
 // MAIN GENERATION FUNCTION
 // ============================================
 import { detectProfession, getBulletsByProfession, getProfessionalSummary } from './profession';
+import { isUnknownProfession } from './profession/detection';
 import { fixGrammar, polishText, polishBullets, enhanceCVText } from './enhancers';
 import { generateFallbackBullets, generateFallbackSummary } from './fallback/guidedQAFallback';
 import { getGeneralBullets } from './pools/generalPool';
-import { AISummaryGenerator, AIExperienceEnhancer, AISkillsGenerator } from './providers';
+import { AISummaryGenerator, AISkillsGenerator } from './providers';
+import { AIExperienceGenerator } from '../services/aiExperienceGenerator';
+import { AIProjectGenerator } from '../services/aiProjectGenerator';
+import { AIAchievementGenerator } from '../services/aiAchievementGenerator';
 import { initializeAI } from './config';
 
 // ============================================
 // 🆕 LANGUAGE FILTER - Remove languages from skills
 // ============================================
 const LANGUAGE_KEYWORDS = [
-    // Major Languages
     'english', 'urdu', 'hindi', 'arabic', 'french', 'german', 'spanish', 
     'chinese', 'japanese', 'korean', 'russian', 'italian', 'turkish', 
     'portuguese', 'bengali', 'punjabi', 'sindhi', 'pashto', 'persian',
     'dutch', 'swedish', 'norwegian', 'danish', 'finnish', 'polish', 
     'greek', 'hebrew', 'thai', 'vietnamese', 'indonesian', 'malay',
     
-    // Language-related phrases
     'language proficiency', 'language skills', 'communication language',
     'spoken language', 'written language', 'native language',
     'fluent english', 'native english', 'business english',
@@ -128,7 +133,6 @@ const LANGUAGE_KEYWORDS = [
     'english speaking', 'english writing', 'english reading',
     'english comprehension', 'english vocabulary', 'english grammar',
     
-    // Language levels
     'fluent', 'native', 'bilingual', 'trilingual', 'multilingual',
     'conversational', 'intermediate', 'advanced', 'proficient',
     'beginner', 'elementary', 'limited working', 'professional working',
@@ -139,17 +143,12 @@ const LANGUAGE_KEYWORDS = [
 
 const isLanguageSkill = (skill: string): boolean => {
     const lower = skill.toLowerCase().trim();
-    
-    // Exact match check
     if (LANGUAGE_KEYWORDS.includes(lower)) return true;
-    
-    // Check if skill contains language keyword
     for (const keyword of LANGUAGE_KEYWORDS) {
         if (lower.includes(keyword) && skill.length < 30) {
             return true;
         }
     }
-    
     return false;
 };
 
@@ -158,12 +157,44 @@ const filterLanguagesFromSkills = (skills: string[]): string[] => {
 };
 
 // ============================================
-// 🆕 FRESHER DETECTION HELPER
+// ✅ SCALABLE: Summary Title Sanitizer
+// ============================================
+// AI ya system templates level keyword (Junior/Senior/Mid) title mein inject kar dete hain.
+// Yeh function unhe remove karta hai — agar user ke title mein nahi hain.
+// ============================================
+const sanitizeSummaryTitle = (summary: string, userTitle: string): string => {
+    if (!summary || !userTitle) return summary;
+    
+    const userTitleLower = userTitle.toLowerCase().trim();
+    
+    const levelKeywords = [
+        'junior', 'senior', 'mid-level', 'mid level', 'midlevel',
+        'entry-level', 'entry level', 'entrylevel',
+        'lead', 'principal', 'staff', 'associate',
+        'fresher', 'trainee'
+    ];
+    
+    let sanitized = summary;
+    
+    for (const keyword of levelKeywords) {
+        // Agar user ke title mein keyword hai → skip (user ne dala hai)
+        if (userTitleLower.includes(keyword)) continue;
+        
+        // ✅ Starting se remove karo (title ke roop mein)
+        const startRegex = new RegExp(`^${keyword}\\s+`, 'i');
+        sanitized = sanitized.replace(startRegex, '');
+    }
+    
+    sanitized = sanitized.replace(/\s+/g, ' ').trim();
+    return sanitized;
+};
+
+// ============================================
+// 🆕 FRESHER DETECTION HELPER (PURANA — UNTOUCHED)
 // ============================================
 const isFresher = (experiences: any[]): boolean => {
     if (!experiences || experiences.length === 0) return true;
     
-    // Check if any experience has actual professional content
     const hasRealExperience = experiences.some(exp => 
         exp.title?.trim() && 
         exp.company?.trim() && 
@@ -178,7 +209,7 @@ const isFresher = (experiences: any[]): boolean => {
 };
 
 // ============================================
-// 🆕 AI GENERATE SUMMARY WITH AI PROVIDER (UPDATED)
+// 🆕 AI GENERATE SUMMARY WITH AI PROVIDER (PURANA — UNTOUCHED)
 // ============================================
 export const generateAISummary = async (params: {
     jobTitle: string;
@@ -191,7 +222,6 @@ export const generateAISummary = async (params: {
 }): Promise<string> => {
     initializeAI();
     
-    // ✅ FRESHER DETECTION
     const hasExperience = params.experiences && params.experiences.length > 0;
     const hasRealExperience = params.experiences?.some(exp => 
         exp.title?.trim() && 
@@ -201,15 +231,73 @@ export const generateAISummary = async (params: {
     );
     const isFresherStatus = !hasRealExperience || params.years < 1;
     
+    const isUnknown = isUnknownProfession(params.jobTitle);
+    const level = isFresherStatus ? 'fresher' : getLevel(params.jobTitle, params.years);
+    
+    // ✅ CASE 1: FRESHER + UNKNOWN PROFESSION → GROQ
+    if (isFresherStatus && isUnknown) {
+        console.log('🎓🔀 Unknown fresher detected → using Groq (level: fresher)');
+        
+        try {
+            const summaryGenerator = new AISummaryGenerator();
+            return await summaryGenerator.generate(
+                { ...params, level: 'fresher' },
+                'groq'
+            );
+        } catch (error) {
+            console.error('Groq failed for unknown fresher, using fallback:', error);
+            return getProfessionalSummary(
+                params.profession,
+                'fresher',
+                params.years,
+                params.jobTitle,
+                params.company || '',
+                params.skills || [],
+                params.educations || []
+            );
+        }
+    }
+    
+    // ✅ CASE 2: FRESHER + EXISTING PROFESSION → FRESHER TEMPLATE
+    if (isFresherStatus) {
+        console.log('🎓 Fresher detected → using fresher system templates (no AI)');
+        return getProfessionalSummary(
+            params.profession,
+            'fresher',
+            params.years,
+            params.jobTitle,
+            params.company || '',
+            params.skills || [],
+            params.educations || []
+        );
+    }
+    
+    // ✅ CASE 3: NON-FRESHER + EXISTING PROFESSION → SYSTEM TEMPLATE
+    if (!isUnknown) {
+        console.log(`📋 Existing profession → using system templates (level: ${level}) (no AI)`);
+        return getProfessionalSummary(
+            params.profession,
+            level,
+            params.years,
+            params.jobTitle,
+            params.company || '',
+            params.skills || [],
+            params.educations || []
+        );
+    }
+    
+    // ✅ CASE 4: NON-FRESHER + UNKNOWN PROFESSION → GROQ
+    console.log(`🔀 Unknown profession detected → using Groq (level: ${level})`);
+    
     try {
         const summaryGenerator = new AISummaryGenerator();
-        return await summaryGenerator.generate(params);
+        return await summaryGenerator.generate(
+            { ...params, level },
+            'groq'
+        );
     } catch (error) {
-        console.error('AI Summary failed, using fallback:', error);
+        console.error('Groq failed, using fallback:', error);
         const { jobTitle, company, years, profession, skills, educations } = params;
-        
-        // ✅ Pass fresher info to fallback
-        const level = isFresherStatus ? 'fresher' : getLevel(jobTitle, years);
         
         return getProfessionalSummary(
             profession, 
@@ -224,35 +312,150 @@ export const generateAISummary = async (params: {
 };
 
 // ============================================
-// 🆕 AI GENERATE EXPERIENCE BULLETS WITH AI PROVIDER
+// 🆕 AI GENERATE EXPERIENCE BULLETS (Level-Aware)
+// ============================================
+// ✅ NEW: Fresher → ALWAYS Groq AI (profession-aware)
+// ✅ UNCHANGED: Junior/Mid/Senior/Manager/Director → system bullets
 // ============================================
 export const generateAIExperienceBullets = async (params: {
     title: string;
     company: string;
     description: string;
     level: string;
+    years?: number;
 }): Promise<string[]> => {
     initializeAI();
     
-    try {
-        const enhancer = new AIExperienceEnhancer();
-        return await enhancer.enhance(params);
-    } catch (error) {
-        console.error('AI Experience enhancement failed, using fallback:', error);
-        if (params.description) {
-            return params.description.split('\n').filter(b => b.trim());
+    const isUnknown = isUnknownProfession(params.title);
+    
+    // ============================================
+    // ✅ NEW: FRESHER → ALWAYS USE AI (Groq)
+    // ============================================
+    if (params.level === 'fresher') {
+        console.log(`🎓 Fresher detected → using Groq AI (level: fresher)`);
+        
+        // ✅ Profession detect karo (profession-specific bullets ke liye)
+        const profession = detectProfession(params.title);
+        console.log(`📋 Detected profession: ${profession}`);
+        
+        try {
+            const experienceGenerator = new AIExperienceGenerator();
+            return await experienceGenerator.generate({
+                title: params.title,
+                company: params.company,
+                description: params.description,
+                level: 'fresher',
+                years: params.years ?? 0,
+                profession: profession  // ✅ NEW: profession pass karo
+            }, 'groq-experience');
+        } catch (error) {
+            console.error('Groq fresher failed, using fallback:', error);
+            return getBulletsByProfession(profession, 'fresher', params.company);
         }
+    }
+    
+    // ✅ CASE 1: EXISTING PROFESSION → SYSTEM BULLETS (NO AI)
+    if (!isUnknown) {
+        console.log(`📋 Existing profession → using system bullets (level: ${params.level}) (no AI)`);
+        const profession = detectProfession(params.title);
+        return getBulletsByProfession(profession, params.level, params.company);
+    }
+    
+    // ✅ CASE 2: UNKNOWN PROFESSION → GROQ (EXPERIENCE KEYS)
+    console.log(`🔀 Unknown profession detected → using Groq (level: ${params.level}) for experience bullets`);
+    
+    try {
+        const experienceGenerator = new AIExperienceGenerator();
+        return await experienceGenerator.generate({
+            title: params.title,
+            company: params.company,
+            description: params.description,
+            level: params.level,
+            years: params.years
+        }, 'groq-experience');
+    } catch (error) {
+        console.error('Groq experience failed, using fallback:', error);
+        const profession = detectProfession(params.title);
+        return getBulletsByProfession(profession, params.level, params.company);
+    }
+};
+
+// ============================================
+// 🆕 AI GENERATE PROJECT BULLETS (Groq, 6-7 bullets)
+// ============================================
+export const generateAIProjectBullets = async (params: {
+    projectName: string;
+    tech: string;
+    description?: string;
+}): Promise<string[]> => {
+    initializeAI();
+    
+    console.log('🔀 Project bullets → using Groq (groq-project)');
+    
+    try {
+        const projectGenerator = new AIProjectGenerator();
+        return await projectGenerator.generate({
+            projectName: params.projectName,
+            tech: params.tech,
+            description: params.description
+        }, 'groq-project');
+    } catch (error) {
+        console.error('Groq project failed, using fallback:', error);
+        
+        const name = params.projectName || 'Project';
+        const tech = params.tech || 'modern technologies';
+        
         return [
-            `• ${params.title} at ${params.company}`,
-            '• Delivered high-quality results',
-            '• Collaborated with cross-functional teams',
-            '• Achieved project milestones'
+            `• Built ${name} using ${tech}`,
+            '• Implemented core features and functionality',
+            '• Designed scalable and maintainable architecture',
+            '• Integrated essential APIs and services',
+            '• Tested and optimized for performance',
+            '• Documented technical specifications'
         ];
     }
 };
 
 // ============================================
-// 🆕 AI GENERATE SKILLS WITH AI PROVIDER - FIXED: Languages Filtered
+// 🆕 AI GENERATE ACHIEVEMENT BULLETS (Groq, 3 bullets)
+// ============================================
+// 
+// ✅ NEW: shortDescription param — user's context for AI
+// ✅ shortDescription is NOT rendered in CV/PDF/TXT
+// 
+// ============================================
+export const generateAIAchievementBullets = async (params: {
+    title: string;
+    date?: string;
+    shortDescription?: string;   // ✅ User-provided context for AI
+}): Promise<string[]> => {
+    initializeAI();
+    
+    console.log('🔀 Achievement bullets → using Groq (groq-achievement)');
+    
+    try {
+        const achievementGenerator = new AIAchievementGenerator();
+        return await achievementGenerator.generate({
+            title: params.title,
+            date: params.date,
+            details: params.shortDescription   // ✅ shortDescription as "details" in prompt
+        }, 'groq-achievement');
+    } catch (error) {
+        console.error('Groq achievement failed, using fallback:', error);
+        
+        const title = params.title || 'Achievement';
+        const date = params.date || '';
+        
+        return [
+            `• Recognized as ${title}${date ? ` in ${date}` : ''} for professional excellence`,
+            '• Consistently delivered high-quality work and exceeded expectations',
+            '• Demonstrated reliability and dedication to team objectives'
+        ];
+    }
+};
+
+// ============================================
+// 🆕 AI GENERATE SKILLS
 // ============================================
 export const generateAISkills = async (params: {
     jobTitle: string;
@@ -265,13 +468,10 @@ export const generateAISkills = async (params: {
     try {
         const skillsGenerator = new AISkillsGenerator();
         const generatedSkills = await skillsGenerator.generate(params);
-        
-        // ✅ FILTER: Remove languages from AI-generated skills
         return filterLanguagesFromSkills(generatedSkills);
     } catch (error) {
         console.error('AI Skills generation failed, using fallback:', error);
         
-        // ✅ IMPROVED FALLBACK - Deduplicate with existing skills AND filter languages
         const fallbackSkills: Record<string, string[]> = {
             developer: ['JavaScript', 'React', 'Node.js', 'Python', 'Git', 'SQL', 'TypeScript', 'REST APIs', 'Docker', 'AWS'],
             teacher: ['Teaching', 'Lesson Planning', 'Communication', 'Mentoring', 'Assessment', 'Curriculum Design', 'Classroom Management', 'Educational Technology'],
@@ -283,26 +483,20 @@ export const generateAISkills = async (params: {
         };
         
         const fallback = fallbackSkills[params.profession] || fallbackSkills.general;
-        
-        // Deduplicate with existing skills (case insensitive)
         const existingLower = params.existingSkills.map(s => s.toLowerCase().trim());
         let uniqueFallback = fallback.filter(s => !existingLower.includes(s.toLowerCase().trim()));
-        
-        // ✅ FILTER: Remove languages from fallback skills
         uniqueFallback = filterLanguagesFromSkills(uniqueFallback);
-        
         return uniqueFallback;
     }
 };
 
 // ============================================
-// ✅ MAIN GENERATION FUNCTION (UPDATED - With enhancers + AI)
-// ✅ FIXED: Summary case now uses fixGrammar() instead of polishText() + enhanceCVText()
+// ✅ MAIN GENERATION FUNCTION
 // ============================================
 export const generateDescriptionFromData = (params: any): string => {
     const { type, jobTitle, companyName, currentStartDate, currentEndDate, userData, projectName, achievementTitle } = params;
 
-    // ✅ PROJECT - Title-based description
+    // ✅ PROJECT
     if (type === 'project') {
         const tech = userData?.projects?.find((p: any) => p.name === projectName)?.tech || '';
         const desc = generateSmartProjectDescription(projectName || 'Project', tech);
@@ -310,14 +504,14 @@ export const generateDescriptionFromData = (params: any): string => {
         return enhanceCVText(polished);
     }
 
-    // ✅ ACHIEVEMENT - Title-based description
+    // ✅ ACHIEVEMENT (fallback only — CV-rendered)
     if (type === 'achievement') {
         const desc = generateSmartAchievementDescription(achievementTitle || 'Achievement');
         let polished = polishText(desc);
         return enhanceCVText(polished);
     }
 
-    // ✅ EXPERIENCE - Profession-based bullets with AI + Fallback
+    // ✅ EXPERIENCE
     if (type === 'experience') {
         const title = jobTitle || '';
         const company = companyName || 'the organization';
@@ -347,38 +541,14 @@ export const generateDescriptionFromData = (params: any): string => {
         return enhanceCVText(polished);
     }
 
-    // ✅ SUMMARY - Professional Summary (UPDATED: Fresher Support)
-    // ✅ FIXED: Using fixGrammar() instead of polishText() + enhanceCVText()
-    // ✅ fixGrammar() only fixes spelling mistakes and preserves capitalization
+    // ✅ SUMMARY (PURANA LOGIC — UNTOUCHED)
     if (type === 'summary') {
-        // ============================================
-        // 🔍 DEBUG STEP 1: Raw Input
-        // ============================================
-        console.log('🔍🔍🔍 DEBUG STEP 1: Raw Input');
-        console.log('📌 jobTitle:', jobTitle);
-        console.log('📌 companyName:', companyName);
-        console.log('📌 userData:', userData);
-        
         const title = jobTitle || '';
         const company = companyName || 'the organization';
         const profession = detectProfession(title);
         
-        // ============================================
-        // 🔍 DEBUG STEP 2: Profession Detection
-        // ============================================
-        console.log('🔍🔍🔍 DEBUG STEP 2: Profession Detection');
-        console.log('📌 Detected profession:', profession);
-        
         const years = getYears(userData?.experiences || []);
         
-        // ============================================
-        // 🔍 DEBUG STEP 3: Years Calculation
-        // ============================================
-        console.log('🔍🔍🔍 DEBUG STEP 3: Years Calculation');
-        console.log('📌 Raw experiences:', userData?.experiences);
-        console.log('📌 Calculated years:', years);
-        
-        // ✅ CHECK: Is this a fresher?
         const experiences = userData?.experiences || [];
         const hasRealExperience = experiences.some((exp: any) => 
             exp.title?.trim() && 
@@ -388,33 +558,10 @@ export const generateDescriptionFromData = (params: any): string => {
         );
         const isFresherStatus = !hasRealExperience || years < 1;
         
-        // ============================================
-        // 🔍 DEBUG STEP 4: Level Detection
-        // ============================================
-        console.log('🔍🔍🔍 DEBUG STEP 4: Level Detection');
-        console.log('📌 hasRealExperience:', hasRealExperience);
-        console.log('📌 isFresherStatus:', isFresherStatus);
-        
-        // ✅ Pass fresher info to getProfessionalSummary
         const level = isFresherStatus ? 'fresher' : getLevel(title, years);
-        console.log('📌 Detected level:', level);
         
         const skills = userData?.skills ? userData.skills.split(',').map((s: string) => s.trim()).filter((s: string) => s) : [];
         const educations = userData?.educations || [];
-        
-        // ============================================
-        // 🔍 DEBUG STEP 5: Summary Generation Call
-        // ============================================
-        console.log('🔍🔍🔍 DEBUG STEP 5: Calling getProfessionalSummary');
-        console.log('📌 Parameters:', {
-            profession,
-            level,
-            years,
-            title,
-            company,
-            skillsCount: skills.length,
-            educationsCount: educations.length
-        });
         
         let summary = getProfessionalSummary(
             profession, 
@@ -426,41 +573,14 @@ export const generateDescriptionFromData = (params: any): string => {
             educations
         );
         
-        // ============================================
-        // 🔍 DEBUG STEP 6: Final Summary
-        // ============================================
-        console.log('🔍🔍🔍 DEBUG STEP 6: Generated summary');
-        console.log('📌 Summary:', summary);
-        
-        // ============================================
-        // 🔍 DEBUG STEP 7: Fallback Check
-        // ============================================
         if (!summary || (summary.includes('learning, growing, and contributing') && years > 2)) {
-            console.log('🔍🔍🔍 DEBUG STEP 7: Using Fallback Summary');
             summary = generateFallbackSummary(title, level, company, years);
-            console.log('📌 Fallback summary:', summary);
-        } else {
-            console.log('🔍🔍🔍 DEBUG STEP 7: No fallback needed');
         }
         
-        // ============================================
-        // ✅ FIX APPLIED HERE: STEP 8
-        // ============================================
-        // ✅ FIX: Sirf spelling mistakes fix karo, capitalization preserve karo
-        // polishText() aur enhanceCVText() hata diya kyunke ye capitalization corrupt kar rahe hain
-        // fixGrammar() only fixes spelling mistakes and preserves original capitalization
-        // ============================================
-        console.log('🔍🔍🔍 DEBUG STEP 8: Applying fix — using fixGrammar() instead of polishText() + enhanceCVText()');
+        // ✅ SANITIZE: Level keywords remove karo (agar user ke title mein nahi hain)
+        summary = sanitizeSummaryTitle(summary, title);
         
         let fixed = fixGrammar(summary);
-        console.log('📌 Fixed summary (capitalization preserved):', fixed);
-        
-        // ============================================
-        // 🔍 DEBUG STEP 9: Final Output
-        // ============================================
-        console.log('🔍🔍🔍 DEBUG STEP 9: Final Output');
-        console.log('📌 Final summary:', fixed);
-        
         return fixed;
     }
 

@@ -1,29 +1,18 @@
 // src/components/Templates/CVTemplatesPage.tsx
-import { useState, useEffect, useCallback, useRef } from "react";
+// ✅ Sidebar + Hamburger REMOVED — App.tsx handles header + sidebar
+// ✅ Search bar COMPLETELY removed
+// ✅ Light theme unchanged, all logic intact
+// ✅ Mobile: 2 cards per row | Desktop: 3 cards
+// ✅ Preview modal: NO card wrapper
+// ✅ Neutral gray scrollbar (App.tsx handles globally)
+// ✅ Filter tabs: swipe/scroll works, scrollbar hidden, names never compress
+
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
-  ArrowLeft,
-  CheckCircle,
-  Zap,
-  Shield,
-  FileText,
-  Eye,
-  Clock,
-  Star,
-  Lock,
-  AlertCircle,
-  TrendingUp,
-  Award,
-  Users,
-  Briefcase,
-  Target,
-  ZoomIn,
-  ZoomOut,
-  Maximize,
-  X,
-  Move
+  CheckCircle, Zap, FileText, Eye, Lock, AlertCircle, Award,
+  ZoomIn, ZoomOut, Maximize, X,
 } from "lucide-react";
 
-// ✅ SEO Imports
 import { SEOHead } from "../SEO/SEOHead";
 import { generatePageSchemas, generateJSONLDScript } from "../../utils/seo";
 import { getSEOConfig } from "../../utils/seoPages";
@@ -33,14 +22,13 @@ interface Template {
   name: string;
   subtitle: string;
   description: string;
+  detailedDescription?: string;
+  qualities?: string[];
   bestFor: string[];
   badges: string[];
   gradient: string;
-  status: 'active' | 'coming-soon';
+  status: "active" | "coming-soon";
   previewImage: string;
-  rating: number;
-  reviews: number;
-  atsScore: number;
   features: string[];
   isPopular?: boolean;
 }
@@ -50,11 +38,15 @@ interface CVTemplatesPageProps {
   onTemplateSelect?: (templateId: string) => void;
 }
 
-const CVTemplatesPage = ({ onBackToHome, onTemplateSelect }: CVTemplatesPageProps) => {
+const CVTemplatesPage = ({
+  onBackToHome,
+  onTemplateSelect,
+}: CVTemplatesPageProps) => {
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
   const [activeFilter, setActiveFilter] = useState<string>("All Templates");
+  const [expandedTemplateId, setExpandedTemplateId] = useState<string | null>(null);
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [panPosition, setPanPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -69,112 +61,148 @@ const CVTemplatesPage = ({ onBackToHome, onTemplateSelect }: CVTemplatesPageProp
     {
       id: "modern",
       name: "Modern",
-      subtitle: "Clean & Professional",
-      description: "Clean and modern design perfect for today's competitive job market.",
-      bestFor: ["Software Engineering", "Technology"],
+      subtitle: "Purple Accent & Tag Skills",
+      description: "Modern layout with purple accent headings and tag-style skill pills.",
+      detailedDescription: "A contemporary design featuring purple section headings, right-aligned dates, and skills displayed as filled tag pills — giving a modern, colorful edge to your CV.",
+      qualities: ["Purple accent headings", "Tag-style skill pills", "Right-aligned dates", "Strong visual hierarchy", "ATS-friendly organization"],
+      bestFor: ["Software Engineering", "Technology", "Startups"],
       badges: ["ATS Optimized", "Popular"],
       gradient: "from-purple-600 to-blue-500",
-      status: 'active',
+      status: "active",
       previewImage: "/Templates/images/modern.webp",
-      rating: 4.9,
-      reviews: 1247,
-      atsScore: 95,
-      features: ["Single Page", "Modern Design", "Easy to Customize"],
-      isPopular: true
+      features: ["Purple Accent", "Tag-Style Skills", "Modern Design"],
+      isPopular: true,
     },
     {
       id: "minimal",
       name: "Minimal",
-      subtitle: "Elegant & Simple",
-      description: "Minimalist design that puts focus on your content.",
-      bestFor: ["Business", "Banking", "Corporate"],
+      subtitle: "Clean, No-Frills Layout",
+      description: "Minimalist design with a subtle experience timeline and pure text layout.",
+      detailedDescription: "A stripped-down, content-first layout. Experience entries are connected by a thin vertical timeline, and skills flow as inline text — nothing distracts from your experience.",
+      qualities: ["Experience timeline", "Inline text skills", "Monochrome palette", "Content-first layout", "Highly ATS-compatible"],
+      bestFor: ["Business", "Corporate", "Banking"],
       badges: ["ATS Optimized", "Clean"],
       gradient: "from-slate-600 to-zinc-500",
-      status: 'active',
+      status: "active",
       previewImage: "/Templates/images/minimal.webp",
-      rating: 4.8,
-      reviews: 893,
-      atsScore: 90,
-      features: ["Single Page", "Minimal Design", "Easy to Customize"]
+      features: ["Experience Timeline", "Inline Skills", "Monochrome"],
     },
     {
-      id: "professional",
-      name: "Professional",
-      subtitle: "Classic & Trusted",
-      description: "Traditional and professional layout suitable for all industries.",
-      bestFor: ["All Industries", "Traditional"],
-      badges: [],
-      gradient: "from-blue-600 to-cyan-500",
-      status: 'coming-soon',
-      previewImage: "/Templates/images/professional.webp",
-      rating: 0,
-      reviews: 0,
-      atsScore: 0,
-      features: []
+      id: "teal-curve",
+      name: "Teal Curve",
+      subtitle: "Bold Teal Header Band",
+      description: "Full-width dark teal header with white text and teal-accented section headings.",
+      detailedDescription: "A striking single-column design featuring a full-bleed dark teal header band with white name and title text. Section headings and dividers carry the same teal tone throughout.",
+      qualities: ["Full-width teal header band", "White header text", "Teal section headings", "Teal dividers", "Modern visual balance"],
+      bestFor: ["All Industries", "Modern Professionals"],
+      badges: ["ATS Optimized"],
+      gradient: "from-teal-600 to-emerald-500",
+      status: "active",
+      previewImage: "/Templates/images/teal-curve.webp",
+      features: ["Teal Header Band", "White Header Text", "Teal Accents"],
     },
     {
       id: "executive",
       name: "Executive",
-      subtitle: "Leadership & Authority",
-      description: "Premium design for senior level positions and executives.",
+      subtitle: "Navy & Gold Premium Layout",
+      description: "Navy header band with gold border and section icon badges.",
+      detailedDescription: "A premium single-column executive design with a solid navy header band framed by a gold border. Section headings carry gold icon badges, and Education, Certifications, and Languages share a three-column row with vertical dividers.",
+      qualities: ["Navy header band", "Gold border frame", "Section icon badges", "Three-column sections", "Leadership-focused structure"],
       bestFor: ["C-Suite", "Executive", "Leadership"],
-      badges: [],
+      badges: ["ATS Optimized", "Premium"],
       gradient: "from-amber-600 to-orange-500",
-      status: 'coming-soon',
+      status: "active",
       previewImage: "/Templates/images/executive.webp",
-      rating: 0,
-      reviews: 0,
-      atsScore: 0,
-      features: []
+      features: ["Navy Header Band", "Gold Border", "Section Icon Badges"],
     },
     {
       id: "creative",
       name: "Creative",
-      subtitle: "Artistic & Unique",
-      description: "A bold, creative design that stands out. Perfect for designers and artists.",
+      subtitle: "Dark Sidebar, Two-Column",
+      description: "Two-column layout with a dark sidebar for contact, skills, and languages.",
+      detailedDescription: "A bold two-column design: a full-height dark sidebar on the left holds contact, skills, languages, and certifications, while the white body on the right carries name, summary, experience, education, and projects.",
+      qualities: ["Dark full-height sidebar", "Two-column layout", "Bulleted sidebar content", "Strong personal branding", "Distinctive layout"],
       bestFor: ["Design", "Art", "Creative"],
-      badges: [],
+      badges: ["ATS Optimized", "Double Column"],
       gradient: "from-pink-600 to-rose-500",
-      status: 'coming-soon',
+      status: "active",
       previewImage: "/Templates/images/creative.webp",
-      rating: 0,
-      reviews: 0,
-      atsScore: 0,
-      features: []
+      features: ["Dark Sidebar", "Two-Column Layout", "Bulleted Sidebar"],
     },
     {
       id: "academic",
       name: "Academic",
-      subtitle: "Research & Education",
-      description: "A structured design optimized for academic positions and research roles.",
+      subtitle: "Black & White, Centered Header",
+      description: "Classic black-and-white layout with centered header and three-column skills.",
+      detailedDescription: "A formal black-and-white design with a centered name and contact block. Skills are split into three columns, and every section uses clean black rules — ideal for academic CVs.",
+      qualities: ["Centered header", "Three-column skills", "Pure black & white", "Formal visual tone", "Clear information hierarchy"],
       bestFor: ["Academia", "Research", "Education"],
-      badges: [],
+      badges: ["ATS Optimized", "Structured"],
       gradient: "from-emerald-600 to-teal-500",
-      status: 'coming-soon',
+      status: "active",
       previewImage: "/Templates/images/academic.webp",
-      rating: 0,
-      reviews: 0,
-      atsScore: 0,
-      features: []
-    }
+      features: ["Centered Header", "Three-Column Skills", "Black & White"],
+    },
+    {
+      id: "standard",
+      name: "Standard",
+      subtitle: "Serif & Banded Headings",
+      description: "Serif typography with soft gray bands behind every section heading.",
+      detailedDescription: "A classic serif layout (Times) with soft gray bands highlighting each section heading. Compact, professional, and highly readable — suits any industry.",
+      qualities: ["Serif typography", "Soft gray band headings", "Compact layout", "Comfortable readability", "ATS-friendly formatting"],
+      bestFor: ["All Industries", "General Professionals"],
+      badges: ["ATS Optimized", "Versatile"],
+      gradient: "from-blue-600 to-cyan-500",
+      status: "active",
+      previewImage: "/Templates/images/standard.webp",
+      features: ["Serif Typography", "Gray Band Headings", "Compact Layout"],
+    },
+    {
+      id: "classic",
+      name: "Classic",
+      subtitle: "Teal with Flanking Heading Lines",
+      description: "Elegant teal accents with decorative lines flanking each section heading.",
+      detailedDescription: "A timeless teal-accented layout where section headings are framed by leader lines on both sides. Experience uses a left date column, giving a refined, editorial feel.",
+      qualities: ["Flanking heading lines", "Left date column for experience", "Teal accents", "Clear section hierarchy", "Refined editorial feel"],
+      bestFor: ["Law", "Finance", "Government", "Traditional Industries"],
+      badges: ["ATS Optimized", "Traditional"],
+      gradient: "from-gray-700 to-gray-500",
+      status: "active",
+      previewImage: "/Templates/images/classic.webp",
+      features: ["Flanking Heading Lines", "Left Date Column", "Teal Accents"],
+    },
+    {
+      id: "ats-pro",
+      name: "ATS Pro",
+      subtitle: "Maroon Accents & Two-Column Skills",
+      description: "Maroon-toned headings with two-tone text and two-column skill list.",
+      detailedDescription: "Engineered for maximum ATS compatibility. Headings use a maroon accent on the first three characters, dates and bullets are maroon, and skills are laid out in two columns.",
+      qualities: ["Two-tone maroon headings", "Two-column skill list", "Maroon dates and bullets", "Optimized parsing structure", "Maximum ATS compatibility"],
+      bestFor: ["All Industries", "ATS Optimization"],
+      badges: ["ATS Optimized", "Pro"],
+      gradient: "from-green-600 to-emerald-500",
+      status: "active",
+      previewImage: "/Templates/images/ats-pro.webp",
+      features: ["Two-Tone Headings", "Two-Column Skills", "Maroon Accents"],
+    },
   ];
 
-  const filterOptions = ["All Templates", "Modern", "Minimal", "Professional", "Executive", "Creative", "Academic"];
+  const filterOptions = [
+    "All Templates", "Modern", "Minimal", "Teal Curve", "Executive",
+    "Creative", "Academic", "Standard", "Classic", "ATS Pro",
+  ];
 
-  const getFilteredTemplates = () => {
-    if (activeFilter === "All Templates") {
-      return templates;
+  const filteredTemplates = useMemo(() => {
+    let list = templates;
+    if (activeFilter !== "All Templates") {
+      list = list.filter((t) => t.name === activeFilter);
     }
-    return templates.filter(t => t.name === activeFilter);
-  };
-
-  const filteredTemplates = getFilteredTemplates();
+    return list;
+  }, [templates, activeFilter]);
 
   const handleUseTemplate = useCallback((templateId: string) => {
     setSelectedTemplate(templateId);
-    if (onTemplateSelect) {
-      onTemplateSelect(templateId);
-    }
+    if (onTemplateSelect) onTemplateSelect(templateId);
   }, [onTemplateSelect]);
 
   const handlePreview = useCallback((template: Template) => {
@@ -190,24 +218,13 @@ const CVTemplatesPage = ({ onBackToHome, onTemplateSelect }: CVTemplatesPageProp
   }, []);
 
   const handleImageError = useCallback((templateId: string) => {
-    setImageErrors(prev => ({ ...prev, [templateId]: true }));
+    setImageErrors((prev) => ({ ...prev, [templateId]: true }));
   }, []);
 
-  // ✅ Pan & Zoom handlers
-  const handleZoomIn = () => {
-    setZoomLevel(prev => Math.min(prev + 0.25, 3));
-  };
+  const handleZoomIn = () => setZoomLevel((prev) => Math.min(prev + 0.25, 3));
+  const handleZoomOut = () => setZoomLevel((prev) => Math.max(prev - 0.25, 0.5));
+  const handleFitToScreen = () => { setZoomLevel(1); setPanPosition({ x: 0, y: 0 }); };
 
-  const handleZoomOut = () => {
-    setZoomLevel(prev => Math.max(prev - 0.25, 0.5));
-  };
-
-  const handleFitToScreen = () => {
-    setZoomLevel(1);
-    setPanPosition({ x: 0, y: 0 });
-  };
-
-  // ✅ Mouse drag handlers for pan
   const handleMouseDown = (e: React.MouseEvent) => {
     if (zoomLevel <= 1) return;
     setIsDragging(true);
@@ -219,17 +236,11 @@ const CVTemplatesPage = ({ onBackToHome, onTemplateSelect }: CVTemplatesPageProp
     if (!isDragging) return;
     const dx = e.clientX - dragStart.x;
     const dy = e.clientY - dragStart.y;
-    setPanPosition({
-      x: panStart.x + dx,
-      y: panStart.y + dy
-    });
+    setPanPosition({ x: panStart.x + dx, y: panStart.y + dy });
   };
 
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
+  const handleMouseUp = () => setIsDragging(false);
 
-  // ✅ Touch drag handlers for mobile
   const handleTouchStart = (e: React.TouchEvent) => {
     if (zoomLevel <= 1) return;
     const touch = e.touches[0];
@@ -243,96 +254,79 @@ const CVTemplatesPage = ({ onBackToHome, onTemplateSelect }: CVTemplatesPageProp
     const touch = e.touches[0];
     const dx = touch.clientX - dragStart.x;
     const dy = touch.clientY - dragStart.y;
-    setPanPosition({
-      x: panStart.x + dx,
-      y: panStart.y + dy
-    });
+    setPanPosition({ x: panStart.x + dx, y: panStart.y + dy });
   };
 
-  const handleTouchEnd = () => {
-    setIsDragging(false);
-  };
+  const handleTouchEnd = () => setIsDragging(false);
 
-  // ✅ Keyboard accessibility for modal
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && previewTemplate) {
-        closePreview();
-      }
-      if (event.key === '+' && previewTemplate) {
-        handleZoomIn();
-      }
-      if (event.key === '-' && previewTemplate) {
-        handleZoomOut();
-      }
+      if (!previewTemplate) return;
+      if (event.key === "Escape") closePreview();
+      if (event.key === "+") handleZoomIn();
+      if (event.key === "-") handleZoomOut();
     };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [previewTemplate, closePreview]);
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [previewTemplate]);
-
-  // Focus management for modal
   useEffect(() => {
-    if (previewTemplate && closeButtonRef.current) {
-      closeButtonRef.current.focus();
-    }
+    if (previewTemplate && closeButtonRef.current) closeButtonRef.current.focus();
   }, [previewTemplate]);
 
-  // Prevent body scroll when modal is open
   useEffect(() => {
     if (previewTemplate) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = prevOverflow || ""; };
     }
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
   }, [previewTemplate]);
 
-  // Reset pan when zoom changes
   useEffect(() => {
-    if (zoomLevel <= 1) {
-      setPanPosition({ x: 0, y: 0 });
-    }
+    if (zoomLevel <= 1) setPanPosition({ x: 0, y: 0 });
   }, [zoomLevel]);
 
-  const renderStars = useCallback((rating: number) => {
-    const fullStars = Math.floor(rating);
-    const hasHalfStar = rating % 1 >= 0.5;
-    const totalStars = 5;
-    const stars = [];
+  useEffect(() => {
+    if (expandedTemplateId === null) return;
+    let ticking = false;
+    const handleScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(() => {
+        setExpandedTemplateId(null);
+        ticking = false;
+      });
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [expandedTemplateId]);
 
-    for (let i = 0; i < totalStars; i++) {
-      if (i < fullStars) {
-        stars.push(<Star key={i} size={10} className="fill-yellow-400 text-yellow-400" />);
-      } else if (i === fullStars && hasHalfStar) {
-        stars.push(
-          <div key={i} className="relative">
-            <Star size={10} className="text-zinc-600" />
-            <Star size={10} className="fill-yellow-400 text-yellow-400 absolute top-0 left-0 overflow-hidden" style={{ clipPath: 'inset(0 50% 0 0)' }} />
-          </div>
-        );
-      } else {
-        stars.push(<Star key={i} size={10} className="text-zinc-600" />);
-      }
-    }
-
-    return stars;
-  }, []);
-
-  const getAtsColor = (score: number) => {
-    if (score >= 90) return "text-green-400";
-    if (score >= 80) return "text-yellow-400";
-    return "text-orange-400";
+  const getFeatureChips = (t: Template): string[] => {
+    const map: Record<string, string> = {
+      "ATS Optimized": "ATS Friendly",
+      "Two-Column": "Two Column",
+      "Double Column": "Two Column",
+      Structured: "Structured",
+      Versatile: "Versatile",
+      Traditional: "Traditional",
+      Clean: "Clean",
+      Premium: "Premium",
+      Pro: "Pro",
+      Professional: "Professional",
+    };
+    const out: string[] = [];
+    t.badges.forEach((b) => {
+      if (b === "Popular") return;
+      const label = map[b];
+      if (label && !out.includes(label)) out.push(label);
+    });
+    return out;
   };
 
-  // ✅ Get SEO config for CV templates page
-  const seoConfig = getSEOConfig('templates');
+  const seoConfig = getSEOConfig("templates");
 
   return (
     <>
-      {/* ✅ SEO: CV Templates Page */}
       <SEOHead
         title={seoConfig.title}
         description={seoConfig.description}
@@ -341,328 +335,307 @@ const CVTemplatesPage = ({ onBackToHome, onTemplateSelect }: CVTemplatesPageProp
         ogType={seoConfig.ogType || "website"}
       />
 
-      {/* ✅ JSON-LD: CV Templates Schema */}
       <script type="application/ld+json">
-        {generateJSONLDScript(generatePageSchemas('templates'))}
+        {generateJSONLDScript(generatePageSchemas("templates"))}
       </script>
 
-      <div className="min-h-screen bg-black overflow-y-auto">
-        {/* Header - Sticky */}
-        <div className="h-[48px] flex justify-between items-center px-4 md:px-6 border-b border-zinc-900 bg-black/50 backdrop-blur-sm sticky top-0 z-10">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onBackToHome || (() => {})}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 hover:border-purple-500/30 transition-all duration-300 group shadow-lg hover:shadow-purple-500/10"
-              aria-label="Back to Home"
-            >
-              <ArrowLeft size={14} className="text-gray-400 group-hover:text-purple-400 transition-colors duration-300" />
-              <span className="text-[10px] md:text-xs font-medium text-gray-300 group-hover:text-white transition-colors duration-300">
-                Back
-              </span>
-            </button>
-            <div className="flex items-center gap-1.5">
-              <div className="w-5 h-5 md:w-6 md:h-6 rounded-lg bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center shadow-lg">
-                <FileText size={10} className="md:text-sm text-white" />
-              </div>
-              <span className="text-[10px] md:text-xs font-medium text-white">Resume Templates</span>
+      <div className="w-full h-full flex flex-col bg-slate-100 text-slate-900 overflow-hidden">
+        <div className="flex-1 overflow-y-auto min-h-0">
+
+          {/* HERO */}
+          <section className="bg-white border-b border-slate-200">
+            <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 sm:py-8 md:py-10 text-center">
+              <h2 className="text-xl sm:text-2xl md:text-4xl font-bold tracking-tight text-slate-900">
+                Choose Your CV Template
+              </h2>
+              <p className="text-xs sm:text-sm md:text-base text-slate-500 mt-2 max-w-2xl mx-auto">
+                Professional, modern and ATS-friendly templates to help you stand out.
+              </p>
             </div>
-          </div>
-        </div>
+          </section>
 
-        {/* Hero Section */}
-        <div className="relative overflow-hidden px-4 md:px-6 pt-1 pb-1 md:pt-2 md:pb-2 border-b border-zinc-900">
-          <div className="absolute inset-0 bg-gradient-to-b from-purple-600/10 via-transparent to-transparent" />
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[400px] md:w-[600px] h-[200px] md:h-[300px] bg-purple-600/20 rounded-full blur-3xl opacity-20" />
-          <div className="relative max-w-4xl mx-auto text-center">
-            <h1 className="text-[10px] md:text-[20px] font-bold bg-gradient-to-r from-purple-400 via-blue-400 to-purple-400 bg-clip-text text-transparent mb-0.5 md:mb-1">
-              Choose Your CV Template
-            </h1>
-            <p className="text-gray-300 text-[7px] md:text-[11px] max-w-2xl mx-auto">
-              Professional ATS-Optimized CV Templates
-            </p>
-          </div>
-        </div>
-
-        {/* Filter Tabs */}
-        <div className="px-4 md:px-6 py-1.5 md:py-2 border-b border-zinc-900 bg-black/30 sticky top-[48px] z-10">
-          <div className="flex gap-1 md:gap-1.5 max-w-4xl mx-auto overflow-x-auto pb-1 md:pb-0 scrollbar-hide snap-x snap-mandatory justify-start lg:justify-center">
-            {filterOptions.map((filter) => (
-              <button
-                key={filter}
-                onClick={() => setActiveFilter(filter)}
-                className={`px-2.5 md:px-3 py-1 md:py-1.5 rounded-full text-[9px] md:text-xs font-medium transition-all duration-300 whitespace-nowrap snap-start flex-shrink-0 ${
-                  activeFilter === filter
-                    ? "bg-gradient-to-r from-purple-600 to-blue-500 text-white shadow-lg shadow-purple-500/25"
-                    : "bg-zinc-900/50 text-gray-400 hover:text-white hover:bg-zinc-800 border border-zinc-800"
-                }`}
+          {/* FILTERS — scrolls away with the page (NOT sticky), horizontal swipe works, scrollbar hidden */}
+          <section className="bg-white border-b border-slate-200">
+            <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-3">
+              <div
+                className="cv-filter-scroll overflow-x-auto overflow-y-hidden -mx-1 px-1"
+                style={{
+                  scrollbarWidth: "none",
+                  msOverflowStyle: "none",
+                  WebkitOverflowScrolling: "touch",
+                  touchAction: "pan-x",
+                }}
               >
-                {filter}
-              </button>
-            ))}
-          </div>
-        </div>
+                <div className="flex flex-nowrap gap-2 w-max mx-auto">
+                {filterOptions.map((filter) => {
+                  const active = activeFilter === filter;
+                  return (
+                    <button
+                      key={filter}
+                      onClick={() => setActiveFilter(filter)}
+                      className={`px-3 sm:px-3.5 py-1.5 rounded-full text-[11px] sm:text-xs font-medium whitespace-nowrap shrink-0 flex-none transition-all border focus:outline-none focus:ring-2 focus:ring-purple-500/30 ${
+                        active
+                          ? "bg-purple-600 text-white border-purple-600 shadow-sm"
+                          : "bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:text-slate-900"
+                      }`}
+                      aria-pressed={active}
+                    >
+                      {filter}
+                    </button>
+                  );
+                })}
+                </div>
+              </div>
+            </div>
+          </section>
 
-        {/* Templates Grid */}
-        <div className="px-4 md:px-6 pt-3 md:pt-4 pb-6 md:pb-8">
-          <div className="max-w-[900px] mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 lg:gap-8 justify-items-center">
-              {filteredTemplates.map((template) => {
-                const isActive = template.status === 'active';
-                const hasImageError = imageErrors[template.id];
-                const isComingSoon = template.status === 'coming-soon';
+          {/* GRID */}
+          <main className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
+            {filteredTemplates.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center mb-4">
+                  <FileText size={22} className="text-slate-400" />
+                </div>
+                <h3 className="text-base font-semibold text-slate-800">No templates found</h3>
+                <p className="text-sm text-slate-500 mt-1">Try a different category.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6 items-start">
+                {filteredTemplates.map((template) => {
+                  const isActive = template.status === "active";
+                  const hasImageError = imageErrors[template.id];
+                  const isComingSoon = template.status === "coming-soon";
+                  const isSelected = selectedTemplate === template.id;
+                  const isExpanded = expandedTemplateId === template.id;
+                  const featureChips = getFeatureChips(template);
 
-                return (
-                  <div
-                    key={template.id}
-                    className={`group relative rounded-xl md:rounded-2xl border transition-all duration-300 ${
-                      selectedTemplate === template.id
-                        ? "border-purple-500/50 shadow-xl shadow-purple-500/20"
-                        : "border-zinc-800 hover:border-zinc-700 hover:shadow-xl hover:shadow-purple-500/10 cursor-pointer"
-                    } bg-zinc-900/50 backdrop-blur-sm w-full max-w-[400px]`}
-                    style={{ height: "660px" }}
-                  >
-                    <div className={`absolute -inset-0.5 rounded-xl md:rounded-2xl bg-gradient-to-r ${template.gradient} opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-500`} />
-
-                    <div className="relative p-2 md:p-3 h-full">
-                      <div className={`relative rounded-lg md:rounded-xl overflow-hidden bg-zinc-950 border ${isActive ? 'border-zinc-800 group-hover:border-zinc-700' : 'border-zinc-800/50 group-hover:border-zinc-700'} transition-colors duration-300 h-full flex flex-col`}>
-                        
-                        <div className="relative flex justify-center items-center p-2 md:p-3 w-full" style={{ minHeight: "528px", height: "528px" }}>
-                          {hasImageError ? (
-                            <div className="flex flex-col items-center justify-center gap-2 md:gap-3 text-zinc-500">
-                              <AlertCircle size={30} className="md:text-4xl text-zinc-700" />
-                              <span className="text-[9px] md:text-[10px]">Preview unavailable</span>
-                            </div>
-                          ) : (
-                            <img
-                              src={template.previewImage}
-                              alt={`${template.name} template preview`}
-                              className="w-full h-full object-contain max-h-[500px]"
-                              loading="lazy"
-                              onError={() => handleImageError(template.id)}
-                            />
-                          )}
-                          
-                          {isComingSoon && (
-                            <div className="absolute top-3 md:top-4 right-3 md:right-4 flex items-center gap-1.5 bg-black/60 backdrop-blur-sm border border-white/10 rounded-full px-2.5 py-1 md:px-3 md:py-1.5 shadow-lg">
-                              <Lock size={12} className="md:w-[14px] md:h-[14px] text-amber-400" />
-                              <span className="text-[8px] md:text-[9px] font-medium text-amber-400 whitespace-nowrap">Coming Soon</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {template.isPopular && isActive && (
-                          <div className="absolute top-3 md:top-4 left-3 md:left-4">
-                            <span className="px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[8px] md:text-[9px] font-bold bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg flex items-center gap-1 md:gap-1.5">
-                              <Award size={8} className="md:w-[10px] md:h-[10px]" />
-                              POPULAR
-                            </span>
-                          </div>
-                        )}
-
-                        <div className="absolute bottom-3 md:bottom-4 right-3 md:right-4">
-                          <span className="px-1.5 md:px-2 py-0.5 rounded-full text-[7px] md:text-[8px] font-medium bg-black/70 backdrop-blur-sm border border-white/10 text-white/70">
-                            PREVIEW
-                          </span>
-                        </div>
-
-                        {isActive && (
-                          <div className="absolute top-3 md:top-4 right-3 md:right-4 flex flex-wrap gap-1">
-                            {template.badges.map((badge) => {
-                              if (badge === "Popular") return null;
-                              return (
-                                <span
-                                  key={badge}
-                                  className="px-1.5 md:px-2 py-0.5 rounded-full text-[7px] md:text-[8px] font-medium bg-black/70 backdrop-blur-sm border border-white/10 text-white/80 flex items-center gap-0.5"
-                                >
-                                  {badge === "ATS Optimized" && <CheckCircle size={7} className="md:w-[8px] md:h-[8px] text-green-400" />}
-                                  {badge === "Classic" && <Briefcase size={7} className="md:w-[8px] md:h-[8px] text-blue-400" />}
-                                  {badge === "Clean" && <CheckCircle size={7} className="md:w-[8px] md:h-[8px] text-blue-400" />}
-                                  {badge === "Premium" && <Award size={7} className="md:w-[8px] md:h-[8px] text-amber-400" />}
-                                  {badge === "Executive" && <Users size={7} className="md:w-[8px] md:h-[8px] text-amber-400" />}
-                                  {badge}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        )}
-
-                        <div className="h-[132px] p-3 md:p-4 pt-2 md:pt-3 flex flex-col justify-center overflow-y-auto custom-scrollbar">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <h3 className="text-sm md:text-base font-semibold text-white">{template.name}</h3>
-                            </div>
-                            <div className={`w-7 h-7 md:w-8 md:h-8 rounded-lg md:rounded-xl bg-gradient-to-br ${template.gradient} flex items-center justify-center shadow-lg shrink-0`}>
-                              <FileText size={12} className="md:text-sm text-white" />
-                            </div>
-                          </div>
-
-                          {isActive && template.atsScore > 0 && (
-                            <div className="flex items-center gap-1.5 md:gap-2 mt-0.5 md:mt-1">
-                              <div className={`text-[9px] md:text-[10px] font-semibold ${getAtsColor(template.atsScore)}`}>
-                                {template.atsScore}% ATS Score
+                  return (
+                    <article
+                      key={template.id}
+                      className={`group relative flex flex-col bg-white rounded-xl sm:rounded-2xl border transition-all duration-200 overflow-hidden ${
+                        isSelected
+                          ? "border-purple-500 ring-2 ring-purple-500/20 shadow-md"
+                          : "border-slate-200 hover:border-slate-300 hover:shadow-lg hover:-translate-y-0.5"
+                      }`}
+                    >
+                      {/* Preview Image */}
+                      <div className="relative bg-slate-50 border-b border-slate-100 p-2 sm:p-4 md:p-5">
+                        <div className="relative w-full aspect-[3/4] flex items-center justify-center">
+                          <div className="relative w-full h-full bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+                            {hasImageError ? (
+                              <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-slate-400 bg-slate-50">
+                                <AlertCircle size={24} />
+                                <span className="text-[10px] sm:text-[11px]">Preview unavailable</span>
                               </div>
-                              <div className="flex-1 h-1 md:h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                                <div 
-                                  className={`h-full rounded-full bg-gradient-to-r ${
-                                    template.atsScore >= 90 ? 'from-green-500 to-emerald-500' :
-                                    template.atsScore >= 80 ? 'from-yellow-500 to-amber-500' :
-                                    'from-orange-500 to-red-500'
-                                  }`}
-                                  style={{ width: `${template.atsScore}%` }}
-                                />
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="flex gap-2 mt-1.5 md:mt-2">
-                            <button
-                              onClick={() => handlePreview(template)}
-                              className="flex-1 px-2 md:px-3 py-1.5 md:py-2 rounded-lg md:rounded-xl border border-zinc-700 hover:border-zinc-600 text-[9px] md:text-[10px] font-medium text-gray-300 hover:text-white transition-all duration-300 flex items-center justify-center gap-1 md:gap-1.5 group/btn hover:bg-zinc-800/50 min-h-[32px] md:min-h-[36px]"
-                              aria-label={`Preview ${template.name} template`}
-                            >
-                              <Eye size={11} className="md:w-[12px] md:h-[12px] text-gray-500 group-hover/btn:text-purple-400 transition-colors flex-shrink-0" />
-                              <span className="whitespace-nowrap">Preview</span>
-                            </button>
-                            
-                            {isActive ? (
-                              <button
-                                onClick={() => handleUseTemplate(template.id)}
-                                className="flex-1 px-2 md:px-3 py-1.5 md:py-2 rounded-lg md:rounded-xl bg-gradient-to-r from-purple-600 to-blue-500 text-white text-[9px] md:text-[10px] font-medium transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-purple-500/25 flex items-center justify-center gap-1 md:gap-1.5 min-h-[32px] md:min-h-[36px]"
-                                aria-label={`Use ${template.name} template`}
-                              >
-                                <CheckCircle size={11} className="md:w-[12px] md:h-[12px] flex-shrink-0" />
-                                <span className="whitespace-nowrap">Use Template</span>
-                              </button>
                             ) : (
-                              <div className="flex-1 px-2 md:px-3 py-1.5 md:py-2 rounded-lg md:rounded-xl bg-zinc-800/50 border border-zinc-700/50 text-center min-h-[32px] md:min-h-[36px] flex items-center justify-center cursor-not-allowed opacity-60">
-                                <span className="text-[9px] md:text-[10px] font-medium text-zinc-400 whitespace-nowrap">Coming Soon</span>
-                              </div>
+                              <img
+                                src={template.previewImage}
+                                alt={`${template.name} template preview`}
+                                className="w-full h-full object-contain object-top p-1 sm:p-2 bg-white"
+                                loading="lazy"
+                                onError={() => handleImageError(template.id)}
+                                draggable={false}
+                                onContextMenu={(e) => e.preventDefault()}
+                              />
                             )}
                           </div>
+
+                          {template.isPopular && isActive && (
+                            <div className="absolute -top-1 -left-1 z-10">
+                              <span className="inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-semibold bg-purple-600 text-white shadow-sm">
+                                <Award size={9} className="sm:hidden" />
+                                <Award size={10} className="hidden sm:inline" />
+                                Popular
+                              </span>
+                            </div>
+                          )}
+
+                          {isComingSoon && (
+                            <div className="absolute top-1 sm:top-2 right-1 sm:right-2 z-10">
+                              <span className="inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-medium bg-white border border-amber-200 text-amber-700 shadow-sm">
+                                <Lock size={9} className="sm:hidden" />
+                                <Lock size={10} className="hidden sm:inline" />
+                                Coming Soon
+                              </span>
+                            </div>
+                          )}
+
+                          {isActive && (
+                            <button
+                              onClick={() => handlePreview(template)}
+                              className="absolute inset-0 flex items-center justify-center bg-slate-900/0 group-hover:bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-all duration-200"
+                              aria-label={`Open ${template.name} preview`}
+                            >
+                              <span className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-white text-slate-900 text-[10px] sm:text-xs font-medium shadow-md">
+                                <Eye size={11} className="sm:hidden" />
+                                <Eye size={13} className="hidden sm:inline" />
+                                Quick Preview
+                              </span>
+                            </button>
+                          )}
                         </div>
                       </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
 
-            <div className="mt-6 md:mt-8 pt-6 md:pt-8 border-t border-zinc-900 max-w-[900px] mx-auto">
-              <h2 className="text-sm md:text-base lg:text-lg font-bold text-center mb-4 md:mb-6 bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-                Why Our CV Templates?
-              </h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                      {/* Content */}
+                      <div className="flex flex-col flex-1 p-2.5 sm:p-4 md:p-5">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <h3 className="text-xs sm:text-base font-semibold text-slate-900 truncate">{template.name}</h3>
+                            <p className="text-[10px] sm:text-xs text-slate-500 mt-0.5 truncate">{template.subtitle}</p>
+                          </div>
+                        </div>
+
+                        {!isExpanded ? (
+                          <div className="mt-2 sm:mt-3">
+                            <p className="text-[10px] sm:text-xs text-slate-600 leading-snug line-clamp-2 sm:line-clamp-1">{template.description}</p>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setExpandedTemplateId(template.id); }}
+                              className="mt-1.5 sm:mt-2 inline-flex items-center gap-1 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 hover:border-purple-300 text-[9px] sm:text-[11px] font-medium transition-colors"
+                            >
+                              More
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="mt-2 sm:mt-3">
+                            <p className="text-[9px] sm:text-[11px] font-semibold text-slate-800 uppercase tracking-wide mb-1 sm:mb-1.5">About</p>
+                            <p className="text-[10px] sm:text-xs text-slate-600 leading-snug sm:leading-relaxed">{template.detailedDescription || template.description}</p>
+
+                            {featureChips.length > 0 && (
+                              <div className="mt-2.5 sm:mt-4">
+                                <p className="text-[9px] sm:text-[11px] font-semibold text-slate-800 uppercase tracking-wide mb-1.5 sm:mb-2">Features</p>
+                                <div className="flex flex-wrap gap-1 sm:gap-1.5">
+                                  {featureChips.map((chip) => (
+                                    <span key={chip} className="inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded-md text-[9px] sm:text-[10px] font-medium bg-purple-50 text-purple-700 border border-purple-100">
+                                      {chip}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {template.qualities && template.qualities.length > 0 && (
+                              <ul className="mt-2 sm:mt-3 space-y-0.5 sm:space-y-1">
+                                {template.qualities.map((q) => (
+                                  <li key={q} className="flex items-start gap-1 sm:gap-1.5 text-[10px] sm:text-[11px] text-slate-600 leading-snug sm:leading-relaxed">
+                                    <span aria-hidden="true" className="mt-1 sm:mt-1.5 w-1 h-1 rounded-full bg-purple-500 shrink-0" />
+                                    <span>{q}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setExpandedTemplateId(null); }}
+                              className="mt-2 sm:mt-3 inline-flex items-center gap-1 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-[9px] sm:text-[11px] font-medium transition-colors"
+                            >
+                              Hide
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Buttons */}
+                        <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-slate-100 flex flex-col sm:flex-row gap-1.5 sm:gap-2">
+                          <button
+                            onClick={() => handlePreview(template)}
+                            className="w-full inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 text-[10px] sm:text-xs font-medium transition-colors"
+                          >
+                            <Eye size={11} className="sm:hidden" />
+                            <Eye size={13} className="hidden sm:inline" />
+                            Preview
+                          </button>
+
+                          {isActive ? (
+                            <button
+                              onClick={() => handleUseTemplate(template.id)}
+                              className="w-full inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-[10px] sm:text-xs font-medium transition-colors shadow-sm"
+                            >
+                              <CheckCircle size={11} className="sm:hidden" />
+                              <CheckCircle size={13} className="hidden sm:inline" />
+                              Use Template
+                            </button>
+                          ) : (
+                            <div className="w-full inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg bg-slate-100 text-slate-400 text-[10px] sm:text-xs font-medium cursor-not-allowed">
+                              <Lock size={10} className="sm:hidden" />
+                              <Lock size={12} className="hidden sm:inline" />
+                              Coming Soon
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* WHY SECTION */}
+            <section className="mt-12 md:mt-16 pt-10 border-t border-slate-200">
+              <div className="text-center mb-8">
+                <h2 className="text-xl md:text-2xl font-bold text-slate-900">Why Our CV Templates?</h2>
+                <p className="text-sm text-slate-500 mt-1.5">Built to get you past the bots and in front of real recruiters.</p>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-5">
                 {[
-                  {
-                    icon: <CheckCircle size={14} className="md:w-[16px] md:h-[16px]" />,
-                    title: "ATS Optimized",
-                    desc: "All templates are ATS friendly and optimized for applicant tracking systems"
-                  },
-                  {
-                    icon: <Award size={14} className="md:w-[16px] md:h-[16px]" />,
-                    title: "Professional Design",
-                    desc: "Designed by HR experts to make you stand out to recruiters"
-                  },
-                  {
-                    icon: <Zap size={14} className="md:w-[16px] md:h-[16px]" />,
-                    title: "Easy to Customize",
-                    desc: "Fully customizable templates to match your personal brand"
-                  },
-                  {
-                    icon: <FileText size={14} className="md:w-[16px] md:h-[16px]" />,
-                    title: "Export Ready",
-                    desc: "Export your CV in PDF format, ready to share with employers"
-                  }
+                  { icon: <CheckCircle size={18} />, title: "ATS Optimized", desc: "All templates are ATS friendly and optimized for applicant tracking systems." },
+                  { icon: <Award size={18} />, title: "Professional Design", desc: "Designed by HR experts to make you stand out to recruiters." },
+                  { icon: <Zap size={18} />, title: "Easy to Customize", desc: "Fully customizable templates to match your personal brand." },
+                  { icon: <FileText size={18} />, title: "Export Ready", desc: "Export your CV in PDF format, ready to share with employers." },
                 ].map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="p-3 md:p-4 rounded-lg md:rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300 text-center group"
-                  >
-                    <div className="w-8 h-8 md:w-10 md:h-10 mx-auto rounded-lg md:rounded-xl bg-gradient-to-br from-purple-600/20 to-blue-500/20 flex items-center justify-center mb-1.5 md:mb-2 group-hover:scale-110 transition-transform text-purple-400">
+                  <div key={idx} className="p-5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all text-center group">
+                    <div className="w-10 h-10 mx-auto rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center mb-3 group-hover:bg-purple-100 transition-colors">
                       {item.icon}
                     </div>
-                    <h4 className="text-[10px] md:text-[11px] font-semibold text-white">{item.title}</h4>
-                    <p className="text-[7px] md:text-[8px] text-gray-500 mt-0.5 leading-relaxed">{item.desc}</p>
+                    <h4 className="text-sm font-semibold text-slate-900">{item.title}</h4>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">{item.desc}</p>
                   </div>
                 ))}
               </div>
-            </div>
-          </div>
+            </section>
+          </main>
         </div>
 
-        {/* ✅ FIXED: Preview Modal with Pan & Zoom */}
+        {/* PREVIEW MODAL */}
         {previewTemplate && (
           <div
-            className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-3 md:p-4"
+            className="tpl-overlay fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center z-50 p-3 md:p-4"
             onClick={closePreview}
             role="dialog"
             aria-modal="true"
-            aria-labelledby="preview-modal-title"
           >
             <div
               ref={modalRef}
-              className="relative max-w-5xl w-full bg-zinc-900 rounded-xl md:rounded-2xl border border-zinc-800 shadow-2xl max-h-[95vh] flex flex-col"
+              className="relative max-w-5xl w-full bg-white rounded-2xl border border-slate-200 shadow-2xl tpl-modal flex flex-col overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex justify-between items-center p-3 md:p-4 border-b border-zinc-800 shrink-0">
-                <div>
-                  <h3 id="preview-modal-title" className="text-sm md:text-base font-semibold text-white">
-                    {previewTemplate.name} Template
-                  </h3>
-                  <p className="text-[10px] md:text-[11px] text-gray-400">{previewTemplate.subtitle}</p>
+              <div className="flex justify-between items-center tpl-modal-header p-3 md:p-4 border-b border-slate-200 shrink-0 bg-white">
+                <div className="min-w-0">
+                  <h3 className="text-sm md:text-base font-semibold text-slate-900 truncate">{previewTemplate.name} Template</h3>
+                  <p className="text-[11px] md:text-xs text-slate-500 truncate">{previewTemplate.subtitle}</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  {/* ✅ Zoom Controls with Pan indicator */}
-                  <div className="flex items-center gap-1 mr-2">
-                    <button
-                      onClick={handleZoomOut}
-                      className="p-1.5 rounded-lg hover:bg-zinc-800 transition-colors text-gray-400 hover:text-white"
-                      aria-label="Zoom Out"
-                      title="Zoom Out (-)"
-                    >
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-1 mr-2 bg-slate-50 border border-slate-200 rounded-lg px-1">
+                    <button onClick={handleZoomOut} className="p-1.5 rounded-md hover:bg-white transition-colors text-slate-500 hover:text-slate-900" aria-label="Zoom Out">
                       <ZoomOut size={16} />
                     </button>
-                    <span className="text-xs text-gray-400 min-w-[40px] text-center">
-                      {Math.round(zoomLevel * 100)}%
-                    </span>
-                    <button
-                      onClick={handleZoomIn}
-                      className="p-1.5 rounded-lg hover:bg-zinc-800 transition-colors text-gray-400 hover:text-white"
-                      aria-label="Zoom In"
-                      title="Zoom In (+)"
-                    >
+                    <span className="text-xs text-slate-600 min-w-[40px] text-center font-medium">{Math.round(zoomLevel * 100)}%</span>
+                    <button onClick={handleZoomIn} className="p-1.5 rounded-md hover:bg-white transition-colors text-slate-500 hover:text-slate-900" aria-label="Zoom In">
                       <ZoomIn size={16} />
                     </button>
-                    <button
-                      onClick={handleFitToScreen}
-                      className="p-1.5 rounded-lg hover:bg-zinc-800 transition-colors text-gray-400 hover:text-white"
-                      aria-label="Fit to Screen"
-                      title="Fit to Screen"
-                    >
+                    <button onClick={handleFitToScreen} className="p-1.5 rounded-md hover:bg-white transition-colors text-slate-500 hover:text-slate-900" aria-label="Fit to Screen">
                       <Maximize size={16} />
                     </button>
-                    {zoomLevel > 1 && (
-                      <span className="text-[10px] text-amber-400/70 flex items-center gap-1 ml-1">
-                        <Move size={12} />
-                        <span className="hidden sm:inline">Drag to pan</span>
-                      </span>
-                    )}
                   </div>
-                  <button
-                    ref={closeButtonRef}
-                    onClick={closePreview}
-                    className="p-1.5 md:p-2 rounded-lg hover:bg-zinc-800 transition-colors"
-                    aria-label="Close preview"
-                  >
-                    <X size={18} className="text-gray-400 hover:text-white" />
+                  <button ref={closeButtonRef} onClick={closePreview} className="p-2 rounded-lg hover:bg-slate-100 transition-colors" aria-label="Close preview">
+                    <X size={18} className="text-slate-500" />
                   </button>
                 </div>
               </div>
 
-              {/* ✅ Image Container with Pan & Zoom support */}
-              <div 
+              <div
                 ref={imageContainerRef}
-                className="p-4 md:p-6 flex justify-center items-center min-h-[400px] md:min-h-[500px] overflow-hidden modal-scrollbar flex-1"
+                className="tpl-modal-body p-3 md:p-6 flex justify-center items-center min-h-[200px] overflow-hidden flex-1 bg-slate-200"
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
@@ -670,60 +643,56 @@ const CVTemplatesPage = ({ onBackToHome, onTemplateSelect }: CVTemplatesPageProp
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
-                style={{ cursor: zoomLevel > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default' }}
+                style={{ cursor: zoomLevel > 1 ? (isDragging ? "grabbing" : "grab") : "default" }}
               >
-                <div className="w-full max-w-4xl bg-white rounded-lg shadow-2xl p-4 md:p-8 flex justify-center items-center overflow-hidden">
-                  {imageErrors[previewTemplate.id] ? (
-                    <div className="flex flex-col items-center justify-center gap-2 md:gap-3 text-zinc-500 min-h-[300px] md:min-h-[400px]">
-                      <AlertCircle size={32} className="md:text-5xl text-zinc-300" />
-                      <span className="text-xs md:text-sm text-zinc-400">Preview unavailable</span>
-                    </div>
-                  ) : (
-                    <div 
-                      className="transition-transform duration-100 ease-out"
-                      style={{ 
-                        transform: `translate(${panPosition.x}px, ${panPosition.y}px) scale(${zoomLevel})`,
-                        transformOrigin: 'center center',
-                        willChange: 'transform'
-                      }}
-                    >
-                      <img
-                        ref={imageRef}
-                        src={previewTemplate.previewImage}
-                        alt={`${previewTemplate.name} template full preview`}
-                        className="w-full h-auto max-h-[70vh] object-contain select-none"
-                        loading="lazy"
-                        onError={() => handleImageError(previewTemplate.id)}
-                        draggable={false}
-                      />
-                    </div>
-                  )}
-                </div>
+                {imageErrors[previewTemplate.id] ? (
+                  <div className="flex flex-col items-center justify-center gap-2 md:gap-3 text-slate-500 min-h-[200px]">
+                    <AlertCircle size={32} />
+                    <span className="text-xs md:text-sm">Preview unavailable</span>
+                  </div>
+                ) : (
+                  <div
+                    className="transition-transform duration-100 ease-out"
+                    style={{
+                      transform: `translate(${panPosition.x}px, ${panPosition.y}px) scale(${zoomLevel})`,
+                      transformOrigin: "center center",
+                      willChange: "transform",
+                      maxWidth: "56rem",
+                      width: "100%",
+                    }}
+                  >
+                    <img
+                      ref={imageRef}
+                      src={previewTemplate.previewImage}
+                      alt={`${previewTemplate.name} template full preview`}
+                      className="tpl-modal-img w-full h-auto object-contain select-none block"
+                      loading="lazy"
+                      onError={() => handleImageError(previewTemplate.id)}
+                      draggable={false}
+                    />
+                  </div>
+                )}
               </div>
 
-              {/* ✅ Modal Footer */}
-              <div className="p-3 md:p-4 border-t border-zinc-800 flex justify-between items-center shrink-0">
-                <div className="text-[10px] md:text-xs text-gray-500">
+              <div className="tpl-modal-footer p-3 md:p-4 border-t border-slate-200 flex justify-between items-center gap-3 shrink-0 bg-white">
+                <div className="min-w-0 truncate text-[10px] md:text-xs text-slate-500">
                   <span className="hidden sm:inline">Zoom: {Math.round(zoomLevel * 100)}% • </span>
                   {zoomLevel > 1 && <span className="hidden sm:inline">Drag to pan • </span>}
                   <span className="hidden sm:inline">ESC to close • </span>
                   <span>Click outside to close</span>
                 </div>
-                {previewTemplate.status === 'active' ? (
+                {previewTemplate.status === "active" ? (
                   <button
                     onClick={() => handleUseTemplate(previewTemplate.id)}
-                    className="px-4 md:px-6 py-1.5 md:py-2 rounded-lg md:rounded-xl bg-gradient-to-r from-purple-600 to-blue-500 text-white text-[10px] md:text-xs font-medium transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-purple-500/25 flex items-center gap-1.5 md:gap-2"
-                    aria-label={`Use ${previewTemplate.name} template`}
+                    className="inline-flex items-center gap-1.5 md:gap-2 px-4 md:px-6 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium whitespace-nowrap shrink-0 transition-colors shadow-sm"
                   >
-                    <CheckCircle size={12} className="md:w-[14px] md:h-[14px]" />
+                    <CheckCircle size={14} />
                     <span>Use This Template</span>
                   </button>
                 ) : (
-                  <div className="px-4 md:px-6 py-1.5 md:py-2 rounded-lg md:rounded-xl bg-zinc-800/50 border border-zinc-700/50 text-center min-h-[36px] md:min-h-[40px] flex items-center justify-center cursor-not-allowed opacity-60">
-                    <span className="text-[10px] md:text-xs font-medium text-zinc-400 flex items-center gap-1.5 md:gap-2">
-                      <Lock size={12} className="md:w-[14px] md:h-[14px] text-amber-400" />
-                      Coming Soon
-                    </span>
+                  <div className="inline-flex items-center gap-1.5 md:gap-2 px-4 md:px-6 py-2 rounded-lg bg-slate-100 text-slate-400 text-xs font-medium whitespace-nowrap shrink-0 cursor-not-allowed">
+                    <Lock size={14} className="text-amber-500" />
+                    Coming Soon
                   </div>
                 )}
               </div>
@@ -732,69 +701,52 @@ const CVTemplatesPage = ({ onBackToHome, onTemplateSelect }: CVTemplatesPageProp
         )}
 
         <style>{`
-          .scrollbar-hide::-webkit-scrollbar {
-            display: none;
+          .scrollbar-hide::-webkit-scrollbar { display: none; }
+          .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+          /* Filter tabs: scroll works, scrollbar fully hidden (beats global scrollbar CSS) */
+          .cv-filter-scroll,
+          section .cv-filter-scroll {
+            -ms-overflow-style: none !important;
+            scrollbar-width: none !important;
           }
-          .scrollbar-hide {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
+          .cv-filter-scroll::-webkit-scrollbar,
+          section .cv-filter-scroll::-webkit-scrollbar {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+            background: transparent !important;
           }
-
-          .min-h-screen.bg-black.overflow-y-auto::-webkit-scrollbar {
-            width: 6px;
+          /* Preview modal: mobile-browser safe (dvh = visible height, excludes address bar) */
+          .tpl-overlay {
+            height: 100vh;
+            height: 100dvh;
+            padding-top: max(0.75rem, env(safe-area-inset-top));
+            padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
           }
-          .min-h-screen.bg-black.overflow-y-auto::-webkit-scrollbar-track {
-            background: rgba(0, 0, 0, 0.3);
+          .tpl-modal {
+            max-height: 95vh;
+            max-height: 95dvh;
+            max-height: 100%;
+            min-height: 0;
           }
-          .min-h-screen.bg-black.overflow-y-auto::-webkit-scrollbar-thumb {
-            background: linear-gradient(to bottom, #8b5cf6, #3b82f6);
-            border-radius: 3px;
+          .tpl-modal-body { min-height: 0; }
+          .tpl-modal-img {
+            max-height: calc(95vh - 200px);
+            max-height: calc(95dvh - 200px);
           }
-          .min-h-screen.bg-black.overflow-y-auto::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(to bottom, #a78bfa, #60a5fa);
+          .tpl-modal-header, .tpl-modal-footer { flex-shrink: 0; }
+          .tpl-modal-footer { padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); }
+          .line-clamp-1 {
+            display: -webkit-box;
+            -webkit-line-clamp: 1;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
           }
-          
-          .custom-scrollbar::-webkit-scrollbar {
-            width: 4px;
-          }
-          .custom-scrollbar::-webkit-scrollbar-track {
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 2px;
-          }
-          .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: linear-gradient(to bottom, #8b5cf6, #3b82f6);
-            border-radius: 2px;
-          }
-          .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(to bottom, #a78bfa, #60a5fa);
-          }
-          
-          .modal-scrollbar::-webkit-scrollbar {
-            width: 6px;
-          }
-          .modal-scrollbar::-webkit-scrollbar-track {
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 3px;
-          }
-          .modal-scrollbar::-webkit-scrollbar-thumb {
-            background: linear-gradient(to bottom, #8b5cf6, #3b82f6);
-            border-radius: 3px;
-          }
-          .modal-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(to bottom, #a78bfa, #60a5fa);
-          }
-          
-          .min-h-screen.bg-black.overflow-y-auto {
-            scrollbar-width: thin;
-            scrollbar-color: #8b5cf6 rgba(0, 0, 0, 0.3);
-          }
-          .custom-scrollbar {
-            scrollbar-width: thin;
-            scrollbar-color: #8b5cf6 rgba(0, 0, 0, 0.2);
-          }
-          .modal-scrollbar {
-            scrollbar-width: thin;
-            scrollbar-color: #8b5cf6 rgba(0, 0, 0, 0.2);
+          .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
           }
         `}</style>
       </div>

@@ -1,36 +1,184 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { ChevronsDown, Eye } from 'lucide-react';
+// src/components/cv-builder/preview/CVPreview.tsx
+// ✅ NEW: Feedback button (same size as Download) next to Download dropdown
+// ✅ NEW: onEditSection + activeSection pass-through to templates
+// ✅ NEW: Fullscreen button — native Fullscreen API, no library
+// ✅ FIXED: Fullscreen background — now a light slate canvas
+// ✅ NEW: Download PNG — html-to-image (dynamic import, zero bundle cost)
+// ✅ NEW: forwardRef — exposes the template wrapper's ref
+// ✅ NEW (PNG bug fix): forwards `onPNGExportStateChange`
+// ✅ KICKRESUME STYLE: React.memo wrapper — skips re-render if props unchanged
+// =====================================================
+
+import React, { useRef, useState, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
+import { Eye, Download, ChevronDown, Copy, FileText, FileDown, MessageCircle, Maximize, Minimize, Image as ImageIcon } from 'lucide-react';
 import { CVPreviewProps } from './types/previewTypes';
 
-// Hooks
-import { useCVScores } from './hooks/useCVScores';
-import { useATSBreakdown } from './hooks/useATSBreakdown';
 import { useTemplateStyles } from './hooks/useTemplateStyles';
+import { usePNGDownload } from '../hooks/usePNGDownload';
 
-// Components
-import CircularProgress from './components/CircularProgress';
 import MinimalTemplate from './components/MinimalTemplate';
 import ClassicTemplate from './components/ClassicTemplate';
 import ModernTemplate from './components/ModernTemplate';
+import TealCurveTemplate from './components/TealCurveTemplate';
+import ExecutiveTemplate from './components/ExecutiveTemplate';
+import CreativeTemplate from './components/CreativeTemplate';
+import AcademicTemplate from './components/AcademicTemplate';
+import StandardTemplate from './components/StandardTemplate';
+import CorporateTemplate from './components/CorporateTemplate';
+import ATSProTemplate from './components/ATSProTemplate';
 
-// ✅ NEW: Mobile version with tabs
 import CVPreviewMobile from './CVPreviewMobile';
 
-// Utils
-import { hasStringContent } from './utils/renderHelpers';
+export interface CVPreviewHandle {
+    downloadPNG: () => Promise<void>;
+}
 
-const CVPreview: React.FC<CVPreviewProps> = (props) => {
-    // ============================================
-    // 1. REFS
-    // ============================================
-    const cvHealthRef = useRef<HTMLDivElement>(null);
+// ============================================
+// Download Dropdown
+// ============================================
+interface DownloadDropdownProps {
+    onCopy?: () => void | Promise<void>;
+    onDownloadPDF?: () => void | Promise<void>;
+    onDownloadTXT?: () => void | Promise<void>;
+    onDownloadPNG?: () => void | Promise<void>;
+}
 
-    // ============================================
-    // 2. STATE - Check if mobile viewport
-    // ============================================
+const DownloadDropdown: React.FC<DownloadDropdownProps> = ({
+    onCopy,
+    onDownloadPDF,
+    onDownloadTXT,
+    onDownloadPNG,
+}) => {
+    const [open, setOpen] = useState(false);
+    const wrapRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!open) return;
+        const handleClick = (e: MouseEvent) => {
+            if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+                setOpen(false);
+            }
+        };
+        const handleKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setOpen(false);
+        };
+        document.addEventListener('mousedown', handleClick);
+        document.addEventListener('keydown', handleKey);
+        return () => {
+            document.removeEventListener('mousedown', handleClick);
+            document.removeEventListener('keydown', handleKey);
+        };
+    }, [open]);
+
+    const run = (fn?: () => void | Promise<void>) => {
+        if (!fn) return;
+        setOpen(false);
+        try {
+            const r = fn();
+            if (r && typeof (r as Promise<void>).catch === 'function') {
+                (r as Promise<void>).catch(err => console.error(err));
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const hasAny = !!(onCopy || onDownloadPDF || onDownloadTXT || onDownloadPNG);
+    if (!hasAny) return null;
+
+    return (
+        <div ref={wrapRef} className="relative">
+            <button
+                type="button"
+                onClick={() => setOpen(v => !v)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white text-xs font-semibold shadow-md shadow-purple-600/20 hover:shadow-lg hover:shadow-purple-600/30 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-purple-500/20"
+                aria-haspopup="menu"
+                aria-expanded={open}
+            >
+                <Download size={13} />
+                <span>Download</span>
+                <ChevronDown
+                    size={12}
+                    className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+                />
+            </button>
+
+            {open && (
+                <div
+                    role="menu"
+                    className="absolute right-0 mt-2 w-48 rounded-xl bg-white border border-slate-200 shadow-2xl shadow-black/10 z-[60] overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150"
+                >
+                    <button
+                        role="menuitem"
+                        onClick={() => run(onCopy)}
+                        className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors duration-150"
+                    >
+                        <Copy size={13} className="text-purple-600 flex-shrink-0" />
+                        Copy CV
+                    </button>
+
+                    <div className="h-px bg-slate-100" />
+
+                    <button
+                        role="menuitem"
+                        onClick={() => run(onDownloadPDF)}
+                        className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors duration-150"
+                    >
+                        <FileDown size={13} className="text-purple-600 flex-shrink-0" />
+                        Download PDF
+                    </button>
+
+                    <div className="h-px bg-slate-100" />
+
+                    <button
+                        role="menuitem"
+                        onClick={() => run(onDownloadPNG)}
+                        className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors duration-150"
+                    >
+                        <ImageIcon size={13} className="text-purple-600 flex-shrink-0" />
+                        Download PNG
+                    </button>
+
+                    <div className="h-px bg-slate-100" />
+
+                    <button
+                        role="menuitem"
+                        onClick={() => run(onDownloadTXT)}
+                        className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors duration-150"
+                    >
+                        <FileText size={13} className="text-purple-600 flex-shrink-0" />
+                        Download TXT
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// ============================================
+// ✅ CVPreviewInner — actual component (memo-wrapped below)
+// ============================================
+const CVPreviewInner = forwardRef<CVPreviewHandle, CVPreviewProps>((props, ref) => {
     const [isMobile, setIsMobile] = useState(false);
+    const [isFullscreen, setIsFullscreen] = useState(false);
 
-    // ✅ FIXED: Added dependency array to prevent infinite loop
+    // ✅ Fullscreen target (whole preview pane).
+    const fullscreenRef = useRef<HTMLDivElement>(null);
+
+    // ✅ PNG capture target
+    const previewBodyRef = useRef<HTMLDivElement>(null);
+
+    const { downloadPNG } = usePNGDownload({
+        elementRef: previewBodyRef,
+        fileName: props.personalInfo?.name || 'My_CV',
+        toastId: 'cv-png',
+        onStateChange: props.onPNGExportStateChange,
+    });
+
+    useImperativeHandle(ref, () => ({
+        downloadPNG,
+    }), [downloadPNG]);
+
     useEffect(() => {
         const checkMobile = () => {
             const mobile = window.innerWidth < 640;
@@ -39,55 +187,30 @@ const CVPreview: React.FC<CVPreviewProps> = (props) => {
         checkMobile();
         window.addEventListener('resize', checkMobile);
         return () => window.removeEventListener('resize', checkMobile);
-    }, []); // ✅ Empty dependency array - runs once on mount
+    }, []);
 
-    // ============================================
-    // 3. HANDLERS
-    // ============================================
-    const scrollToCVHealth = () => {
-        cvHealthRef.current?.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'start' 
-        });
-    };
+    useEffect(() => {
+        const handler = () => setIsFullscreen(!!document.fullscreenElement);
+        document.addEventListener('fullscreenchange', handler);
+        return () => document.removeEventListener('fullscreenchange', handler);
+    }, []);
 
-    // ============================================
-    // 4. HOOKS
-    // ============================================
-    
-    const { sectionScores, completionPercentage: calculatedCompletion, getSectionScore } = useCVScores({
-        personalInfo: props.personalInfo,
-        phoneNumber: props.phoneNumber,
-        experiences: props.experiences,
-        educations: props.educations,
-        projects: props.projects,
-        skills: props.skills,
-        languages: props.languages,
-        certifications: props.certifications,
-        achievements: props.achievements,
-        professionalSummary: props.professionalSummary
-    });
+    const handleToggleFullscreen = useCallback(async () => {
+        const el = fullscreenRef.current;
+        if (!el) return;
+        try {
+            if (!document.fullscreenElement) {
+                await el.requestFullscreen();
+            } else {
+                await document.exitFullscreen();
+            }
+        } catch (err) {
+            console.warn('[CVPreview] Fullscreen toggle failed:', err);
+        }
+    }, []);
 
-    const { breakdown, weightedAverage, strengthDisplay, weakPoints } = useATSBreakdown({
-        personalInfo: props.personalInfo,
-        phoneNumber: props.phoneNumber,
-        professionalSummary: props.professionalSummary,
-        skills: props.skills,
-        experiences: props.experiences,
-        educations: props.educations,
-        sectionScores
-    });
+    const { backgroundStyle } = useTemplateStyles(props.template);
 
-    const { backgroundStyle, getCardStyle, getHeadingStyle, getNameStyle, getTitleStyle, getContactStyle, getPhotoBorderClass, getDescriptionStyle } = useTemplateStyles(props.template);
-
-    // ============================================
-    // 5. HELPERS
-    // ============================================
-    const hasAbout = hasStringContent(props.professionalSummary);
-
-    // ============================================
-    // 6. RENDER TEMPLATE
-    // ============================================
     const renderTemplate = () => {
         const templateProps: CVPreviewProps = {
             personalInfo: props.personalInfo,
@@ -106,7 +229,13 @@ const CVPreview: React.FC<CVPreviewProps> = (props) => {
             atsScore: props.atsScore,
             strength: props.strength,
             completionPercentage: props.completionPercentage,
-            sectionStatuses: props.sectionStatuses
+            sectionStatuses: props.sectionStatuses,
+            onCopyCV: props.onCopyCV,
+            onDownloadPDF: props.onDownloadPDF,
+            onDownloadTXT: props.onDownloadTXT,
+            onOpenFeedback: props.onOpenFeedback,
+            onEditSection: props.onEditSection,
+            activeSection: props.activeSection,
         };
 
         switch (props.template) {
@@ -114,192 +243,133 @@ const CVPreview: React.FC<CVPreviewProps> = (props) => {
                 return <MinimalTemplate {...templateProps} />;
             case 'classic':
                 return <ClassicTemplate {...templateProps} />;
+            case 'teal-curve':
+                return <TealCurveTemplate {...templateProps} />;
+            case 'executive':
+                return <ExecutiveTemplate {...templateProps} />;
+            case 'creative':
+                return <CreativeTemplate {...templateProps} />;
+            case 'academic':
+                return <AcademicTemplate {...templateProps} />;
+            case 'standard':
+                return <StandardTemplate {...templateProps} />;
+            case 'corporate':
+                return <CorporateTemplate {...templateProps} />;
+            case 'ats-pro':
+                return <ATSProTemplate {...templateProps} />;
             case 'modern':
             default:
                 return <ModernTemplate {...templateProps} />;
         }
     };
 
-    // ============================================
-    // 7. RENDER
-    // ============================================
-    
-    // ✅ MOBILE: Render new mobile version with tabs
     if (isMobile) {
-        return <CVPreviewMobile {...props} />;
+        return (
+            <CVPreviewMobile
+                {...props}
+                onCopyCV={props.onCopyCV}
+                onDownloadPDF={props.onDownloadPDF}
+                onDownloadTXT={props.onDownloadTXT}
+                onOpenFeedback={props.onOpenFeedback}
+                onEditSection={props.onEditSection}
+                activeSection={props.activeSection}
+            />
+        );
     }
 
-    // ✅ DESKTOP: 100% original code (unchanged)
     return (
-        <div className="w-full h-full overflow-auto p-3 sm:p-3 lg:p-6" style={{ background: backgroundStyle }}>
-            <div className="max-w-3xl mx-auto w-full">
-                
-                <div className="flex items-center gap-2.5 sm:gap-2 mb-4 sm:mb-4 md:mb-4">
-                    <Eye size={18} className="text-purple-400 flex-shrink-0" />
-                    <h3 className="text-sm sm:text-sm md:text-base font-semibold text-purple-400">
-                        Live PDF Preview
-                    </h3>
-                </div>
-
-                {renderTemplate()}
-
-                <div className="flex flex-col items-center justify-center py-4 sm:py-4 md:py-5">
-                    
-                    <div className="relative group cursor-pointer px-4 py-2 sm:px-0 sm:py-0" onClick={scrollToCVHealth}>
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2.5 sm:mb-3 px-3 sm:px-3 py-1.5 sm:py-1.5 
-                                        bg-gray-900/95 backdrop-blur-sm 
-                                        border border-purple-500/30 rounded-lg
-                                        text-[10px] sm:text-[10px] text-purple-300/80 font-medium whitespace-nowrap
-                                        opacity-0 group-hover:opacity-100 
-                                        transition-opacity duration-300 ease-out pointer-events-none
-                                        shadow-lg shadow-purple-500/10">
-                            Scroll to Insights
-                            <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 
-                                            w-2 h-2 bg-gray-900/95 border-r border-b border-purple-500/30 
-                                            rotate-45" />
-                        </div>
-                        
-                        <div className="relative animate-arrow-bounce 
-                                        transition-transform duration-300 ease-out
-                                        group-hover:scale-105">
-                            
-                            <div className="absolute inset-0 rounded-full blur-xl bg-purple-500/20 -z-10 scale-150 
-                                            group-hover:bg-purple-500/35 transition-all duration-500" />
-                            <div className="absolute inset-0 rounded-full blur-lg bg-purple-400/10 -z-10 scale-125 
-                                            group-hover:bg-purple-400/20 transition-all duration-500" />
-                            
-                            <ChevronsDown 
-                                size={20}
-                                className="text-purple-400 
-                                           drop-shadow-[0_0_12px_rgba(168,85,247,0.3)]
-                                           group-hover:drop-shadow-[0_0_20px_rgba(168,85,247,0.5)]
-                                           transition-all duration-500"
-                                strokeWidth={1.5}
-                            />
-                        </div>
-                    </div>
-                    
-                    <div 
-                        className="text-[10px] sm:text-[11px] font-medium text-purple-400/70 tracking-wide mt-2 sm:mt-2 cursor-pointer 
-                                   hover:text-purple-400/90 transition-colors duration-300 px-4 py-1"
-                        onClick={scrollToCVHealth}
-                    >
-                        More Insights
-                    </div>
-                </div>
-
-                <div 
-                    ref={cvHealthRef}
-                    id="cv-health-section"
-                    className="rounded-2xl p-5 sm:p-5 md:p-5 mb-4 sm:mb-4 bg-gray-900/40 backdrop-blur-md border border-purple-500/20 shadow-xl scroll-mt-4"
-                >
-                    <h3 className="text-xs sm:text-sm font-semibold text-purple-400 mb-4 sm:mb-4 flex items-center gap-2 sm:gap-2">
-                        <span className="text-sm sm:text-base">📊</span> CV Health
-                    </h3>
-                    <div className="grid grid-cols-3 gap-3 sm:gap-4 md:gap-4">
-                        <CircularProgress score={sectionScores.Personal} size={55} strokeWidth={3.5} label="Personal" />
-                        <CircularProgress score={sectionScores.Experience} size={55} strokeWidth={3.5} label="Experience" />
-                        <CircularProgress score={sectionScores.Education} size={55} strokeWidth={3.5} label="Education" />
-                        <CircularProgress score={sectionScores.Skills} size={55} strokeWidth={3.5} label="Skills" />
-                        <CircularProgress score={sectionScores.Summary} size={55} strokeWidth={3.5} label="Summary" />
-                        <CircularProgress score={sectionScores.Projects} size={55} strokeWidth={3.5} label="Projects" />
-                    </div>
-                </div>
-
-                <div className="rounded-2xl p-5 sm:p-5 md:p-5 mb-4 sm:mb-4 bg-gray-900/40 backdrop-blur-md border border-purple-500/20 shadow-xl">
-                    <h3 className="text-xs sm:text-sm font-semibold text-purple-400 mb-4 sm:mb-4 flex items-center gap-2 sm:gap-2">
-                        <span className="text-sm sm:text-base">📈</span> ATS Analysis
-                    </h3>
-                    <div className="space-y-3 sm:space-y-3 md:space-y-3">
-                        <div>
-                            <div className="flex justify-between text-[11px] sm:text-xs text-gray-400 mb-1 sm:mb-1">
-                                <span>🔑 Keywords</span>
-                                <span className="text-purple-400 font-medium">{breakdown.keywords}%</span>
-                            </div>
-                            <div className="h-1.5 sm:h-1.5 bg-gray-800/80 rounded-full">
-                                <div className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full" 
-                                     style={{ width: `${breakdown.keywords}%` }} />
-                            </div>
-                        </div>
-                        <div>
-                            <div className="flex justify-between text-[11px] sm:text-xs text-gray-400 mb-1 sm:mb-1">
-                                <span>📐 Structure</span>
-                                <span className="text-purple-400 font-medium">{breakdown.structure}%</span>
-                            </div>
-                            <div className="h-1.5 sm:h-1.5 bg-gray-800/80 rounded-full">
-                                <div className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full" 
-                                     style={{ width: `${breakdown.structure}%` }} />
-                            </div>
-                        </div>
-                        <div>
-                            <div className="flex justify-between text-[11px] sm:text-xs text-gray-400 mb-1 sm:mb-1">
-                                <span>💼 Experience</span>
-                                <span className="text-purple-400 font-medium">{breakdown.experience}%</span>
-                            </div>
-                            <div className="h-1.5 sm:h-1.5 bg-gray-800/80 rounded-full">
-                                <div className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full" 
-                                     style={{ width: `${breakdown.experience}%` }} />
-                            </div>
-                        </div>
-                        <div>
-                            <div className="flex justify-between text-[11px] sm:text-xs text-gray-400 mb-1 sm:mb-1">
-                                <span>⚡ Skills</span>
-                                <span className="text-purple-400 font-medium">{breakdown.skills}%</span>
-                            </div>
-                            <div className="h-1.5 sm:h-1.5 bg-gray-800/80 rounded-full">
-                                <div className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full" 
-                                     style={{ width: `${breakdown.skills}%` }} />
-                            </div>
-                        </div>
-                        <div>
-                            <div className="flex justify-between text-[11px] sm:text-xs text-gray-400 mb-1 sm:mb-1">
-                                <span>✅ Completeness</span>
-                                <span className="text-purple-400 font-medium">{breakdown.completeness}%</span>
-                            </div>
-                            <div className="h-1.5 sm:h-1.5 bg-gray-800/80 rounded-full">
-                                <div className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full" 
-                                     style={{ width: `${breakdown.completeness}%` }} />
-                            </div>
-                        </div>
-                    </div>
-                    <div className="mt-4 sm:mt-4 pt-3 sm:pt-3 border-t border-purple-500/10 flex justify-between text-[11px] sm:text-xs">
-                        <span className="text-gray-500">Weighted Average</span>
-                        <span className="text-purple-400 font-medium">{weightedAverage}%</span>
-                    </div>
-                </div>
-
-                {weakPoints.length > 0 && (
-                    <div className="rounded-2xl p-5 sm:p-5 md:p-5 mb-4 sm:mb-4 bg-gray-900/40 backdrop-blur-md border border-purple-500/20 shadow-xl">
-                        <h3 className="text-xs sm:text-sm font-semibold text-purple-400 mb-3 sm:mb-3 flex items-center gap-2 sm:gap-2 flex-wrap">
-                            <span className="text-sm sm:text-base">💡</span> CV Improvement Suggestions 
-                            <span className="text-[10px] sm:text-xs text-gray-500 ml-1.5 sm:ml-2">{weakPoints.length} items</span>
+        <div
+            ref={fullscreenRef}
+            className={`w-full h-full overflow-auto ${
+                isFullscreen ? 'bg-slate-200 p-6' : 'p-2'
+            }`}
+            style={{ background: isFullscreen ? '#e2e8f0' : backgroundStyle }}
+        >
+            <div className="w-full">
+                {/* Header */}
+                <div className="flex items-center justify-between gap-3 mb-4 px-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                        <Eye size={18} className="text-purple-600 flex-shrink-0" />
+                        <h3 className="text-sm md:text-base font-semibold text-purple-600 truncate">
+                            Live PDF Preview
                         </h3>
-                        <div className="flex flex-wrap gap-2 sm:gap-2">
-                            {weakPoints.map((point, i) => (
-                                <span key={i} className="text-[10px] sm:text-xs text-purple-300 bg-purple-500/10 px-2.5 sm:px-2 py-1 sm:py-1 rounded-full border border-purple-500/20">
-                                    {point}
-                                </span>
-                            ))}
-                        </div>
                     </div>
-                )}
-            </div>
 
-            <style>{`
-                @keyframes arrowBounce {
-                    0%, 100% {
-                        transform: translateY(0);
-                    }
-                    50% {
-                        transform: translateY(6px);
-                    }
-                }
-                .animate-arrow-bounce {
-                    animation: arrowBounce 2s ease-in-out infinite;
-                }
-            `}</style>
+                    <div className="flex items-center gap-2">
+                        {props.onOpenFeedback && (
+                            <button
+                                type="button"
+                                onClick={props.onOpenFeedback}
+                                aria-label="Give feedback"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white text-xs font-semibold shadow-md shadow-purple-600/20 hover:shadow-lg hover:shadow-purple-600/30 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-purple-500/20"
+                            >
+                                <MessageCircle size={13} />
+                                <span>Feedback</span>
+                            </button>
+                        )}
+
+                        <button
+                            type="button"
+                            onClick={handleToggleFullscreen}
+                            aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                            title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50 text-slate-600 hover:text-purple-700 shadow-sm transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-purple-500/20"
+                        >
+                            {isFullscreen ? <Minimize size={14} /> : <Maximize size={14} />}
+                        </button>
+
+                        <DownloadDropdown
+                            onCopy={props.onCopyCV}
+                            onDownloadPDF={props.onDownloadPDF}
+                            onDownloadTXT={props.onDownloadTXT}
+                            onDownloadPNG={downloadPNG}
+                        />
+                    </div>
+                </div>
+
+                {/* ✅ PNG capture target */}
+                <div ref={previewBodyRef}>
+                    {renderTemplate()}
+                </div>
+            </div>
         </div>
     );
-};
+});
+
+CVPreviewInner.displayName = 'CVPreviewInner';
+
+// ============================================
+// ✅ React.memo — skips re-render if props unchanged
+// ============================================
+// Custom comparison: skip re-render if the data props are shallow-equal.
+// This prevents re-renders when only unrelated parent state changes.
+// ============================================
+const CVPreview = React.memo(CVPreviewInner, (prevProps, nextProps) => {
+    // ✅ Fast path: if references are equal, definitely skip
+    if (prevProps === nextProps) return true;
+
+    // ✅ Compare the heavy data props
+    if (prevProps.personalInfo !== nextProps.personalInfo) return false;
+    if (prevProps.phoneNumber !== nextProps.phoneNumber) return false;
+    if (prevProps.selectedCountryCode !== nextProps.selectedCountryCode) return false;
+    if (prevProps.professionalSummary !== nextProps.professionalSummary) return false;
+    if (prevProps.experiences !== nextProps.experiences) return false;
+    if (prevProps.educations !== nextProps.educations) return false;
+    if (prevProps.projects !== nextProps.projects) return false;
+    if (prevProps.certifications !== nextProps.certifications) return false;
+    if (prevProps.languages !== nextProps.languages) return false;
+    if (prevProps.achievements !== nextProps.achievements) return false;
+    if (prevProps.skills !== nextProps.skills) return false;
+    if (prevProps.profilePhoto !== nextProps.profilePhoto) return false;
+    if (prevProps.template !== nextProps.template) return false;
+    if (prevProps.atsScore !== nextProps.atsScore) return false;
+    if (prevProps.strength !== nextProps.strength) return false;
+    if (prevProps.completionPercentage !== nextProps.completionPercentage) return false;
+    if (prevProps.sectionStatuses !== nextProps.sectionStatuses) return false;
+    if (prevProps.activeSection !== nextProps.activeSection) return false;
+
+    // ✅ All data props are equal → skip re-render
+    return true;
+});
 
 export default CVPreview;

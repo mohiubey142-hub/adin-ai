@@ -1,72 +1,88 @@
-// App.tsx - Complete updated file with SEO & Lazy Loading + Founder Profile + Legal Pages + Landing Page
-// ✅ INSTAGRAM WEBVIEW FIX: Safe clipboard, crypto, and observers
+// App.tsx - Complete updated file with PATH ROUTING + SEO FIXES
+// ✅ FIX 1: Onboarding skip for public pages
+// ✅ FIX 2: Backward compat — trailing slash handle
+// ✅ FIX 3: URL sync — shortcut clicks update URL
+// ✅ FIX 4: handleBackFromLegal — history.back() returns to referring page
+// ✅ FIX 5: Landing page shows on `/` for first-time users
+// ✅ Path-based routing
+// ✅ Legal pages render BEFORE onboarding check
+
 import { useState, useEffect, useRef, lazy, Suspense, useMemo, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
-// ❌ Clerk removed - Guest Mode only
-import Login from "./Login";
-import Signup from "./Signup";
 import { Onboarding } from "./components/Onboarding";
-import Settings from "./components/Settings";
-import Search from "./components/Search";
-import Library from "./components/Library";
-import Documents from "./components/Documents";
-import WebSearch from "./components/WebSearch";
-import AboutMe from "./components/AboutMe";
-import VoiceMic from "./components/VoiceMic";
-import SpeakButton from "./components/SpeakButton";
-import FileUpload, { FileUploadRef } from "./components/FileUpload";
 import { SEOHead } from "./components/SEO/SEOHead";
 import { generatePageSchemas, generateJSONLDScript } from "./utils/seo";
 import { initializeGA, trackPageView, setUserID } from "./utils/analytics";
-
-// ✅ SEO Page Configs
 import { getSEOConfig } from "./utils/seoPages";
+import LandingPage from './components/Landing/LandingPage';
 
-// ✅ Landing Page Import
-import { LandingPage } from './components/Landing';
+import { NavigationProvider, AppRoute } from './contexts/NavigationContext';
 
-// ✅ LAZY LOADING - SEO friendly code splitting
+import { getOrCreateUserId } from './utils/userId';
+import { syncService } from './services/sync/syncService';
+
+import RestoreData from './components/RestoreData';
+import LogoutWarningPopup from './components/LogoutWarningPopup';
+import ClearCacheConfirm from './components/ClearCacheConfirm';
+import DeleteAccountConfirm from './components/DeleteAccountConfirm';
+import SetPinModal from './components/SetPinModal';
+import PinEducationPopup from './components/PinEducationPopup';
+
+import FeedbackFullScreen from './components/feedback/FeedbackFullScreen';
+import { markFeedbackShown } from './services/feedbackService';
+
+import GlobalSidebar from './components/global/GlobalSidebar';
+import SidebarToggle from './components/global/SidebarToggle';
+import ProfilePage from './components/profile/ProfilePage';
+import { useSidebar, SidebarProvider } from './hooks/useSidebar';
+
+import { STORAGE_QUOTA_EXCEEDED_EVENT } from './components/cv-builder/hooks/useAutoSave';
+
 const CVBuilder = lazy(() => import("./components/cv-builder/CVBuilder"));
 const CoverLetter = lazy(() => import("./components/cover-letter/CoverLetter"));
 const CVTemplatesPage = lazy(() => import("./components/Templates/CVTemplatesPage"));
 const CoverTemplatesPage = lazy(() => import("./components/Templates/CoverTemplatesPage"));
-const WorkspacePage = lazy(() => import("./components/Workspace").then(m => ({ default: m.WorkspacePage })));
-// ✅ Founder Page Lazy Loading
+
+const WorkspacePage = lazy(() => import("./components/Workspace/WorkspacePage"));
+
+const MyDocuments = lazy(() => import("./components/cv-builder/components/MyDocuments"));
 const Founder = lazy(() => import("./pages/Founder"));
-// ✅ Legal Pages Lazy Loading
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const Contact = lazy(() => import("./pages/Contact"));
 
+import { localStorageDocumentService } from "./components/cv-builder/services/documentService";
+
 import {
-  MessageSquare, Search as SearchIcon, Compass, Library as LibraryIcon,
+  Search as SearchIcon, Library as LibraryIcon,
   Globe, FileText, Settings as SettingsIcon, Plus, Pencil, Trash2,
-  Copy, Check, Wifi, Pin, ThumbsUp, ThumbsDown, RotateCcw, Edit, Sparkles, User,
+  Copy, Check, Pin, ThumbsUp, ThumbsDown, RotateCcw, Edit, Sparkles, User,
   X, Code2, ArrowLeft, Terminal, Database, Cloud, Shield, Braces, Layout, Server, GitBranch, Cpu,
-  BookOpen, Bug, Rocket, Target, Briefcase, Mail, LogOut, ChevronDown
+  BookOpen, Bug, Rocket, Target, Briefcase, Mail, LogOut, ChevronDown,
+  CloudDownload,
+  Download,
+  ChevronRight,
+  HardDrive,
+  Lock,
+  MessageSquare,
 } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import { sendToAI, saveMemoryFromResponse } from "./services/ai";
 import { saveMemory, loadMemory } from "./utils/memory";
 import { LoadingScreen } from "./components/LoadingScreen";
 
-// ✅ INSTAGRAM WEBVIEW FIX: Safe clipboard function
+// ═══════════════════════════════════════════════════════════════
+// HELPER FUNCTIONS
+// ═══════════════════════════════════════════════════════════════
+
 const safeCopyToClipboard = (text: string): boolean => {
   try {
-    // Method 1: Modern Clipboard API
     if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-      navigator.clipboard.writeText(text).catch(() => {
-        // Fallback if clipboard API fails
-        fallbackCopy(text);
-      });
+      navigator.clipboard.writeText(text).catch(() => { fallbackCopy(text); });
       return true;
     }
-    // Method 2: Fallback for old browsers
     return fallbackCopy(text);
-  } catch (e) {
-    console.warn('Clipboard copy failed:', e);
-    return fallbackCopy(text);
-  }
+  } catch (e) { return fallbackCopy(text); }
 };
 
 const fallbackCopy = (text: string): boolean => {
@@ -82,98 +98,134 @@ const fallbackCopy = (text: string): boolean => {
     const success = document.execCommand('copy');
     document.body.removeChild(textarea);
     return success;
-  } catch (e) {
-    console.warn('Fallback copy failed:', e);
-    return false;
-  }
+  } catch (e) { return false; }
 };
 
-// ✅ INSTAGRAM WEBVIEW FIX: Safe crypto.randomUUID polyfill
-const safeRandomUUID = (): string => {
-  try {
-    if (window.crypto && typeof window.crypto.randomUUID === 'function') {
-      return window.crypto.randomUUID();
-    }
-  } catch (e) {
-    // Fall through to polyfill
-  }
-  // Polyfill for old browsers
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-};
-
-// ✅ INSTAGRAM WEBVIEW FIX: Safe ResizeObserver
-const safeResizeObserver = (callback: ResizeObserverCallback): ResizeObserver | null => {
-  try {
-    if (typeof ResizeObserver !== 'undefined') {
-      return new ResizeObserver(callback);
-    }
-  } catch (e) {
-    console.warn('ResizeObserver not supported');
-  }
-  return null;
-};
-
-// ✅ INSTAGRAM WEBVIEW FIX: Check if in Instagram WebView
-const isInstagramWebView = (): boolean => {
-  if (typeof navigator === 'undefined') return false;
-  const ua = navigator.userAgent || '';
-  return ua.includes('Instagram') && ua.includes('Android');
-};
-
-// ✅ INSTAGRAM WEBVIEW FIX: Safe service worker registration
-const safeRegisterSW = async () => {
-  if (isInstagramWebView()) {
-    console.log('📱 Instagram WebView detected - SW registration skipped');
-    return;
-  }
-  try {
-    if ('serviceWorker' in navigator) {
-      await navigator.serviceWorker.register('/sw.js');
-    }
-  } catch (e) {
-    console.warn('Service Worker registration failed:', e);
-  }
-};
-
-// ✅ INSTAGRAM WEBVIEW FIX: Safe localStorage wrappers
-// Instagram's in-app browser sometimes runs pages in a restricted storage
-// context where localStorage.getItem/setItem/removeItem throw a
-// SecurityError/DOMException instead of failing silently. Because those
-// calls were previously unguarded, that exception was left uncaught inside
-// useEffect, and with no ErrorBoundary in the tree React unmounts the whole
-// app -> black screen. These wrappers make every storage call crash-proof
-// while behaving exactly like normal localStorage everywhere else.
 const safeGetItem = (key: string): string | null => {
-  try {
-    return window.localStorage.getItem(key);
-  } catch (e) {
-    console.warn('localStorage.getItem blocked for', key, e);
-    return null;
-  }
+  try { return window.localStorage.getItem(key); }
+  catch (e) { return null; }
 };
 
 const safeSetItem = (key: string, value: string): void => {
-  try {
-    window.localStorage.setItem(key, value);
-  } catch (e) {
-    console.warn('localStorage.setItem blocked for', key, e);
-  }
+  try { window.localStorage.setItem(key, value); }
+  catch (e) {}
 };
 
 const safeRemoveItem = (key: string): void => {
-  try {
-    window.localStorage.removeItem(key);
-  } catch (e) {
-    console.warn('localStorage.removeItem blocked for', key, e);
+  try { window.localStorage.removeItem(key); }
+  catch (e) {}
+};
+
+const sessionGet = (key: string): string | null => {
+  try { return window.sessionStorage.getItem(key); }
+  catch (e) { return null; }
+};
+
+const sessionSet = (key: string, value: string): void => {
+  try { window.sessionStorage.setItem(key, value); }
+  catch (e) {}
+};
+
+const sessionRemove = (key: string): void => {
+  try { window.sessionStorage.removeItem(key); }
+  catch (e) {}
+};
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ PATH-BASED ROUTING
+// ═══════════════════════════════════════════════════════════════
+
+type PageType = 'workspace' | 'my-documents' | 'app' | 'templates' | 'cover-templates' | 'founder' | 'legal';
+
+interface PathRoute {
+  page: PageType;
+  active: string;
+}
+
+const PATH_ROUTES: Record<string, PathRoute> = {
+  '/':                  { page: 'workspace',       active: 'AI Chat' },
+  '/workspace':         { page: 'workspace',       active: 'AI Chat' },
+  '/templates':         { page: 'templates',       active: 'CV Templates' },
+  '/cover-templates':   { page: 'cover-templates', active: 'Cover Templates' },
+  '/cv-builder':        { page: 'app',             active: 'CV Builder' },
+  '/cover-letter':      { page: 'app',             active: 'Cover Letter' },
+  '/my-documents':      { page: 'my-documents',    active: 'My Documents' },
+  '/founder':           { page: 'founder',         active: 'Founder' },
+  '/privacy-policy':    { page: 'legal',           active: 'Privacy Policy' },
+  '/terms-of-service':  { page: 'legal',           active: 'Terms of Service' },
+  '/contact':           { page: 'legal',           active: 'Contact' },
+};
+
+const getPathRoute = (): PathRoute | null => {
+  if (typeof window === 'undefined') return null;
+  const path = window.location.pathname.replace(/\/$/, '') || '/';
+  return PATH_ROUTES[path] || null;
+};
+
+const navigateToPath = (path: string, replace = false): void => {
+  if (typeof window === 'undefined') return;
+  const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
+  const targetPath = path.startsWith('/') ? path : `/${path}`;
+  if (currentPath === targetPath) return;
+
+  if (replace) {
+    window.history.replaceState({}, '', targetPath);
+  } else {
+    window.history.pushState({}, '', targetPath);
   }
 };
 
-// Premium Programming Languages - Colors matching your interface (Purple/Violet/Blue theme)
-// ✅ FIXED: Store icon names instead of JSX elements to prevent React Error #310
+// ═══════════════════════════════════════════════════════════════
+// LEGACY HASH ROUTING (backward compat)
+// ═══════════════════════════════════════════════════════════════
+
+const HASH_PRIVACY_POLICY = 'privacy-policy';
+const HASH_TERMS_OF_SERVICE = 'terms-of-service';
+const HASH_CONTACT = 'contact';
+const HASH_FOUNDER = 'founder';
+
+const PAGE_LEGAL = 'legal';
+const PAGE_FOUNDER = 'founder';
+
+const ACTIVE_PRIVACY_POLICY = 'Privacy Policy';
+const ACTIVE_TERMS_OF_SERVICE = 'Terms of Service';
+const ACTIVE_CONTACT = 'Contact';
+const ACTIVE_FOUNDER = 'Founder';
+
+const DEEP_LINK_ROUTES = {
+  [HASH_PRIVACY_POLICY]: { page: PAGE_LEGAL, active: ACTIVE_PRIVACY_POLICY },
+  [HASH_TERMS_OF_SERVICE]: { page: PAGE_LEGAL, active: ACTIVE_TERMS_OF_SERVICE },
+  [HASH_CONTACT]: { page: PAGE_LEGAL, active: ACTIVE_CONTACT },
+  [HASH_FOUNDER]: { page: PAGE_FOUNDER, active: ACTIVE_FOUNDER },
+} as const;
+
+type DeepLinkHash = keyof typeof DEEP_LINK_ROUTES;
+
+const CLOSE_TAB_FALLBACK_MS = 150;
+
+const getDeepLinkRoute = () => {
+  if (typeof window === 'undefined') return null;
+  let hash = window.location.hash.slice(1);
+  hash = hash.replace(/^\//, '').replace(/\/$/, '');
+  return Object.prototype.hasOwnProperty.call(DEEP_LINK_ROUTES, hash)
+    ? DEEP_LINK_ROUTES[hash as DeepLinkHash]
+    : null;
+};
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ PUBLIC PAGES FOR SEO (onboarding skipped)
+// ═══════════════════════════════════════════════════════════════
+const PUBLIC_PAGES_FOR_SEO: PageType[] = [
+  'templates',
+  'cover-templates',
+  'founder',
+  'legal',
+];
+
+// ═══════════════════════════════════════════════════════════════
+// PROGRAMMING LANGUAGES (CodingExpert)
+// ═══════════════════════════════════════════════════════════════
+
 const programmingLanguages = [
   { id: "javascript", name: "JavaScript", icon: "braces", gradient: "from-amber-500 to-yellow-500", desc: "Web Development" },
   { id: "python", name: "Python", icon: "terminal", gradient: "from-blue-500 to-indigo-500", desc: "AI/ML, Backend" },
@@ -189,18 +241,10 @@ const programmingLanguages = [
   { id: "system-design", name: "System Design", icon: "server", gradient: "from-indigo-500 to-purple-500", desc: "Architecture" },
 ];
 
-// ✅ FIXED: Icon mapping function to render icons dynamically
 const iconMap: Record<string, any> = {
-  braces: Braces,
-  terminal: Terminal,
-  code2: Code2,
-  server: Server,
-  layout: Layout,
-  database: Database,
-  cloud: Cloud,
-  shield: Shield,
-  gitbranch: GitBranch,
-  cpu: Cpu,
+  braces: Braces, terminal: Terminal, code2: Code2, server: Server,
+  layout: Layout, database: Database, cloud: Cloud, shield: Shield,
+  gitbranch: GitBranch, cpu: Cpu,
 };
 
 function CodingExpert({ userId, onBack }: { userId: string; onBack?: () => void }) {
@@ -210,235 +254,100 @@ function CodingExpert({ userId, onBack }: { userId: string; onBack?: () => void 
   const [messages, setMessages] = useState<{ role: string; text: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [webEnabled, setWebEnabled] = useState(true);
-  const [activeTool, setActiveTool] = useState("dashboard");
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isInitialized = useRef(false);
 
-  // ✅ FIXED: Prevent re-initialization on every render
   useEffect(() => {
     if (isInitialized.current) return;
     isInitialized.current = true;
-
     const savedLevel = safeGetItem(`user_level_${userId}`);
     const savedLang = safeGetItem(`user_language_${userId}`);
     if (savedLevel) setUserLevel(savedLevel);
     if (savedLang) setSelectedLanguage(savedLang);
-
-    if (!savedLevel) {
-      setMessages([{
-        role: "ai",
-        text: "🌟 **Welcome to Adin Coding Expert!**\n\nI'm your personal coding mentor. Let me help you master any programming language.\n\n**Select your experience level:**"
-      }]);
-    } else if (!savedLang) {
-      setMessages([{
-        role: "ai",
-        text: `Great! You're a **${savedLevel}** level developer.\n\n**Select a technology to master:**`
-      }]);
-    } else {
+    if (!savedLevel) setMessages([{ role: "ai", text: "🌟 **Welcome!**\n\nSelect your level:" }]);
+    else if (!savedLang) setMessages([{ role: "ai", text: `You're **${savedLevel}** level. Select tech:` }]);
+    else {
       const lang = programmingLanguages.find(l => l.id === savedLang);
-      setMessages([{
-        role: "ai",
-        text: `**${lang?.name}** expert mentor active.\n\nWhat would you like to learn?\n\n• Core concepts\n• Best practices\n• Build a project\n• Debug code\n• Interview prep`
-      }]);
+      setMessages([{ role: "ai", text: `**${lang?.name}** active.` }]);
     }
   }, [userId]);
 
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
+    if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   const handleSetLevel = (level: string) => {
     setUserLevel(level);
     safeSetItem(`user_level_${userId}`, level);
-    setMessages(prev => [...prev,
-      { role: "user", text: level },
-      { role: "ai", text: `**${level}** level selected.\n\n**Select a technology to master:**` }
-    ]);
+    setMessages(prev => [...prev, { role: "user", text: level }, { role: "ai", text: `**${level}** selected.` }]);
   };
 
   const handleSelectLanguage = (langId: string) => {
     setSelectedLanguage(langId);
     safeSetItem(`user_language_${userId}`, langId);
     const lang = programmingLanguages.find(l => l.id === langId);
-    setMessages(prev => [...prev,
-      { role: "user", text: lang?.name || langId },
-      { role: "ai", text: `**${lang?.name}** expert mentor active.\n\nWhat would you like to learn?\n\n• Core concepts\n• Best practices\n• Build a project\n• Debug code\n• Interview prep` }
-    ]);
-    setActiveTool("dashboard");
+    setMessages(prev => [...prev, { role: "user", text: lang?.name || langId }, { role: "ai", text: `**${lang?.name}** active.` }]);
   };
 
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
-
     const userMessage = input;
     setInput("");
     setMessages(prev => [...prev, { role: "user", text: userMessage }]);
     setLoading(true);
-
     try {
-      const context = `User Level: ${userLevel || "beginner"}, Current Language: ${selectedLanguage || "javascript"}`;
-      const fullMessage = `${context}\n\nUser: ${userMessage}`;
-
-      const res = await sendToAI(
-        [{ role: "user", text: fullMessage }],
-        [],
-        webEnabled,
-        userId
-      );
+      const context = `Level: ${userLevel || "beginner"}, Language: ${selectedLanguage || "javascript"}`;
+      const res = await sendToAI([{ role: "user", text: `${context}\n\nUser: ${userMessage}` }], [], webEnabled, userId);
       const data = await res.json();
-      const aiText = data.choices?.[0]?.message?.content || "How can I help you master coding?";
-
+      const aiText = data.choices?.[0]?.message?.content || "How can I help?";
       setMessages(prev => [...prev, { role: "ai", text: aiText }]);
-    } catch (err) {
-      console.error(err);
-      toast.error("Connection error. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { toast.error("Connection error"); }
+    finally { setLoading(false); }
   };
 
-  const quickActions = [
-    { name: "Generate Code", prompt: "Generate a complete working example for" },
-    { name: "Debug Code", prompt: "Help me debug this code:" },
-    { name: "Explain Concept", prompt: "Explain this concept with examples:" },
-    { name: "Build Project", prompt: "Help me build a project:" },
-    { name: "Interview Prep", prompt: "Give me interview questions for" },
-  ];
-
-  // ✅ FIXED: Store icon components in array using function references, not JSX
-  const tools = [
-    { id: "dashboard", name: "Dashboard", icon: Sparkles },
-    { id: "learn", name: "Learn", icon: BookOpen },
-    { id: "code", name: "Code", icon: Code2 },
-    { id: "debug", name: "Debug", icon: Bug },
-    { id: "project", name: "Projects", icon: Rocket },
-    { id: "interview", name: "Interview", icon: Target },
-  ];
-
-  const handleQuickAction = (prompt: string) => {
-    const lang = programmingLanguages.find(l => l.id === selectedLanguage);
-    const fullPrompt = `${prompt} ${lang?.name || "programming"}.`;
-    setInput(fullPrompt);
-    setTimeout(() => sendMessage(), 100);
-  };
-
-  const handleReset = () => {
-    safeRemoveItem(`user_level_${userId}`);
-    safeRemoveItem(`user_language_${userId}`);
-    setUserLevel(null);
-    setSelectedLanguage(null);
-    setMessages([]);
-    setShowResetConfirm(false);
-    toast.success("Reset complete!");
-  };
-
-  // ✅ FIXED: Helper function to render icons
   const getIcon = (iconName: string) => {
     const IconComponent = iconMap[iconName];
     return IconComponent ? <IconComponent size={22} /> : null;
   };
 
-  // Level Selection UI
   if (!userLevel) {
     return (
       <div className="flex-1 flex flex-col bg-black overflow-hidden">
         <div className="h-[56px] flex justify-between items-center px-5 border-b border-zinc-900 shrink-0">
-          <button onClick={onBack} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 transition">
+          <button onClick={onBack} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900">
             <ArrowLeft size={16} className="text-gray-400" />
-            <span className="text-sm text-gray-400">Back</span>
-          </button>
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center shadow-lg">
-              <Sparkles size={14} className="text-white" />
-            </div>
-            <span className="text-sm font-medium text-white">Adin Coding Expert</span>
-          </div>
-          <button onClick={() => setWebEnabled(!webEnabled)} className={`px-3 py-1.5 rounded-lg text-xs ${webEnabled ? "bg-green-600/20 text-green-400" : "bg-zinc-800 text-gray-400"}`}>
-            <Sparkles size={12} className="inline mr-1" /> {webEnabled ? "AI On" : "AI Off"}
           </button>
         </div>
         <div className="flex-1 overflow-auto p-6">
-          <div className="max-w-3xl mx-auto">
-            <div className="text-center mb-8">
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-                Adin Coding Expert
-              </h1>
-              <p className="text-gray-500 text-sm mt-1">Your Personal Coding Mentor</p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <button
-                onClick={() => handleSetLevel("beginner")}
-                className="group p-5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-purple-500/30 transition-all duration-300 text-center"
-              >
-                <div className="w-14 h-14 mx-auto rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center mb-3 shadow-lg group-hover:scale-110 transition-transform">
-                  <span className="text-2xl">🌱</span>
-                </div>
-                <h3 className="text-lg font-semibold text-white">Beginner</h3>
-                <p className="text-gray-500 text-sm mt-1">No coding experience</p>
+          <div className="grid grid-cols-3 gap-4 max-w-3xl mx-auto">
+            {["beginner", "intermediate", "advanced"].map(level => (
+              <button key={level} onClick={() => handleSetLevel(level)} className="p-5 rounded-xl bg-white/5 border border-white/10">
+                <h3 className="text-lg font-semibold text-white capitalize">{level}</h3>
               </button>
-              <button
-                onClick={() => handleSetLevel("intermediate")}
-                className="group p-5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-purple-500/30 transition-all duration-300 text-center"
-              >
-                <div className="w-14 h-14 mx-auto rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center mb-3 shadow-lg group-hover:scale-110 transition-transform">
-                  <span className="text-2xl">⚡</span>
-                </div>
-                <h3 className="text-lg font-semibold text-white">Intermediate</h3>
-                <p className="text-gray-500 text-sm mt-1">Know the basics</p>
-              </button>
-              <button
-                onClick={() => handleSetLevel("advanced")}
-                className="group p-5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-purple-500/30 transition-all duration-300 text-center"
-              >
-                <div className="w-14 h-14 mx-auto rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center mb-3 shadow-lg group-hover:scale-110 transition-transform">
-                  <span className="text-2xl">🚀</span>
-                </div>
-                <h3 className="text-lg font-semibold text-white">Advanced</h3>
-                <p className="text-gray-500 text-sm mt-1">Experienced developer</p>
-              </button>
-            </div>
+            ))}
           </div>
         </div>
       </div>
     );
   }
 
-  // Language Selection UI - Premium 3D Icons
   if (!selectedLanguage) {
     return (
       <div className="flex-1 flex flex-col bg-black overflow-hidden">
         <div className="h-[56px] flex justify-between items-center px-5 border-b border-zinc-900 shrink-0">
-          <button onClick={() => { safeRemoveItem(`user_level_${userId}`); setUserLevel(null); }} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 transition">
+          <button onClick={() => { safeRemoveItem(`user_level_${userId}`); setUserLevel(null); }} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900">
             <ArrowLeft size={16} className="text-gray-400" />
-            <span className="text-sm text-gray-400">Back</span>
-          </button>
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 text-xs border border-green-500/30">{userLevel}</span>
-          </div>
-          <button onClick={() => setWebEnabled(!webEnabled)} className={`px-3 py-1.5 rounded-lg text-xs ${webEnabled ? "bg-green-600/20 text-green-400" : "bg-zinc-800 text-gray-400"}`}>
-            <Sparkles size={12} className="inline mr-1" /> {webEnabled ? "AI On" : "AI Off"}
           </button>
         </div>
         <div className="flex-1 overflow-auto p-6">
-          <div className="text-center mb-6">
-            <h2 className="text-xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Choose Your Technology</h2>
-            <p className="text-gray-500 text-sm mt-1">Select a language or framework to master</p>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-w-5xl mx-auto">
+          <div className="grid grid-cols-4 gap-4 max-w-5xl mx-auto">
             {programmingLanguages.map(lang => (
-              <button
-                key={lang.id}
-                onClick={() => handleSelectLanguage(lang.id)}
-                className="group p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-purple-500/30 transition-all duration-300 text-left"
-              >
-                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${lang.gradient} flex items-center justify-center mb-3 shadow-lg group-hover:scale-110 transition-transform`}>
+              <button key={lang.id} onClick={() => handleSelectLanguage(lang.id)} className="p-4 rounded-xl bg-white/5 border border-white/10">
+                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${lang.gradient} flex items-center justify-center mb-3`}>
                   <div className="text-white">{getIcon(lang.icon)}</div>
                 </div>
                 <h3 className="font-semibold text-white text-sm">{lang.name}</h3>
-                <p className="text-gray-500 text-xs mt-1">{lang.desc}</p>
               </button>
             ))}
           </div>
@@ -449,263 +358,190 @@ function CodingExpert({ userId, onBack }: { userId: string; onBack?: () => void 
 
   const currentLang = programmingLanguages.find(l => l.id === selectedLanguage);
 
-  // Main Expert UI
   return (
     <div className="flex-1 flex flex-col bg-black overflow-hidden">
-      <Toaster position="top-right" />
-
       <div className="h-[56px] flex justify-between items-center px-5 border-b border-zinc-900 shrink-0">
-        <button onClick={() => setShowResetConfirm(true)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 transition">
+        <button onClick={() => setShowResetConfirm(true)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900">
           <ArrowLeft size={16} className="text-gray-400" />
-          <span className="text-sm text-gray-400">Back</span>
         </button>
-
-        <div className="flex items-center gap-2">
-          <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${currentLang?.gradient} flex items-center justify-center shadow-lg`}>
-            <div className="text-white text-sm">{getIcon(currentLang?.icon || "")}</div>
-          </div>
-          <span className="text-sm font-semibold text-white">{currentLang?.name} Expert</span>
-          <span className="text-xs text-gray-500 ml-1">{userLevel}</span>
-        </div>
-
-        <button onClick={() => setWebEnabled(!webEnabled)} className={`px-3 py-1.5 rounded-lg text-xs ${webEnabled ? "bg-green-600/20 text-green-400" : "bg-zinc-800 text-gray-400"}`}>
-          <Sparkles size={12} className="inline mr-1" /> {webEnabled ? "AI On" : "AI Off"}
-        </button>
+        <span className="text-sm font-semibold text-white">{currentLang?.name} Expert</span>
       </div>
-
-      {showResetConfirm && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-          <div className="bg-zinc-900 rounded-xl p-5 max-w-sm w-full mx-4 border border-zinc-800">
-            <h3 className="text-base font-semibold text-white mb-2">Reset Progress?</h3>
-            <p className="text-gray-400 text-sm mb-5">This will clear your level and language selection.</p>
-            <div className="flex gap-3">
-              <button onClick={() => setShowResetConfirm(false)} className="flex-1 py-2 rounded-lg bg-zinc-800 text-white hover:bg-zinc-700 transition">Cancel</button>
-              <button onClick={handleReset} className="flex-1 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition">Reset</button>
+      <div className="flex-1 overflow-auto p-4 space-y-3">
+        {messages.map((msg, idx) => (
+          <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+            <div className={`max-w-[80%] p-3 rounded-xl ${msg.role === "user" ? "bg-purple-600 text-white" : "bg-zinc-900"}`}>
+              <ReactMarkdown>{msg.text}</ReactMarkdown>
             </div>
           </div>
-        </div>
-      )}
-
-      <div className="flex-1 flex overflow-hidden">
-        <div className="w-[170px] border-r border-zinc-900 overflow-y-auto shrink-0">
-          <div className="p-3">
-            <div className="text-xs font-medium text-gray-500 mb-2 px-2">Tools</div>
-            <div className="space-y-1">
-              {tools.map(tool => {
-                const IconComponent = tool.icon;
-                return (
-                  <button
-                    key={tool.id}
-                    onClick={() => setActiveTool(tool.id)}
-                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${
-                      activeTool === tool.id
-                        ? "bg-gradient-to-r from-purple-600/20 to-blue-600/20 text-white border-l-2 border-purple-500"
-                        : "text-gray-400 hover:bg-zinc-900"
-                    }`}
-                  >
-                    <IconComponent size={14} />
-                    <span>{tool.name}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {activeTool === "dashboard" && (
-            <div className="p-3 border-b border-zinc-900 shrink-0">
-              <div className="flex flex-wrap gap-2">
-                {quickActions.map((action, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleQuickAction(action.prompt)}
-                    className="px-2.5 py-1 rounded-full text-xs bg-white/5 hover:bg-white/10 text-gray-300 transition"
-                  >
-                    {action.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="flex-1 overflow-auto p-4 space-y-3">
-            {messages.map((msg, idx) => {
-              const cleanText = msg.text.replace(/className=/g, 'class=');
-              return (
-                <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[80%] p-3 rounded-xl ${
-                    msg.role === "user"
-                      ? "bg-gradient-to-r from-purple-600 to-blue-500 text-white"
-                      : "bg-zinc-900 border border-zinc-800"
-                  }`}>
-                    <div className="text-sm prose prose-invert max-w-none">
-                      <ReactMarkdown
-                        remarkPlugins={[]}
-                        rehypePlugins={[]}
-                        components={{
-                          code: ({ node, inline, className, children, ...props }) => {
-                            const match = /language-(\w+)/.exec(className || "");
-                            return !inline && match ? (
-                              <code className={className} {...props}>
-                                {children}
-                              </code>
-                            ) : (
-                              <code className="bg-black/50 px-1 py-0.5 rounded text-sm" {...props}>
-                                {children}
-                              </code>
-                            );
-                          },
-                        }}
-                      >
-                        {cleanText}
-                      </ReactMarkdown>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-            {loading && (
-              <div className="flex justify-start">
-                <div className="bg-zinc-900 border border-zinc-800 p-3 rounded-xl">
-                  <div className="flex gap-1">
-                    <div className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-bounce"></div>
-                    <div className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-bounce delay-100"></div>
-                    <div className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-bounce delay-200"></div>
-                  </div>
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-
-          <div className="p-3 border-t border-zinc-900 shrink-0">
-            <div className="flex gap-2">
-              <input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-                placeholder={`Ask about ${currentLang?.name}...`}
-                className="flex-1 h-10 rounded-lg bg-zinc-950 border border-zinc-800 px-3 text-sm text-white placeholder-gray-500 focus:border-purple-500 outline-none"
-              />
-              <button
-                onClick={sendMessage}
-                disabled={loading}
-                className="h-10 px-4 rounded-lg bg-gradient-to-r from-purple-600 to-blue-500 disabled:opacity-50 text-white text-sm font-medium hover:scale-105 transition-transform"
-              >
-                Send
-              </button>
-            </div>
-          </div>
+        ))}
+        <div ref={messagesEndRef} />
+      </div>
+      <div className="p-3 border-t border-zinc-900">
+        <div className="flex gap-2">
+          <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendMessage()} placeholder={`Ask about ${currentLang?.name}...`} className="flex-1 h-10 rounded-lg bg-zinc-950 border border-zinc-800 px-3 text-white" />
+          <button onClick={sendMessage} className="h-10 px-4 rounded-lg bg-purple-600 text-white">Send</button>
         </div>
       </div>
     </div>
   );
 }
 
-// ✅ MENU ITEMS - Keep for Phase 2+
-const menuItems = [
-  { name: "AI Chat", icon: "messagesquare" },
-  { name: "CV Builder", icon: "filetext" },
-  { name: "Cover Letter", icon: "mail" },
-  { name: "Web Search", icon: "globe" },
-  { name: "Library", icon: "library" },
-  { name: "Documents", icon: "filetext" },
-  { name: "About Me", icon: "user" },
-  { name: "Settings", icon: "settings" },
-];
-
 type MessageType = { role: string; text: string; files?: { name: string; content: string }[] };
 type MemoryType = { id: number; text: string };
 type ChatType = { id: number; title: string; pinned?: boolean; createdAt: number };
 
-export default function App() {
-  // ✅ Guest session state
-  const [isGuest, setIsGuest] = useState<boolean>(false);
-  const [isOnboardingComplete, setIsOnboardingComplete] = useState<boolean>(false);
-  const [userName, setUserName] = useState<string>("User");
-  const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false);
+function AppInner() {
+  const { isOpen: isSidebarOpen, open: openSidebar, close: closeSidebar } = useSidebar();
+
+  const [isGuest, setIsGuest] = useState<boolean>(() => {
+    const guestSession = safeGetItem("adin-guest-session");
+    const savedName = safeGetItem("adin_user_name");
+    return !!(guestSession || savedName);
+  });
+
+  const [isOnboardingComplete, setIsOnboardingComplete] = useState<boolean>(() => {
+    return safeGetItem("adin-onboarding-completed") === "true";
+  });
+
+  const [userName, setUserName] = useState<string>(() => {
+    return safeGetItem("adin_user_name") || "User";
+  });
+
   const profileRef = useRef<HTMLDivElement>(null);
 
-  // ✅ Landing page state - FIXED: Check existing app state
+  const openedViaDeepLinkRef = useRef<boolean>(getDeepLinkRoute() !== null);
+
+  const [showRestoreModal, setShowRestoreModal] = useState<boolean>(false);
+  const [showLogoutWarning, setShowLogoutWarning] = useState<boolean>(false);
+  const [showClearCache, setShowClearCache] = useState(false);
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [showSetPin, setShowSetPin] = useState(false);
+  const [hasPinSet, setHasPinSet] = useState(false);
+  const [showPinEducation, setShowPinEducation] = useState(false);
+
+  const [showProfilePage, setShowProfilePage] = useState(false);
+
+  const [showGlobalFeedback, setShowGlobalFeedback] = useState(false);
+
+  // ═══════════════════════════════════════════════════════════════
+  // ✅ FIX 5: showLanding — only on `/` for first-time users
+  // ═══════════════════════════════════════════════════════════════
   const [showLanding, setShowLanding] = useState(() => {
-    // Check if user has already entered the app
+    const currentPath = typeof window !== 'undefined'
+      ? window.location.pathname.replace(/\/$/, '') || '/'
+      : '/';
+    const isRootPath = currentPath === '/' || currentPath === '/workspace';
+
+    if (!isRootPath) {
+      return false;
+    }
+
+    if (getDeepLinkRoute()) {
+      return false;
+    }
+
     const hasSeenLanding = safeGetItem('adin-has-seen-landing');
     const guestSession = safeGetItem('adin-guest-session');
     const onboardingCompleted = safeGetItem('adin-onboarding-completed');
     const userName = safeGetItem('adin_user_name');
-    
-    // If user has completed onboarding or has guest session or has user name, skip landing
-    if (onboardingCompleted === 'true' || guestSession || userName) {
-      return false;
-    }
-    
-    // If user has seen landing before but somehow doesn't have session, show landing again
-    if (hasSeenLanding) {
-      return false;
-    }
-    
-    // First visit - show landing
+
+    if (onboardingCompleted === 'true' || guestSession || userName) return false;
+    if (hasSeenLanding) return false;
+
     return true;
   });
 
-  // ✅ CRITICAL FIX: Stable userId that persists across page refreshes
-  // This solves the localStorage data loss bug
   const userId = useMemo(() => {
-    // First, check if we have a stored userId
-    const storedUserId = safeGetItem('adin-guest-user-id');
-    if (storedUserId) {
-      console.log('✅ Restored userId from localStorage:', storedUserId);
-      return storedUserId;
-    }
-    
-    // If no stored userId, check if we have a session
-    const session = safeGetItem('adin-guest-session');
-    if (session) {
-      try {
-        const parsed = JSON.parse(session);
-        // Create userId from session timestamp for consistency
-        if (parsed.guestCreatedAt) {
-          const timestamp = new Date(parsed.guestCreatedAt).getTime();
-          const newUserId = "guest_" + timestamp.toString(36);
-          safeSetItem('adin-guest-user-id', newUserId);
-          console.log('✅ Created userId from session:', newUserId);
-          return newUserId;
-        }
-      } catch (e) {
-        console.error('Failed to parse session:', e);
-      }
-    }
-    
-    // Create brand new userId
-    const newUserId = "guest_" + Date.now().toString(36);
-    safeSetItem('adin-guest-user-id', newUserId);
-    console.log('✅ Created new userId:', newUserId);
-    return newUserId;
+    const newUserId = safeGetItem('adin-user-id');
+    if (newUserId) return newUserId;
+
+    const legacyId = safeGetItem('adin-guest-user-id');
+    if (legacyId) return legacyId;
+
+    return getOrCreateUserId();
+  }, [isOnboardingComplete]);
+
+  useEffect(() => {
+    syncService.flushQueue().catch(() => {});
   }, []);
 
-  // ✅ Page state - Workspace is default
-  const [currentPage, setCurrentPage] = useState<'workspace' | 'app' | 'templates' | 'cover-templates' | 'founder' | 'legal'>('workspace');
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
-  const [selectedCoverTemplateId, setSelectedCoverTemplateId] = useState<string | null>(null);
-  const [active, setActive] = useState(() => {
-    const savedTab = safeGetItem("adin-active-tab");
-    const hash = window.location.hash.slice(1);
-    if (hash === "cv-builder") return "CV Builder";
-    if (hash === "cover-letter") return "Cover Letter";
-    if (hash === "cover-templates") return "Cover Templates";
-    if (hash === "ai-chat") return "AI Chat";
-    if (hash === "web-search") return "Web Search";
-    if (hash === "library") return "Library";
-    if (hash === "documents") return "Documents";
-    if (hash === "about-me") return "About Me";
-    if (hash === "settings") return "Settings";
-    if (hash === "founder") return "Founder";
-    if (hash === "privacy-policy") return "Privacy Policy";
-    if (hash === "terms-of-service") return "Terms of Service";
-    if (hash === "contact") return "Contact";
-    return savedTab || "AI Chat";
+  useEffect(() => {
+    const handleQuotaExceeded = () => {
+      console.warn('[App] Storage quota exceeded — opening clear cache dialog');
+      setShowClearCache(true);
+      toast.error('Storage full! Clear cache to continue.', { duration: 5000 });
+    };
+
+    window.addEventListener(STORAGE_QUOTA_EXCEEDED_EVENT, handleQuotaExceeded);
+    return () => {
+      window.removeEventListener(STORAGE_QUOTA_EXCEEDED_EVENT, handleQuotaExceeded);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!userId) return;
+    if (!isOnboardingComplete) return;
+
+    syncService.fetchUser(userId).then(user => {
+      setHasPinSet(!!user?.pinHash);
+    }).catch(() => {});
+  }, [userId, isOnboardingComplete]);
+
+  const [currentPage, setCurrentPage] = useState<PageType>(() => {
+    const pathRoute = getPathRoute();
+    if (pathRoute) return pathRoute.page;
+
+    const deepLink = getDeepLinkRoute();
+    if (deepLink) return deepLink.page;
+
+    const saved = sessionGet('adin-session-page');
+    if (saved && ['workspace', 'my-documents', 'app', 'templates', 'cover-templates', 'founder', 'legal'].includes(saved)) {
+      return saved as PageType;
+    }
+    return 'workspace';
   });
+
+  const [active, setActive] = useState<string>(() => {
+    const pathRoute = getPathRoute();
+    if (pathRoute) return pathRoute.active;
+
+    const deepLink = getDeepLinkRoute();
+    if (deepLink) return deepLink.active;
+
+    const saved = sessionGet('adin-session-active');
+    if (saved) return saved;
+    return 'AI Chat';
+  });
+
+  const [activeDocumentId, setActiveDocumentId] = useState<string | null>(() => {
+    return sessionGet('adin-session-cv-doc') || null;
+  });
+
+  const [activeCoverLetterId, setActiveCoverLetterId] = useState<string | null>(() => {
+    return sessionGet('adin-session-cl-doc') || null;
+  });
+
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(() => {
+    return sessionGet('adin-session-template') || null;
+  });
+
+  const [selectedCoverTemplateId, setSelectedCoverTemplateId] = useState<string | null>(() => {
+    return sessionGet('adin-session-cover-template') || null;
+  });
+
+  const [cvBuilderEntrySource, setCvBuilderEntrySource] = useState<'template-gallery' | 'documents' | 'sidebar' | null>(() => {
+    const saved = sessionGet('adin-session-entry-source');
+    if (saved === 'template-gallery' || saved === 'documents' || saved === 'sidebar') return saved;
+    return null;
+  });
+
+  const [coverLetterEntrySource, setCoverLetterEntrySource] = useState<'template-gallery' | 'documents' | 'sidebar' | null>(() => {
+    const saved = sessionGet('adin-session-cl-entry-source');
+    if (saved === 'template-gallery' || saved === 'documents' || saved === 'sidebar') return saved;
+    return null;
+  });
+
+  const [coverLetterKey, setCoverLetterKey] = useState<number>(0);
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -713,8 +549,6 @@ export default function App() {
   const [chatHistory, setChatHistory] = useState<ChatType[]>([]);
   const [chatMessages, setChatMessages] = useState<Record<number, MessageType[]>>({});
   const [currentChatId, setCurrentChatId] = useState<number | null>(null);
-  const [editingChatId, setEditingChatId] = useState<number | null>(null);
-  const [renameValue, setRenameValue] = useState("");
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [likedMessages, setLikedMessages] = useState<number[]>([]);
   const [dislikedMessages, setDislikedMessages] = useState<number[]>([]);
@@ -729,9 +563,58 @@ export default function App() {
   const loaded = useRef(false);
   const isSendingRef = useRef(false);
 
-  // ✅ SEO Page Key Mapping - MOVED BEFORE CONDITIONAL RETURNS
+  useEffect(() => { sessionSet('adin-session-page', currentPage); }, [currentPage]);
+  useEffect(() => { sessionSet('adin-session-active', active); }, [active]);
+  useEffect(() => {
+    if (activeDocumentId) sessionSet('adin-session-cv-doc', activeDocumentId);
+    else sessionRemove('adin-session-cv-doc');
+  }, [activeDocumentId]);
+  useEffect(() => {
+    if (activeCoverLetterId) sessionSet('adin-session-cl-doc', activeCoverLetterId);
+    else sessionRemove('adin-session-cl-doc');
+  }, [activeCoverLetterId]);
+  useEffect(() => {
+    if (selectedTemplateId) sessionSet('adin-session-template', selectedTemplateId);
+    else sessionRemove('adin-session-template');
+  }, [selectedTemplateId]);
+  useEffect(() => {
+    if (selectedCoverTemplateId) sessionSet('adin-session-cover-template', selectedCoverTemplateId);
+    else sessionRemove('adin-session-cover-template');
+  }, [selectedCoverTemplateId]);
+  useEffect(() => {
+    if (cvBuilderEntrySource) sessionSet('adin-session-entry-source', cvBuilderEntrySource);
+    else sessionRemove('adin-session-entry-source');
+  }, [cvBuilderEntrySource]);
+  useEffect(() => {
+    if (coverLetterEntrySource) sessionSet('adin-session-cl-entry-source', coverLetterEntrySource);
+    else sessionRemove('adin-session-cl-entry-source');
+  }, [coverLetterEntrySource]);
+
+  const handleOpenBackupHelp = useCallback(() => {
+    if (!userId) {
+      toast.error('Session error. Please refresh.');
+      return;
+    }
+    setShowPinEducation(true);
+  }, [userId]);
+
+  const handlePinEducationSetPin = useCallback(() => {
+    if (!userId) {
+      toast.error('Session error. Please refresh.');
+      return;
+    }
+    setShowPinEducation(false);
+    safeSetItem('adin-pin-education-shown', 'true');
+    setShowSetPin(true);
+  }, [userId]);
+
+  const handlePinEducationDismiss = useCallback(() => {
+    setShowPinEducation(false);
+  }, []);
+
   const getPageKey = useCallback((): string => {
     if (currentPage === 'workspace') return 'home';
+    if (currentPage === 'my-documents') return 'my-documents';
     if (currentPage === 'templates') return 'templates';
     if (currentPage === 'cover-templates') return 'cover-templates';
     if (currentPage === 'founder') return 'founder';
@@ -743,315 +626,613 @@ export default function App() {
     if (currentPage === 'app') {
       if (active === 'CV Builder') return 'cv-builder';
       if (active === 'Cover Letter') return 'cover-letter';
-      if (active === 'AI Chat') return 'ai-chat';
-      if (active === 'Web Search') return 'web-search';
-      if (active === 'Library') return 'library';
-      if (active === 'Documents') return 'documents';
-      if (active === 'About Me') return 'about-me';
-      if (active === 'Settings') return 'settings';
     }
     return 'home';
   }, [active, currentPage]);
 
-  // ✅ Get user name from localStorage (no "Guest" wording)
-  const getUserName = useCallback((): string => {
-    const savedName = safeGetItem("adin_user_name");
-    return savedName || "User";
-  }, []);
-
-  // ✅ Get avatar letter (first letter of name, capital)
-  const getAvatarLetter = useCallback((name: string): string => {
-    if (!name || name === "User") return "U";
-    return name.trim().charAt(0).toUpperCase();
-  }, []);
-
-  // ✅ Get avatar color based on name
-  const getAvatarColor = useCallback((name: string): string => {
-    const colors = [
-      "from-purple-500 to-blue-500",
-      "from-pink-500 to-rose-500",
-      "from-emerald-500 to-teal-500",
-      "from-amber-500 to-orange-500",
-      "from-indigo-500 to-purple-500",
-      "from-cyan-500 to-blue-500",
-      "from-violet-500 to-fuchsia-500",
-      "from-rose-500 to-red-500",
-    ];
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) {
-      hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return colors[Math.abs(hash) % colors.length];
-  }, []);
-
-  // ✅ Close profile dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
-        setIsProfileOpen(false);
+        // Profile dropdown is now in ProfilePage — this ref is unused but kept
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // ✅ Check guest session on mount
-  useEffect(() => {
-    const guestSession = safeGetItem("adin-guest-session");
-    const onboardingCompleted = safeGetItem("adin-onboarding-completed");
-    
-    if (guestSession) {
-      try {
-        const session = JSON.parse(guestSession);
-        setIsGuest(true);
-        // ✅ Get user name from separate storage
-        const savedName = safeGetItem("adin_user_name");
-        if (savedName) {
-          setUserName(savedName);
-        } else {
-          setUserName("User");
-        }
-        // ✅ Check if onboarding completed
-        if (onboardingCompleted === "true") {
-          setIsOnboardingComplete(true);
-        }
-      } catch (e) {
-        console.error("Failed to parse guest session:", e);
-      }
-    } else {
-      // ✅ Check if user name exists without session (edge case)
-      const savedName = safeGetItem("adin_user_name");
-      if (savedName) {
-        setIsGuest(true);
-        setUserName(savedName);
-        if (onboardingCompleted === "true") {
-          setIsOnboardingComplete(true);
-        }
-      }
-    }
-  }, []);
-
-  // ✅ Handle Onboarding Complete
-  const handleOnboardingComplete = (name: string) => {
-    // ✅ Save user name to localStorage
-    safeSetItem("adin_user_name", name);
-    
-    // ✅ Save guest session
-    const guestSession = {
-      isGuest: true,
-      guestCreatedAt: new Date().toISOString(),
-    };
-    safeSetItem("adin-guest-session", JSON.stringify(guestSession));
-    
-    // ✅ Mark onboarding as completed
+  const handleOnboardingComplete = (
+    profile: { name: string; userId: string },
+  ) => {
+    safeSetItem("adin_user_name", profile.name);
+    safeSetItem("adin-user-id", profile.userId);
+    safeSetItem("adin-guest-session", JSON.stringify({ isGuest: true, guestCreatedAt: new Date().toISOString() }));
     safeSetItem("adin-onboarding-completed", "true");
-    
-    // ✅ Update state
     setIsGuest(true);
     setIsOnboardingComplete(true);
-    setUserName(name);
+    setUserName(profile.name);
   };
 
-  // ✅ Guest Logout handler - Clears ALL guest data and shows Landing Page
+  const handleRestoredFromOnboarding = () => {
+    const restoredName = safeGetItem("adin_user_name");
+    if (!safeGetItem("adin-guest-session")) {
+      safeSetItem("adin-guest-session", JSON.stringify({ isGuest: true, guestCreatedAt: new Date().toISOString() }));
+    }
+    safeSetItem("adin-onboarding-completed", "true");
+    setIsGuest(true);
+    setIsOnboardingComplete(true);
+    if (restoredName) setUserName(restoredName);
+    setShowRestoreModal(false);
+  };
+
+  const handleLogoutClick = useCallback(() => {
+    setShowLogoutWarning(true);
+  }, []);
+
+  const handleClearCacheClick = useCallback(() => {
+    setShowClearCache(true);
+  }, []);
+
+  const handleConfirmClearCache = () => {
+    setShowClearCache(false);
+
+    const PRESERVE_KEYS = [
+      'adin-user-id',
+      'adin_user_name',
+      'adin-onboarding-completed',
+      'adin-guest-session',
+      'adin-has-seen-landing',
+      'adin-pin-education-shown',
+      'adin-sync-queue',
+      'adin-backup-reminder-shown',
+    ];
+    const REMOVE_PREFIXES = [
+      'adin_cv_document_',
+      'adin_cv_documents_index_',
+      'adin_cover_letter_document_',
+      'adin_cover_letter_documents_index_',
+      'adin_cv_builder_data_',
+    ];
+
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const key = window.localStorage.key(i);
+        if (!key || PRESERVE_KEYS.includes(key)) continue;
+        if (key === 'cover_letter_data' || REMOVE_PREFIXES.some((prefix) => key.startsWith(prefix))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach((key) => safeRemoveItem(key));
+    } catch (e) {
+      console.error('[App] Clear cache failed:', e);
+    }
+
+    sessionRemove('adin-session-page');
+    sessionRemove('adin-session-active');
+    sessionRemove('adin-session-cv-doc');
+    sessionRemove('adin-session-cl-doc');
+    sessionRemove('adin-session-template');
+    sessionRemove('adin-session-cover-template');
+    sessionRemove('adin-session-entry-source');
+    sessionRemove('adin-session-cl-entry-source');
+
+    try {
+      indexedDB.deleteDatabase('adin_cv_images');
+    } catch (e) {
+      console.error('[App] IndexedDB delete failed:', e);
+    }
+
+    toast.success('Local cache cleared — your data is safe in the cloud');
+    setTimeout(() => window.location.reload(), 900);
+  };
+
   const handleGuestLogout = () => {
-    // Clear all localStorage data
+    setShowLogoutWarning(false);
     safeRemoveItem("adin-guest-session");
     safeRemoveItem("adin_user_name");
     safeRemoveItem("adin-onboarding-completed");
     safeRemoveItem("adin-guest-user-id");
+    safeRemoveItem("adin-user-id");
     safeRemoveItem('adin-has-seen-landing');
-    
-    // Reset all states
+    safeRemoveItem('adin-pin-education-shown');
+    safeRemoveItem('adin-backup-reminder-shown');
+    sessionRemove('adin-session-page');
+    sessionRemove('adin-session-active');
+    sessionRemove('adin-session-cv-doc');
+    sessionRemove('adin-session-cl-doc');
+    sessionRemove('adin-session-template');
+    sessionRemove('adin-session-cover-template');
+    sessionRemove('adin-session-entry-source');
+    sessionRemove('adin-session-cl-entry-source');
+    syncService.clearQueue();
     setIsGuest(false);
     setIsOnboardingComplete(false);
     setUserName("User");
-    setIsProfileOpen(false);
-    
-    // ✅ CRITICAL: Set showLanding to true to show landing page
+    setShowPinEducation(false);
+    setShowProfilePage(false);
     setShowLanding(true);
-    
     toast.success("Logged out successfully");
   };
 
-  // ✅ NEW: Handle Landing Page Complete
+  const handleDeleteAccountConfirm = () => {
+    setShowDeleteAccount(false);
+    setIsGuest(false);
+    setIsOnboardingComplete(false);
+    setUserName('User');
+    setShowPinEducation(false);
+    setShowProfilePage(false);
+    setShowLanding(true);
+    setTimeout(() => {
+      window.location.href = '/';
+      window.location.reload();
+    }, 500);
+  };
+
+  const handleSetPinClick = useCallback(() => {
+    setShowSetPin(true);
+  }, []);
+
+  const handleSetPinSuccess = () => {
+    setShowSetPin(false);
+    setHasPinSet(true);
+    safeSetItem('adin-pin-education-shown', 'true');
+  };
+
   const handleLandingComplete = () => {
     safeSetItem('adin-has-seen-landing', 'true');
     setShowLanding(false);
   };
 
-  // ✅ GA: Track page views on page/route change
+  const handleDownloadMyId = useCallback(() => {
+    if (!userId) return;
+    try {
+      const content = `ADIN AI — YOUR ACCOUNT ID
+==========================
+
+Your ID: ${userId}
+
+IMPORTANT: Keep this safe.
+
+This ID is your key to restoring your CVs and Cover Letters on any 
+browser or device. Without this ID, you cannot recover your data.
+
+How to use it:
+1. Open Adin AI on any device
+2. Go to your profile → "Restore from another device"
+3. Enter this ID + your 4-digit PIN
+4. Your data will be restored from the cloud
+
+Save this file somewhere safe:
+- Email it to yourself
+- Save it in your notes
+- Take a screenshot
+
+Generated on: ${new Date().toLocaleString()}
+Adin AI
+`;
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'adin-ai-user-id.txt';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success('ID file downloaded!', { duration: 2500 });
+    } catch (e) {
+      toast.error('Download failed');
+    }
+  }, [userId]);
+
   useEffect(() => {
     const pagePath = window.location.pathname + window.location.hash;
     trackPageView(pagePath);
   }, [active, currentPage]);
 
-  // ✅ Navigation handler for workspace - Direct navigation to builders or galleries
+  const getLastCVDocument = useCallback(() => {
+    try {
+      const key = `adin_cv_documents_index_${userId}`;
+      const raw = safeGetItem(key);
+      if (!raw) return null;
+      const list = JSON.parse(raw);
+      if (!Array.isArray(list) || list.length === 0) return null;
+      const sorted = [...list].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      return sorted[0];
+    } catch {
+      return null;
+    }
+  }, [userId]);
+
+  const getLastCoverLetterDocument = useCallback(() => {
+    try {
+      const key = `adin_cover_letter_documents_index_${userId}`;
+      const raw = safeGetItem(key);
+      if (!raw) return null;
+      const list = JSON.parse(raw);
+      if (!Array.isArray(list) || list.length === 0) return null;
+      const sorted = [...list].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      return sorted[0];
+    } catch {
+      return null;
+    }
+  }, [userId]);
+
   const handleWorkspaceNavigate = useCallback((page: string) => {
     if (page === 'cv-builder') {
+      setActiveDocumentId(null);
+      setActiveCoverLetterId(null);
+      setCvBuilderEntrySource('template-gallery');
+      setSelectedTemplateId(null);
       setCurrentPage('templates');
       setActive('CV Templates');
-      window.location.hash = 'templates';
-      safeSetItem("adin-current-page", "templates");
+      navigateToPath('/templates');
     } else if (page === 'cover-letter') {
+      setActiveDocumentId(null);
+      setActiveCoverLetterId(null);
+      setCoverLetterEntrySource('template-gallery');
+      setSelectedCoverTemplateId(null);
       setCurrentPage('cover-templates');
       setActive('Cover Templates');
-      window.location.hash = 'cover-templates';
-      safeSetItem("adin-current-page", "cover-templates");
+      navigateToPath('/cover-templates');
     } else if (page === 'founder') {
       setCurrentPage('founder');
       setActive('Founder');
-      window.location.hash = 'founder';
-      safeSetItem("adin-current-page", "founder");
+      navigateToPath('/founder');
+    } else if (page === 'my-documents') {
+      setActiveDocumentId(null);
+      setActiveCoverLetterId(null);
+      setCvBuilderEntrySource(null);
+      setCoverLetterEntrySource(null);
+      setCurrentPage('my-documents');
+      setActive('My Documents');
+      navigateToPath('/my-documents');
     }
   }, []);
 
-  // ✅ Handler for CV template selection
-  const handleTemplateSelect = useCallback((templateId: string) => {
-    setSelectedTemplateId(templateId);
-    setCurrentPage('app');
-    setActive('CV Builder');
-    safeSetItem("adin-active-tab", "CV Builder");
-    safeSetItem("adin-selected-template", templateId);
-    safeSetItem("adin-current-page", "app");
-    window.location.hash = "cv-builder";
-  }, []);
+  const handleTemplateSelect = useCallback(async (templateId: string) => {
+    const shouldApplyToExisting = !!activeDocumentId;
 
-  // ✅ Handler for Cover Letter template selection
-  const handleCoverTemplateSelect = useCallback((templateId: string) => {
-    setSelectedCoverTemplateId(templateId);
-    setCurrentPage('app');
-    setActive('Cover Letter');
-    safeSetItem("adin-active-tab", "Cover Letter");
-    safeSetItem("adin-selected-cover-template", templateId);
-    safeSetItem("adin-current-page", "app");
-    window.location.hash = "cover-letter";
-  }, []);
+    if (shouldApplyToExisting) {
+      setSelectedTemplateId(templateId);
+      if (!cvBuilderEntrySource) {
+        setCvBuilderEntrySource('template-gallery');
+      }
+      setCurrentPage('app');
+      setActive('CV Builder');
+      navigateToPath('/cv-builder');
+      return;
+    }
 
-  // ✅ Navigate back to workspace from templates
+    try {
+      const meta = await localStorageDocumentService.createEmpty(userId);
+      setActiveDocumentId(meta.id);
+      setSelectedTemplateId(templateId);
+      setCvBuilderEntrySource('template-gallery');
+      setCurrentPage('app');
+      setActive('CV Builder');
+      navigateToPath('/cv-builder');
+    } catch (e: any) {
+      console.error('❌ Failed to create document from template:', e);
+      toast.error('Failed to create document');
+    }
+  }, [userId, cvBuilderEntrySource, activeDocumentId]);
+
+  const handleCoverTemplateSelect = useCallback(async (templateId: string) => {
+    const shouldApplyToExisting = !!activeCoverLetterId;
+
+    if (shouldApplyToExisting) {
+      setSelectedCoverTemplateId(templateId);
+      if (!coverLetterEntrySource) {
+        setCoverLetterEntrySource('template-gallery');
+      }
+      setCurrentPage('app');
+      setActive('Cover Letter');
+      navigateToPath('/cover-letter');
+      return;
+    }
+
+    try {
+      const { localStorageCoverLetterService } = await import('./components/cover-letter/services/coverLetterService');
+      const meta = await localStorageCoverLetterService.createEmpty(userId);
+
+      setActiveCoverLetterId(meta.id);
+      setSelectedCoverTemplateId(templateId);
+      setCoverLetterEntrySource('template-gallery');
+      setCurrentPage('app');
+      setActive('Cover Letter');
+      navigateToPath('/cover-letter');
+      setCoverLetterKey(prev => prev + 1);
+    } catch (e: any) {
+      console.error('❌ Failed to create cover letter from template:', e);
+      toast.error('Failed to create cover letter');
+    }
+  }, [userId, coverLetterEntrySource, activeCoverLetterId]);
+
   const navigateToWorkspace = useCallback(() => {
     setCurrentPage('workspace');
-    window.location.hash = '';
-    safeSetItem("adin-active-tab", "AI Chat");
-    safeSetItem("adin-current-page", "workspace");
+    setActiveDocumentId(null);
+    setActiveCoverLetterId(null);
+    setCvBuilderEntrySource(null);
+    setCoverLetterEntrySource(null);
+    setActive('AI Chat');
+    navigateToPath('/');
   }, []);
 
-  // ✅ Navigate back to CV templates from CV builder
-  const navigateToTemplates = useCallback(() => {
+  const navigateBackFromTemplates = useCallback(() => {
+    setActiveDocumentId(null);
+    setActiveCoverLetterId(null);
+    setCvBuilderEntrySource(null);
+    setCoverLetterEntrySource(null);
+    setCurrentPage('my-documents');
+    setActive('My Documents');
+    navigateToPath('/my-documents');
+  }, []);
+
+  const navigateToMyDocuments = useCallback(() => {
+    setActiveDocumentId(null);
+    setActiveCoverLetterId(null);
+    setCvBuilderEntrySource(null);
+    setCoverLetterEntrySource(null);
+    setCurrentPage('my-documents');
+    setActive('My Documents');
+    navigateToPath('/my-documents');
+  }, []);
+
+  const handleGlobalNavigate = useCallback((route: AppRoute) => {
+    switch (route) {
+      case 'home':
+        navigateToWorkspace();
+        break;
+
+      case 'documents':
+        navigateToMyDocuments();
+        break;
+
+      case 'templates':
+        setSelectedTemplateId(null);
+        setCvBuilderEntrySource(null);
+        setCurrentPage('templates');
+        setActive('CV Templates');
+        navigateToPath('/templates');
+        break;
+
+      case 'cv-builder': {
+        const lastCV = getLastCVDocument();
+        if (lastCV?.id) {
+          setSelectedTemplateId(null);
+          setActiveDocumentId(lastCV.id);
+          setCvBuilderEntrySource('sidebar');
+          setCurrentPage('app');
+          setActive('CV Builder');
+          navigateToPath('/cv-builder');
+        } else {
+          setSelectedTemplateId(null);
+          setCvBuilderEntrySource(null);
+          setCurrentPage('templates');
+          setActive('CV Templates');
+          navigateToPath('/templates');
+        }
+        break;
+      }
+
+      case 'cover-templates':
+        setSelectedCoverTemplateId(null);
+        setCoverLetterEntrySource(null);
+        setCurrentPage('cover-templates');
+        setActive('Cover Templates');
+        navigateToPath('/cover-templates');
+        break;
+
+      case 'cover-letter': {
+        const lastCL = getLastCoverLetterDocument();
+        if (lastCL?.id) {
+          setSelectedCoverTemplateId(null);
+          setActiveCoverLetterId(lastCL.id);
+          setCoverLetterEntrySource('sidebar');
+          setCurrentPage('app');
+          setActive('Cover Letter');
+          navigateToPath('/cover-letter');
+          setCoverLetterKey(prev => prev + 1);
+        } else {
+          setSelectedCoverTemplateId(null);
+          setCoverLetterEntrySource(null);
+          setCurrentPage('cover-templates');
+          setActive('Cover Templates');
+          navigateToPath('/cover-templates');
+        }
+        break;
+      }
+
+      default:
+        break;
+    }
+  }, [navigateToWorkspace, navigateToMyDocuments, getLastCVDocument, getLastCoverLetterDocument]);
+
+  const handleCreateNewCV = useCallback(() => {
+    sessionRemove('adin-session-cv-doc');
+    sessionRemove('adin-session-template');
+    sessionRemove('adin-session-entry-source');
+    setActiveDocumentId(null);
+    setActiveCoverLetterId(null);
+    setSelectedTemplateId(null);
+    setCvBuilderEntrySource('template-gallery');
     setCurrentPage('templates');
     setActive('CV Templates');
-    window.location.hash = 'templates';
-    safeSetItem("adin-current-page", "templates");
+    navigateToPath('/templates');
   }, []);
 
-  // ✅ Navigate back to Cover Letter templates
-  const navigateToCoverTemplates = useCallback(() => {
+  const handleCreateNewCoverLetter = useCallback(() => {
+    sessionRemove('adin-session-cl-doc');
+    sessionRemove('adin-session-cover-template');
+    sessionRemove('adin-session-cl-entry-source');
+    setActiveCoverLetterId(null);
+    setActiveDocumentId(null);
+    setSelectedCoverTemplateId(null);
+    setCoverLetterEntrySource('template-gallery');
     setCurrentPage('cover-templates');
     setActive('Cover Templates');
-    window.location.hash = 'cover-templates';
-    safeSetItem("adin-current-page", "cover-templates");
+    navigateToPath('/cover-templates');
+    setCoverLetterKey(prev => prev + 1);
   }, []);
 
-  // ✅ Navigate back to workspace from any page
-  const navigateToWorkspaceFromApp = useCallback(() => {
-    setCurrentPage('workspace');
-    window.location.hash = '';
-    safeSetItem("adin-active-tab", "AI Chat");
-    safeSetItem("adin-current-page", "workspace");
+  const handleEditDocument = useCallback((documentId: string) => {
+    setActiveDocumentId(documentId);
+    setSelectedTemplateId(null);
+    setCvBuilderEntrySource('documents');
+    setCurrentPage('app');
+    setActive('CV Builder');
+    navigateToPath('/cv-builder');
   }, []);
 
-  const setActiveTab = useCallback((tabName: string) => {
-    setActive(tabName);
-    safeSetItem("adin-active-tab", tabName);
-
-    let hash = "";
-    if (tabName === "CV Builder") hash = "cv-builder";
-    else if (tabName === "Cover Letter") hash = "cover-letter";
-    else if (tabName === "CV Templates") hash = "templates";
-    else if (tabName === "Cover Templates") hash = "cover-templates";
-    else if (tabName === "AI Chat") hash = "ai-chat";
-    else if (tabName === "Web Search") hash = "web-search";
-    else if (tabName === "Library") hash = "library";
-    else if (tabName === "Documents") hash = "documents";
-    else if (tabName === "About Me") hash = "about-me";
-    else if (tabName === "Settings") hash = "settings";
-    else if (tabName === "Founder") hash = "founder";
-    else if (tabName === "Privacy Policy") hash = "privacy-policy";
-    else if (tabName === "Terms of Service") hash = "terms-of-service";
-    else if (tabName === "Contact") hash = "contact";
-
-    window.location.hash = hash;
+  const handleEditCoverLetter = useCallback((documentId: string) => {
+    setActiveCoverLetterId(documentId);
+    setSelectedCoverTemplateId(null);
+    setCoverLetterEntrySource('documents');
+    setCurrentPage('app');
+    setActive('Cover Letter');
+    navigateToPath('/cover-letter');
+    setCoverLetterKey(prev => prev + 1);
   }, []);
 
-  // ✅ Hash change listener
+  const handleBackFromCVBuilder = useCallback(() => {
+    setSelectedTemplateId(null);
+
+    if (cvBuilderEntrySource === 'documents' || cvBuilderEntrySource === 'sidebar') {
+      setActiveDocumentId(null);
+      setActiveCoverLetterId(null);
+      setCurrentPage('my-documents');
+      setActive('My Documents');
+      navigateToPath('/my-documents');
+    } else {
+      setCurrentPage('templates');
+      setActive('CV Templates');
+      navigateToPath('/templates');
+    }
+
+    setCvBuilderEntrySource(null);
+  }, [cvBuilderEntrySource]);
+
+  const handleBackFromCoverLetter = useCallback(() => {
+    setSelectedCoverTemplateId(null);
+
+    if (coverLetterEntrySource === 'documents' || coverLetterEntrySource === 'sidebar') {
+      setActiveDocumentId(null);
+      setActiveCoverLetterId(null);
+      setCurrentPage('my-documents');
+      setActive('My Documents');
+      navigateToPath('/my-documents');
+    } else {
+      setCurrentPage('cover-templates');
+      setActive('Cover Templates');
+      navigateToPath('/cover-templates');
+    }
+
+    setCoverLetterEntrySource(null);
+  }, [coverLetterEntrySource]);
+
+  // ═══════════════════════════════════════════════════════════════
+  // ✅ FIX 4: handleBackFromLegal — history.back() returns to referring page
+  // ═══════════════════════════════════════════════════════════════
+  const handleBackFromLegal = useCallback(() => {
+    const cameFromLanding = sessionGet('adin-legal-from-landing') === 'true';
+    sessionRemove('adin-legal-from-landing');
+
+    // If user came from landing page → go back to landing
+    if (cameFromLanding) {
+      setCurrentPage('workspace');
+      setActive('AI Chat');
+      setShowLanding(true);
+      navigateToPath('/');
+      return;
+    }
+
+    // Otherwise → try history.back() first (returns to referring page)
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+
+    // No history → fallback to /contact
+    setCurrentPage('legal');
+    setActive('Contact');
+    navigateToPath('/contact');
+  }, []);
+
+  // ═══════════════════════════════════════════════════════════════
+  // ✅ FIX 2: ROUTE CHANGE LISTENER
+  // ═══════════════════════════════════════════════════════════════
   useEffect(() => {
-    const handleHashChange = () => {
-      const hash = window.location.hash.slice(1);
+    const handleRouteChange = () => {
+      const pathRoute = getPathRoute();
+      if (pathRoute) {
+        setCurrentPage(pathRoute.page);
+        setActive(pathRoute.active);
+        return;
+      }
 
-      if (hash === "templates") {
-        setCurrentPage('templates');
-        setActive("CV Templates");
-        safeSetItem("adin-active-tab", "CV Templates");
-        safeSetItem("adin-current-page", "templates");
-      } else if (hash === "cover-templates") {
-        setCurrentPage('cover-templates');
-        setActive("Cover Templates");
-        safeSetItem("adin-active-tab", "Cover Templates");
-        safeSetItem("adin-current-page", "cover-templates");
-      } else if (hash === "cv-builder") {
-        setCurrentPage('app');
-        setActive("CV Builder");
-        safeSetItem("adin-active-tab", "CV Builder");
-        safeSetItem("adin-current-page", "app");
-      } else if (hash === "cover-letter") {
-        setCurrentPage('app');
-        setActive("Cover Letter");
-        safeSetItem("adin-active-tab", "Cover Letter");
-        safeSetItem("adin-current-page", "app");
-      } else if (hash === "founder") {
-        setCurrentPage('founder');
-        setActive("Founder");
-        safeSetItem("adin-active-tab", "Founder");
-        safeSetItem("adin-current-page", "founder");
-      } else if (hash === "privacy-policy" || hash === "terms-of-service" || hash === "contact") {
-        setCurrentPage('legal');
-        const pageName = hash === "privacy-policy" ? "Privacy Policy" : hash === "terms-of-service" ? "Terms of Service" : "Contact";
-        setActive(pageName);
-        safeSetItem("adin-active-tab", pageName);
-        safeSetItem("adin-current-page", "legal");
-      } else if (hash === "" || hash === "workspace") {
-        setCurrentPage('workspace');
-        safeSetItem("adin-current-page", "workspace");
+      let hash = window.location.hash.slice(1);
+      hash = hash.replace(/^\//, '').replace(/\/$/, '');
+
+      if (hash === "templates") { setCurrentPage('templates'); setActive("CV Templates"); }
+      else if (hash === "cover-templates") { setCurrentPage('cover-templates'); setActive("Cover Templates"); }
+      else if (hash === "my-documents") { setCurrentPage('my-documents'); setActive("My Documents"); }
+      else if (hash === "cv-builder") { setCurrentPage('app'); setActive("CV Builder"); }
+      else if (hash === "cover-letter") { setCurrentPage('app'); setActive("Cover Letter"); }
+      else if (hash === "founder") { setCurrentPage('founder'); setActive("Founder"); }
+      else if (hash === "privacy-policy") { setCurrentPage('legal'); setActive("Privacy Policy"); }
+      else if (hash === "terms-of-service") { setCurrentPage('legal'); setActive("Terms of Service"); }
+      else if (hash === "contact") { setCurrentPage('legal'); setActive("Contact"); }
+      else if (hash === "" || hash === "workspace") {
+        const path = window.location.pathname.replace(/\/$/, '') || '/';
+        if (path === '/') {
+          setCurrentPage('workspace');
+          setActive('AI Chat');
+        }
       }
     };
 
-    window.addEventListener("hashchange", handleHashChange);
-    return () => window.removeEventListener("hashchange", handleHashChange);
+    window.addEventListener("popstate", handleRouteChange);
+    window.addEventListener("hashchange", handleRouteChange);
+    return () => {
+      window.removeEventListener("popstate", handleRouteChange);
+      window.removeEventListener("hashchange", handleRouteChange);
+    };
   }, []);
 
-  const sortChats = useCallback((chats: ChatType[]) => [...chats].sort((a,b) => {
+  // ═══════════════════════════════════════════════════════════════
+  // ✅ FIX 3: URL SYNC
+  // ═══════════════════════════════════════════════════════════════
+  useEffect(() => {
+    const routeMap: Record<string, string> = {
+      'workspace': '/',
+      'my-documents': '/my-documents',
+      'templates': '/templates',
+      'cover-templates': '/cover-templates',
+      'founder': '/founder',
+    };
+
+    let targetPath = routeMap[currentPage] || '/';
+
+    if (currentPage === 'app') {
+      targetPath = active === 'CV Builder' ? '/cv-builder' : '/cover-letter';
+    } else if (currentPage === 'legal') {
+      if (active === 'Privacy Policy') targetPath = '/privacy-policy';
+      else if (active === 'Terms of Service') targetPath = '/terms-of-service';
+      else if (active === 'Contact') targetPath = '/contact';
+    }
+
+    const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
+    if (currentPath !== targetPath) {
+      window.history.replaceState({}, '', targetPath);
+    }
+  }, [currentPage, active]);
+
+  const sortChats = useCallback((chats: ChatType[]) => [...chats].sort((a, b) => {
     if (a.pinned === b.pinned) return b.id - a.id;
     return a.pinned ? -1 : 1;
   }), []);
 
-  useEffect(() => {
-    safeSetItem("adin-active-tab", active);
-  }, [active]);
-
-  useEffect(() => {
-    if (input) safeSetItem("adin-draft-input", input);
-    else safeRemoveItem("adin-draft-input");
-  }, [input]);
-
-  // ✅ GA: Initialize Google Analytics on app mount
-  useEffect(() => {
-    initializeGA();
-
-    if (isGuest) {
-      setUserID(userId);
-    }
-  }, [isGuest, userId]);
-
-  // ✅ Load persisted data on mount
   useEffect(() => {
     if (loaded.current) return;
     loaded.current = true;
@@ -1060,234 +1241,51 @@ export default function App() {
       const savedMessages = safeGetItem("adin-messages");
       const savedCurrent = safeGetItem("adin-current-chat");
       const savedWeb = safeGetItem("adin-web-enabled");
-      const savedLikes = safeGetItem("adin-likes");
-      const savedDislikes = safeGetItem("adin-dislikes");
-      const savedDraft = safeGetItem("adin-draft-input");
-      const savedTemplate = safeGetItem("adin-selected-template");
-      const savedCoverTemplate = safeGetItem("adin-selected-cover-template");
-      const savedCurrentPage = safeGetItem("adin-current-page");
-
       let historyData = savedHistory ? JSON.parse(savedHistory) : [];
       const messagesData = savedMessages ? JSON.parse(savedMessages) : {};
       const currentData = savedCurrent ? JSON.parse(savedCurrent) : null;
-
-      // ✅ Restore current page
-      if (savedCurrentPage) {
-        const page = savedCurrentPage as 'workspace' | 'app' | 'templates' | 'cover-templates' | 'founder' | 'legal';
-        setCurrentPage(page);
-
-        if (page === 'workspace') {
-          window.location.hash = '';
-        } else if (page === 'templates') {
-          window.location.hash = 'templates';
-        } else if (page === 'cover-templates') {
-          window.location.hash = 'cover-templates';
-        } else if (page === 'founder') {
-          window.location.hash = 'founder';
-        } else if (page === 'legal') {
-          const savedActiveTab = safeGetItem("adin-active-tab");
-          if (savedActiveTab === "Privacy Policy") {
-            window.location.hash = 'privacy-policy';
-          } else if (savedActiveTab === "Terms of Service") {
-            window.location.hash = 'terms-of-service';
-          } else if (savedActiveTab === "Contact") {
-            window.location.hash = 'contact';
-          }
-        } else if (page === 'app') {
-          const savedActiveTab = safeGetItem("adin-active-tab");
-          if (savedActiveTab === "CV Builder") {
-            window.location.hash = 'cv-builder';
-          } else if (savedActiveTab === "Cover Letter") {
-            window.location.hash = 'cover-letter';
-          }
-        }
-      }
-
       historyData = sortChats(historyData);
       setChatHistory(historyData);
       setChatMessages(messagesData);
       setCurrentChatId(currentData);
       setAiMemory(loadMemory());
       if (savedWeb !== null) setWebEnabled(JSON.parse(savedWeb));
-      if (savedLikes) setLikedMessages(JSON.parse(savedLikes));
-      if (savedDislikes) setDislikedMessages(JSON.parse(savedDislikes));
-      if (savedDraft) setInput(savedDraft);
-      if (savedTemplate) setSelectedTemplateId(savedTemplate);
-      if (savedCoverTemplate) setSelectedCoverTemplateId(savedCoverTemplate);
       if (currentData && messagesData[currentData]) setMessages(messagesData[currentData]);
-      else setMessages([]);
-    } catch (err) { console.log(err); }
+    } catch (err) {}
   }, [sortChats]);
 
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
-    }
+    if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages]);
 
-  // ✅ Persist data to localStorage
-  useEffect(() => { safeSetItem("adin-likes", JSON.stringify(likedMessages)); }, [likedMessages]);
-  useEffect(() => { safeSetItem("adin-dislikes", JSON.stringify(dislikedMessages)); }, [dislikedMessages]);
-  useEffect(() => { safeSetItem("adin-history", JSON.stringify(chatHistory)); }, [chatHistory]);
-  useEffect(() => { safeSetItem("adin-messages", JSON.stringify(chatMessages)); }, [chatMessages]);
-  useEffect(() => { safeSetItem("adin-current-chat", JSON.stringify(currentChatId)); }, [currentChatId]);
-  useEffect(() => { safeSetItem("adin-web-enabled", JSON.stringify(webEnabled)); }, [webEnabled]);
   useEffect(() => { saveMemory(aiMemory); }, [aiMemory]);
-
-  // ✅ INSTAGRAM WEBVIEW FIX: Safe copy function - REPLACED
-  const copyMessage = useCallback((text: string, i: number) => {
-    const success = safeCopyToClipboard(text);
-    if (success) {
-      setCopiedIndex(i);
-      toast.success("Copied");
-      setTimeout(() => setCopiedIndex(null), 2000);
-    } else {
-      toast.error("Copy failed");
-    }
-  }, []);
-
-  const handleVoiceTranscript = useCallback((text: string, language: string) => {
-    if (!text.trim()) return;
-    setInput(text);
-    setDetectedLanguage(language);
-  }, []);
-
-  const handleFileUpload = useCallback((fileName: string, fileContent: string) => {
-    setPendingFiles([{ name: fileName, content: fileContent }]);
-  }, []);
-
-  const removePendingFile = useCallback(() => {
-    setPendingFiles([]);
-    fileUploadRef.current?.clearFile();
-  }, []);
-
-  const toggleLike = useCallback((i: number, text: string, role: string) => {
-    const currentChat = chatHistory.find(chat => chat.id === currentChatId);
-    const chatTitle = currentChat?.title || "Chat";
-
-    let favorites = [];
-    const saved = safeGetItem("adin-favorites");
-    if (saved) favorites = JSON.parse(saved);
-
-    const exists = favorites.some((fav: any) => fav.text === text);
-
-    if (!exists) {
-      favorites.push({ id: Date.now(), text, role, chatTitle, createdAt: new Date().toISOString() });
-      safeSetItem("adin-favorites", JSON.stringify(favorites));
-      toast.success("Saved to favorites!");
-    } else {
-      toast.info("Already in favorites");
-    }
-
-    setLikedMessages(prev => prev.includes(i) ? prev.filter(x=>x!==i) : [...prev, i]);
-    setDislikedMessages(prev => prev.filter(x=>x!==i));
-  }, [chatHistory, currentChatId]);
-
-  const toggleDislike = useCallback((i: number, text: string) => {
-    const old = JSON.parse(safeGetItem("adin-feedback") || "[]");
-    old.push({ type: "dislike", text, createdAt: new Date().toISOString() });
-    safeSetItem("adin-feedback", JSON.stringify(old));
-    setDislikedMessages(prev => prev.includes(i) ? prev.filter(x=>x!==i) : [...prev, i]);
-    setLikedMessages(prev => prev.filter(x=>x!==i));
-    toast.success("Feedback saved");
-  }, []);
-
-  const deleteChat = useCallback((id: number) => {
-    const newHistory = chatHistory.filter(c=>c.id!==id);
-    const newMsgs = {...chatMessages};
-    delete newMsgs[id];
-    setChatHistory(sortChats(newHistory));
-    setChatMessages(newMsgs);
-    if(currentChatId===id){
-      setCurrentChatId(null);
-      setMessages([]);
-    }
-    toast.success("Chat deleted");
-  }, [chatHistory, chatMessages, currentChatId, sortChats]);
-
-  const pinChat = useCallback((id: number) => {
-    const updated = chatHistory.map(c=>c.id===id?{...c, pinned:!c.pinned}:c);
-    const sorted = sortChats(updated);
-    setChatHistory(sorted);
-    safeSetItem("adin-history", JSON.stringify(sorted));
-  }, [chatHistory, sortChats]);
-
-  const saveRename = useCallback((id: number) => {
-    if(!renameValue.trim()) return;
-    const updated = chatHistory.map(c=>c.id===id?{...c, title:renameValue}:c);
-    const sorted = sortChats(updated);
-    setChatHistory(sorted);
-    setEditingChatId(null);
-    setRenameValue("");
-    toast.success("Renamed");
-  }, [chatHistory, renameValue, sortChats]);
-
-  const saveEditedMessage = useCallback(async (idx: number) => {
-    const updated = [...messages]; 
-    updated[idx].text = editText;
-    const sliced = updated.slice(0, idx+1);
-    setMessages(sliced); 
-    setEditingMessage(null); 
-    setLoading(true);
-    try {
-      const res = await sendToAI(sliced, aiMemory, webEnabled, userId);
-      const data = await res.json();
-      const aiText = data.choices?.[0]?.message?.content || "No response";
-      const final = [...sliced, { role: "ai", text: aiText }];
-      setMessages(final);
-      setChatMessages(prev => ({ ...prev, [currentChatId!]: final }));
-    } catch (err) { 
-      console.log(err); 
-      toast.error("Error"); 
-    } finally { 
-      setLoading(false); 
-    }
-  }, [messages, editText, aiMemory, webEnabled, userId, currentChatId]);
 
   const sendMessage = useCallback(async (retry?: string) => {
     if (isSendingRef.current) return;
-
     const finalInput = retry || input;
-
     if (!finalInput.trim() && pendingFiles.length === 0) return;
-
     isSendingRef.current = true;
-
     safeRemoveItem("adin-draft-input");
-    
-    // Use a fresh copy of chatHistory for the new chat
     let activeId = currentChatId;
-    if(!activeId){
+    if (!activeId) {
       activeId = Date.now();
-      const newChat = { id: activeId, title: finalInput.slice(0,25) || "New Chat", createdAt: Date.now() };
-      setChatHistory(prevHistory => sortChats([newChat, ...prevHistory]));
+      const newChat = { id: activeId, title: finalInput.slice(0, 25) || "New Chat", createdAt: Date.now() };
+      setChatHistory(prev => sortChats([newChat, ...prev]));
       setCurrentChatId(activeId);
     }
-
     let fullMessage = finalInput;
-
     const filesToSend = [...pendingFiles];
     if (filesToSend.length > 0) {
-      filesToSend.forEach(file => {
-        fullMessage += `\n\nFile: ${file.name}\nContent:\n${file.content}`;
-      });
+      filesToSend.forEach(file => { fullMessage += `\n\nFile: ${file.name}\nContent:\n${file.content}`; });
     }
-
     setPendingFiles([]);
     fileUploadRef.current?.clearFile();
     setInput("");
-
-    const userMsg: MessageType = {
-      role: "user",
-      text: fullMessage,
-      files: filesToSend
-    };
-
+    const userMsg: MessageType = { role: "user", text: fullMessage, files: filesToSend };
     const updated = [...messages, userMsg];
     setMessages(updated);
     setLoading(true);
     setChatMessages(prev => ({ ...prev, [activeId!]: updated }));
-
     try {
       const res = await sendToAI(updated, aiMemory, webEnabled, userId);
       const data = await res.json();
@@ -1295,235 +1293,97 @@ export default function App() {
       const final = [...updated, { role: "ai", text: aiText }];
       setMessages(final);
       setChatMessages(prev => ({ ...prev, [activeId!]: final }));
-      if(userId !== "anonymous" && aiText) {
-        try {
-          await saveMemoryFromResponse(userId, finalInput, aiText);
-        } catch (memoryErr) {
-          console.error("Failed to save memory:", memoryErr);
-        }
-      }
-    } catch(err) {
-      console.log(err);
-      toast.error("Connection Error");
-    } finally {
-      setLoading(false);
-      isSendingRef.current = false;
-    }
+    } catch (err) { toast.error("Connection Error"); }
+    finally { setLoading(false); isSendingRef.current = false; }
   }, [input, pendingFiles, currentChatId, messages, aiMemory, webEnabled, userId, sortChats]);
 
-  const newChat = useCallback(() => {
-    setCurrentChatId(null);
-    setMessages([]);
-    setInput("");
-    setPendingFiles([]);
-    fileUploadRef.current?.clearFile();
-    safeRemoveItem("adin-draft-input");
-  }, []);
-
-  const renderAIChat = useCallback(() => {
-    return (
-      <>
-        <div className="flex-1 overflow-auto p-4">
-          {messages.length === 0 && (
-            <div className="h-full flex flex-col justify-center items-center text-zinc-500">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center mb-4 shadow-2xl">
-                <Sparkles size={32} className="text-white" />
-              </div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Hello</h1>
-              <p className="mt-2 text-sm text-gray-500">How can I help you today?</p>
-            </div>
-          )}
-
-          {messages.map((m,i)=>(
-            <div key={i} className={`group relative mb-3 flex ${m.role==="user" ? "justify-end" : "justify-start"}`}>
-              <div className={`max-w-[75%] ${m.role==="user" ? "order-1" : "order-1"}`}>
-                <div className={`rounded-xl px-3 py-2 ${
-                  m.role==="user"
-                    ? "bg-gradient-to-r from-purple-600 to-blue-500 text-white"
-                    : "bg-zinc-900 border border-zinc-800"
-                }`}>
-                  {editingMessage===i ? (
-                    <div className="space-y-2">
-                      <textarea value={editText} onChange={e=>setEditText(e.target.value)} className="w-full bg-black border border-zinc-700 rounded-lg p-2 text-sm text-white"/>
-                      <button onClick={()=>saveEditedMessage(i)} className="px-3 py-1 rounded-lg bg-green-600 text-sm">Save</button>
-                    </div>
-                  ) : (
-                    <div className="text-sm prose prose-invert max-w-none">
-                      <ReactMarkdown
-                        remarkPlugins={[]}
-                        rehypePlugins={[]}
-                        components={{
-                          code: ({ node, inline, className, children, ...props }) => {
-                            const match = /language-(\w+)/.exec(className || "");
-                            return !inline && match ? (
-                              <code className={className} {...props}>
-                                {children}
-                              </code>
-                            ) : (
-                              <code className="bg-black/50 px-1 py-0.5 rounded text-sm" {...props}>
-                                {children}
-                              </code>
-                            );
-                          },
-                        }}
-                      >
-                        {m.text}
-                      </ReactMarkdown>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex gap-1.5 mt-1 opacity-0 group-hover:opacity-100 transition">
-                  <button onClick={()=>copyMessage(m.text,i)} className="p-1 hover:bg-gray-800 rounded">
-                    {copiedIndex===i ? <Check size={10} className="text-green-400"/> : <Copy size={10} className="text-gray-400"/>}
-                  </button>
-                  <button onClick={()=>{ setEditingMessage(i); setEditText(m.text); }} className="p-1 hover:bg-gray-800 rounded">
-                    <Edit size={10} className="text-gray-400"/>
-                  </button>
-                  {m.role==="ai" && (
-                    <>
-                      <button onClick={() => toggleLike(i, m.text, m.role)} className="p-1 hover:bg-gray-800 rounded">
-                        <ThumbsUp size={10} className={likedMessages.includes(i) ? "text-green-400" : "text-gray-400"} />
-                      </button>
-                      <button onClick={()=>toggleDislike(i,m.text)} className="p-1 hover:bg-gray-800 rounded">
-                        <ThumbsDown size={10} className={dislikedMessages.includes(i) ? "text-red-400" : "text-gray-400"} />
-                      </button>
-                      <button onClick={()=>{ const lastUser = messages[i-1]; if(lastUser && lastUser.role==="user") sendMessage(lastUser.text); }} className="p-1 hover:bg-gray-800 rounded">
-                        <RotateCcw size={10} className="text-gray-400"/>
-                      </button>
-                      <SpeakButton text={m.text} language={detectedLanguage} />
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-
-          {(pendingFiles.length > 0) && (
-            <div className="mb-2 p-2 bg-gray-800/50 rounded-lg">
-              <div className="flex flex-wrap gap-2">
-                {pendingFiles.map((file, idx) => (
-                  <div key={idx} className="flex items-center gap-2 bg-gray-700 rounded-lg px-2 py-1">
-                    <FileText size={12} className="text-blue-400" />
-                    <span className="text-xs text-gray-300 max-w-[100px] truncate">{file.name}</span>
-                    <button onClick={() => removePendingFile()} className="hover:text-red-400">
-                      <X size={10} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {(loading) && (
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 max-w-[150px]">
-              <div className="flex gap-1.5">
-                <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" />
-                <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce delay-100" />
-                <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce delay-200" />
-              </div>
-            </div>
-          )}
-          <div ref={messagesEndRef}/>
-        </div>
-
-        <div className="p-3 border-t border-zinc-900 shrink-0">
-          <div className="max-w-4xl mx-auto">
-            <div className="flex gap-2 mb-2">
-              <FileUpload
-                ref={fileUploadRef}
-                onFileUploaded={handleFileUpload}
-              />
-            </div>
-
-            <div className="flex gap-2">
-              <VoiceMic
-                onTranscript={handleVoiceTranscript}
-                isDisabled={loading}
-              />
-              <input
-                value={input}
-                onChange={e=>setInput(e.target.value)}
-                onKeyDown={e=>e.key==="Enter" && !loading && sendMessage()}
-                placeholder="Message Adin AI..."
-                className="flex-1 h-10 rounded-lg bg-zinc-950 border border-zinc-800 px-3 text-sm text-white outline-none focus:border-purple-500"
-              />
-              <button
-                onClick={() => sendMessage()}
-                disabled={loading}
-                className="h-10 px-4 rounded-lg bg-gradient-to-r from-purple-600 to-blue-500 disabled:opacity-50 text-white text-sm font-medium hover:scale-105 transition-transform"
-              >
-                Send
-              </button>
-            </div>
-          </div>
-        </div>
-      </>
-    );
-  }, [messages, editingMessage, editText, copiedIndex, likedMessages, dislikedMessages, pendingFiles, loading, input, detectedLanguage, copyMessage, toggleLike, toggleDislike, sendMessage, saveEditedMessage, removePendingFile, handleFileUpload, handleVoiceTranscript]);
-
-  const recentChats = chatHistory.filter(chat => !chat.pinned);
-
-  // ✅ Premium Avatar Component - MOVED BEFORE CONDITIONAL RETURNS
-  const PremiumAvatar = useCallback(() => {
-    const displayName = userName || "User";
-    const avatarLetter = getAvatarLetter(displayName);
-    const avatarColor = getAvatarColor(displayName);
-
-    return (
-      <div className="relative" ref={profileRef}>
-        {/* Avatar Button - Click to toggle dropdown */}
-        <button
-          onClick={() => setIsProfileOpen(!isProfileOpen)}
-          className="relative group focus:outline-none"
-        >
-          <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${avatarColor} flex items-center justify-center text-white font-semibold text-sm shadow-lg shadow-purple-500/20 ring-2 ring-white/10 backdrop-blur-sm transition-all duration-300 hover:scale-105 hover:ring-2 hover:ring-purple-500/50`}>
-            {avatarLetter}
-          </div>
-        </button>
-
-        {/* Dropdown Menu */}
-        {isProfileOpen && (
-          <div className="absolute right-0 top-12 w-64 rounded-xl bg-zinc-900/95 border border-zinc-800/50 backdrop-blur-sm shadow-2xl shadow-black/50 overflow-hidden z-50 animate-slide-down">
-            <div className="p-4 border-b border-zinc-800/50">
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${avatarColor} flex items-center justify-center text-white font-semibold text-sm shadow-lg shadow-purple-500/20 ring-2 ring-white/10`}>
-                  {avatarLetter}
-                </div>
-                <div>
-                  <div className="text-sm font-medium text-white">{displayName}</div>
-                  <div className="text-xs text-zinc-400">Member</div>
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={handleGuestLogout}
-              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-400 hover:bg-red-400/10 transition-colors duration-200"
-            >
-              <LogOut size={16} />
-              <span>Logout</span>
-            </button>
-          </div>
-        )}
-      </div>
-    );
-  }, [userName, isProfileOpen, getAvatarLetter, getAvatarColor, handleGuestLogout]);
-
-  // ✅ SEO FIX: Get page key/config here — BEFORE the onboarding/guest
-  // gates below — so real title/description/canonical/JSON-LD render
-  // even on the very first load (before onboarding is completed).
-  // Without this, Googlebot's first crawl only ever sees the
-  // Onboarding screen with no SEO tags at all, since those tags used
-  // to be defined after these early returns and were unreachable.
   const pageKey = getPageKey();
   const seoConfig = getSEOConfig(pageKey);
 
-  // ✅ NEW: Show Landing Page if not seen (Sab se pehle)
-  // ✅ SEO FIX: this branch was returning <LandingPage> with no SEOHead
-  // at all — since a fresh visitor (no localStorage) always lands here
-  // first, this was the exact reason Google's rendered snapshot had no
-  // <title>, no meta description, and no JSON-LD whatsoever. Mirrors the
-  // same pattern already used below for Onboarding/Login.
+  const currentRoute: AppRoute = (() => {
+    if (currentPage === 'workspace') return 'home';
+    if (currentPage === 'my-documents') return 'documents';
+    if (currentPage === 'templates') return 'templates';
+    if (currentPage === 'cover-templates') return 'cover-templates';
+    if (currentPage === 'app' && active === 'CV Builder') return 'cv-builder';
+    if (currentPage === 'app' && active === 'Cover Letter') return 'cover-letter';
+    return 'home';
+  })();
+
+  const isBuilderPage = currentPage === 'app' && (active === 'CV Builder' || active === 'Cover Letter');
+  const isLegalPage = currentPage === 'legal' || currentPage === 'founder';
+
+  const handleLandingBuildCV = useCallback(() => {
+    safeSetItem('adin-has-seen-landing', 'true');
+    setShowLanding(false);
+    setCurrentPage('templates');
+    setActive('CV Templates');
+    navigateToPath('/templates');
+  }, []);
+
+  const handleLandingWriteCoverLetter = useCallback(() => {
+    safeSetItem('adin-has-seen-landing', 'true');
+    setShowLanding(false);
+    setCurrentPage('cover-templates');
+    setActive('Cover Templates');
+    navigateToPath('/cover-templates');
+  }, []);
+
+  const handleLandingViewCVTemplates = useCallback(() => {
+    safeSetItem('adin-has-seen-landing', 'true');
+    setShowLanding(false);
+    setCurrentPage('templates');
+    setActive('CV Templates');
+    navigateToPath('/templates');
+  }, []);
+
+  const handleLandingViewCoverTemplates = useCallback(() => {
+    safeSetItem('adin-has-seen-landing', 'true');
+    setShowLanding(false);
+    setCurrentPage('cover-templates');
+    setActive('Cover Templates');
+    navigateToPath('/cover-templates');
+  }, []);
+
+  const handleLandingFounder = useCallback(() => {
+    sessionSet('adin-legal-from-landing', 'true');
+    safeSetItem('adin-has-seen-landing', 'true');
+    setShowLanding(false);
+    setCurrentPage('founder');
+    setActive('Founder');
+    navigateToPath('/founder');
+  }, []);
+
+  const handleLandingPrivacy = useCallback(() => {
+    sessionSet('adin-legal-from-landing', 'true');
+    safeSetItem('adin-has-seen-landing', 'true');
+    setShowLanding(false);
+    setCurrentPage('legal');
+    setActive('Privacy Policy');
+    navigateToPath('/privacy-policy');
+  }, []);
+
+  const handleLandingTerms = useCallback(() => {
+    sessionSet('adin-legal-from-landing', 'true');
+    safeSetItem('adin-has-seen-landing', 'true');
+    setShowLanding(false);
+    setCurrentPage('legal');
+    setActive('Terms of Service');
+    navigateToPath('/terms-of-service');
+  }, []);
+
+  const handleLandingContact = useCallback(() => {
+    sessionSet('adin-legal-from-landing', 'true');
+    safeSetItem('adin-has-seen-landing', 'true');
+    setShowLanding(false);
+    setCurrentPage('legal');
+    setActive('Contact');
+    navigateToPath('/contact');
+  }, []);
+
+  // ═══════════════════════════════════════════════════════════════
+  // 1. LANDING PAGE
+  // ═══════════════════════════════════════════════════════════════
   if (showLanding) {
     return (
       <>
@@ -1532,172 +1392,464 @@ export default function App() {
           description={seoConfig.description}
           keywords={seoConfig.keywords}
           canonicalUrl={seoConfig.canonicalUrl}
-          ogType={seoConfig.ogType || "website"}
+          ogType="website"
         />
-        <script type="application/ld+json">
-          {generateJSONLDScript(generatePageSchemas(pageKey as any))}
-        </script>
-        <LandingPage onGetStarted={handleLandingComplete} />
+
+        <style>{`
+          html, body {
+            height: auto !important;
+            min-height: 100% !important;
+            max-height: none !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            background: #f8fafc;
+            color: #0f172a;
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 #f1f5f9;
+          }
+          body > *, body > * > *, #root, #root > * {
+            height: auto !important;
+            max-height: none !important;
+            overflow-y: visible !important;
+            overflow-x: visible !important;
+          }
+          html::-webkit-scrollbar,
+          body::-webkit-scrollbar { width: 10px; height: 10px; }
+          html::-webkit-scrollbar-track,
+          body::-webkit-scrollbar-track { background: #f1f5f9; }
+          html::-webkit-scrollbar-thumb,
+          body::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 6px;
+            border: 2px solid #f1f5f9;
+          }
+          html::-webkit-scrollbar-thumb:hover,
+          body::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+          html::-webkit-scrollbar-corner,
+          body::-webkit-scrollbar-corner { background: transparent; }
+        `}</style>
+
+        <LandingPage
+          onGetStarted={handleLandingComplete}
+          onBuildCV={handleLandingBuildCV}
+          onWriteCoverLetter={handleLandingWriteCoverLetter}
+          onViewCVTemplates={handleLandingViewCVTemplates}
+          onViewCoverTemplates={handleLandingViewCoverTemplates}
+          onOpenFounder={handleLandingFounder}
+          onOpenSidebar={undefined}
+          onOpenPrivacy={handleLandingPrivacy}
+          onOpenTerms={handleLandingTerms}
+          onOpenContact={handleLandingContact}
+        />
       </>
     );
   }
 
-  // ✅ Show Onboarding if not completed (SEO tags now render underneath it too)
-  if (!isOnboardingComplete) {
+  // ═══════════════════════════════════════════════════════════════
+  // 2. LEGAL PAGES
+  // ═══════════════════════════════════════════════════════════════
+  if (isLegalPage) {
     return (
-      <>
-        <SEOHead
-          title={seoConfig.title}
-          description={seoConfig.description}
-          keywords={seoConfig.keywords}
-          canonicalUrl={seoConfig.canonicalUrl}
-          ogType={seoConfig.ogType || "website"}
-        />
-        <script type="application/ld+json">
-          {generateJSONLDScript(generatePageSchemas(pageKey as any))}
-        </script>
-        <Onboarding onComplete={handleOnboardingComplete} />
-      </>
-    );
-  }
+      <NavigationProvider onNavigate={handleGlobalNavigate} currentRoute={currentRoute}>
+        <>
+          <SEOHead title={seoConfig.title} description={seoConfig.description} keywords={seoConfig.keywords} canonicalUrl={seoConfig.canonicalUrl} ogType="website" />
+          <Toaster position="top-right" />
 
-  // ✅ Show loading screen while checking guest session (SEO tags now render underneath it too)
-  if (!isGuest) {
-    return (
-      <>
-        <SEOHead
-          title={seoConfig.title}
-          description={seoConfig.description}
-          keywords={seoConfig.keywords}
-          canonicalUrl={seoConfig.canonicalUrl}
-          ogType={seoConfig.ogType || "website"}
-        />
-        <script type="application/ld+json">
-          {generateJSONLDScript(generatePageSchemas(pageKey as any))}
-        </script>
-        <Login />
-      </>
-    );
-  }
-
-  return (
-    <>
-      {/* ✅ SEO: Dynamic Head based on current route */}
-      <SEOHead
-        title={seoConfig.title}
-        description={seoConfig.description}
-        keywords={seoConfig.keywords}
-        canonicalUrl={seoConfig.canonicalUrl}
-        ogType={seoConfig.ogType || "website"}
-      />
-
-      {/* ✅ JSON-LD Structured Data for current page */}
-      <script type="application/ld+json">
-        {generateJSONLDScript(generatePageSchemas(pageKey as any))}
-      </script>
-
-      <Toaster position="top-right" />
-
-      <div className="w-screen h-screen flex bg-black text-white overflow-hidden">
-        {/* ✅ Workspace Page */}
-        {currentPage === 'workspace' ? (
-          <div className="w-full h-full flex flex-col">
-            <div className="h-[56px] flex justify-between items-center px-5 border-b border-zinc-900 shrink-0 bg-black/50">
-              <div></div>
-              <div className="flex items-center gap-3">
-                <div className="px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 text-xs flex items-center gap-1">
-                  <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></div>
-                  <span>Ready</span>
-                </div>
-                <PremiumAvatar />
-              </div>
-            </div>
+          <div className="w-full min-h-screen flex flex-col bg-slate-100">
             <Suspense fallback={<LoadingScreen />}>
-              <WorkspacePage
-                onNavigate={handleWorkspaceNavigate}
-                userId={userId}
-              />
-            </Suspense>
-          </div>
-        ) : currentPage === 'templates' ? (
-          <div className="w-full h-full flex flex-col">
-            <Suspense fallback={<LoadingScreen />}>
-              <CVTemplatesPage
-                onBackToHome={navigateToWorkspace}
-                onTemplateSelect={handleTemplateSelect}
-              />
-            </Suspense>
-          </div>
-        ) : currentPage === 'cover-templates' ? (
-          <div className="w-full h-full flex flex-col">
-            <Suspense fallback={<LoadingScreen />}>
-              <CoverTemplatesPage
-                onBackToHome={navigateToWorkspace}
-                onTemplateSelect={handleCoverTemplateSelect}
-              />
-            </Suspense>
-          </div>
-        ) : currentPage === 'founder' ? (
-          <div className="w-full h-full flex flex-col">
-            <Suspense fallback={<LoadingScreen />}>
-              <Founder />
-            </Suspense>
-          </div>
-        ) : currentPage === 'legal' ? (
-          <div className="w-full h-full flex flex-col">
-            <Suspense fallback={<LoadingScreen />}>
-              {active === "Privacy Policy" && <PrivacyPolicy />}
-              {active === "Terms of Service" && <TermsOfService />}
-              {active === "Contact" && <Contact />}
-            </Suspense>
-          </div>
-        ) : currentPage === 'app' ? (
-          <div className="w-full flex-1 flex flex-col">
-            <div className="flex-1 overflow-hidden">
-              {active === "CV Builder" ? (
-                <Suspense fallback={<LoadingScreen />}>
-                  <CVBuilder
-                    userId={userId}
-                    onBackToHome={navigateToTemplates}
-                    initialTemplateId={selectedTemplateId || undefined}
-                  />
-                </Suspense>
-              ) : active === "Cover Letter" ? (
-                <Suspense fallback={<LoadingScreen />}>
-                  <CoverLetter
-                    onBackToHome={navigateToCoverTemplates}
-                    initialTemplateId={selectedCoverTemplateId || undefined}
-                  />
-                </Suspense>
+              {currentPage === 'founder' ? (
+                <Founder onBack={handleBackFromLegal} />
               ) : (
-                <div className="flex items-center justify-center h-full text-gray-500">
-                  <p>Loading...</p>
-                </div>
+                <>
+                  {active === "Privacy Policy" && <PrivacyPolicy onBack={handleBackFromLegal} />}
+                  {active === "Terms of Service" && <TermsOfService onBack={handleBackFromLegal} />}
+                  {active === "Contact" && <Contact onBack={handleBackFromLegal} />}
+                </>
               )}
-            </div>
-          </div>
-        ) : (
-          /* ✅ FALLBACK - Workspace */
-          <div className="w-full h-full flex flex-col">
-            <div className="h-[56px] flex justify-between items-center px-5 border-b border-zinc-900 shrink-0 bg-black/50">
-              <div></div>
-              <div className="flex items-center gap-3">
-                <div className="px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 text-xs flex items-center gap-1">
-                  <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></div>
-                  <span>Ready</span>
-                </div>
-                <PremiumAvatar />
-              </div>
-            </div>
-            <Suspense fallback={<LoadingScreen />}>
-              <WorkspacePage
-                onNavigate={handleWorkspaceNavigate}
-                userId={userId}
-              />
             </Suspense>
           </div>
+        </>
+      </NavigationProvider>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // 3. ONBOARDING (skip for public SEO pages)
+  // ═══════════════════════════════════════════════════════════════
+  const isPublicPageForSEO = PUBLIC_PAGES_FOR_SEO.includes(currentPage);
+
+  if (!isOnboardingComplete && !isPublicPageForSEO) {
+    return (
+      <>
+        <SEOHead title={seoConfig.title} description={seoConfig.description} keywords={seoConfig.keywords} canonicalUrl={seoConfig.canonicalUrl} ogType="website" />
+        <Onboarding
+          onComplete={handleOnboardingComplete}
+          onRestoreClick={() => setShowRestoreModal(true)}
+        />
+        <RestoreData
+          isOpen={showRestoreModal}
+          onClose={() => setShowRestoreModal(false)}
+          onRestored={handleRestoredFromOnboarding}
+        />
+      </>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // 4. MAIN APP
+  // ═══════════════════════════════════════════════════════════════
+  return (
+    <NavigationProvider onNavigate={handleGlobalNavigate} currentRoute={currentRoute}>
+      <>
+        <SEOHead title={seoConfig.title} description={seoConfig.description} keywords={seoConfig.keywords} canonicalUrl={seoConfig.canonicalUrl} ogType="website" />
+        <Toaster position="top-right" />
+
+        <div className="app-guest-root w-screen min-h-screen flex bg-slate-100 text-slate-900">
+          {currentPage === 'workspace' ? (
+            <div className="w-full min-h-screen flex flex-col">
+              <div className="h-[56px] flex justify-between items-center px-3 sm:px-5 border-b border-slate-200 shrink-0 bg-white/90 backdrop-blur-sm sticky top-0 z-20">
+                <SidebarToggle onOpen={openSidebar} />
+                <button
+                  onClick={handleOpenBackupHelp}
+                  className="group inline-flex items-center gap-2 px-3 sm:px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50 shadow-sm hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+                  aria-label="Backup Help"
+                >
+                  <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center shadow-sm">
+                    <Shield size={13} className="text-white" strokeWidth={2.4} />
+                  </div>
+                  <span className="text-xs sm:text-sm font-semibold text-slate-700 group-hover:text-purple-700 transition-colors">
+                    Backup Help
+                  </span>
+                </button>
+              </div>
+              <Suspense fallback={<LoadingScreen />}>
+                <WorkspacePage
+                  onNavigate={handleWorkspaceNavigate}
+                  userId={userId}
+                  onEditDocument={handleEditDocument}
+                  onEditCoverLetter={handleEditCoverLetter}
+                />
+              </Suspense>
+            </div>
+          ) : currentPage === 'my-documents' ? (
+            <div className="w-full h-screen flex flex-col overflow-hidden">
+              <div className="h-[56px] flex justify-between items-center px-3 sm:px-5 border-b border-slate-200 shrink-0 bg-white/90 backdrop-blur-sm">
+                <SidebarToggle onOpen={openSidebar} />
+                <button
+                  onClick={handleOpenBackupHelp}
+                  className="group inline-flex items-center gap-2 px-3 sm:px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50 shadow-sm hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+                  aria-label="Backup Help"
+                >
+                  <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center shadow-sm">
+                    <Shield size={13} className="text-white" strokeWidth={2.4} />
+                  </div>
+                  <span className="text-xs sm:text-sm font-semibold text-slate-700 group-hover:text-purple-700 transition-colors">
+                    Backup Help
+                  </span>
+                </button>
+              </div>
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <Suspense fallback={<LoadingScreen />}>
+                  <MyDocuments
+                    userId={userId}
+                    onCreateNew={handleCreateNewCV}
+                    onEditDocument={handleEditDocument}
+                    onCreateCoverLetter={handleCreateNewCoverLetter}
+                    onEditCoverLetter={handleEditCoverLetter}
+                  />
+                </Suspense>
+              </div>
+            </div>
+          ) : currentPage === 'templates' ? (
+            <div className="w-full h-screen flex flex-col overflow-hidden">
+              <div className="h-[56px] flex justify-between items-center px-3 sm:px-5 border-b border-slate-200 shrink-0 bg-white/90 backdrop-blur-sm">
+                <SidebarToggle onOpen={openSidebar} />
+                <button
+                  onClick={handleOpenBackupHelp}
+                  className="group inline-flex items-center gap-2 px-3 sm:px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50 shadow-sm hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+                  aria-label="Backup Help"
+                >
+                  <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center shadow-sm">
+                    <Shield size={13} className="text-white" strokeWidth={2.4} />
+                  </div>
+                  <span className="text-xs sm:text-sm font-semibold text-slate-700 group-hover:text-purple-700 transition-colors">
+                    Backup Help
+                  </span>
+                </button>
+              </div>
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <Suspense fallback={<LoadingScreen />}>
+                  <CVTemplatesPage onBackToHome={navigateBackFromTemplates} onTemplateSelect={handleTemplateSelect} />
+                </Suspense>
+              </div>
+            </div>
+          ) : currentPage === 'cover-templates' ? (
+            <div className="w-full h-screen flex flex-col overflow-hidden">
+              <div className="h-[56px] flex justify-between items-center px-3 sm:px-5 border-b border-slate-200 shrink-0 bg-white/90 backdrop-blur-sm">
+                <SidebarToggle onOpen={openSidebar} />
+                <button
+                  onClick={handleOpenBackupHelp}
+                  className="group inline-flex items-center gap-2 px-3 sm:px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50 shadow-sm hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+                  aria-label="Backup Help"
+                >
+                  <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center shadow-sm">
+                    <Shield size={13} className="text-white" strokeWidth={2.4} />
+                  </div>
+                  <span className="text-xs sm:text-sm font-semibold text-slate-700 group-hover:text-purple-700 transition-colors">
+                    Backup Help
+                  </span>
+                </button>
+              </div>
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <Suspense fallback={<LoadingScreen />}>
+                  <CoverTemplatesPage onBackToHome={navigateBackFromTemplates} onTemplateSelect={handleCoverTemplateSelect} />
+                </Suspense>
+              </div>
+            </div>
+          ) : currentPage === 'app' ? (
+            <div className="w-screen h-screen flex flex-col overflow-hidden">
+              <div className="flex-1 min-h-0">
+                {active === "CV Builder" ? (
+                  <Suspense fallback={<LoadingScreen />}>
+                    <CVBuilder
+                      userId={userId}
+                      onBackToHome={handleBackFromCVBuilder}
+                      onBackToDocuments={handleBackFromCVBuilder}
+                      initialTemplateId={selectedTemplateId || undefined}
+                      documentId={activeDocumentId || undefined}
+                      onDocumentCreated={(docId) => setActiveDocumentId(docId)}
+                      onDownloadId={handleDownloadMyId}
+                      onSetPin={handleSetPinClick}
+                    />
+                  </Suspense>
+                ) : active === "Cover Letter" ? (
+                  <Suspense fallback={<LoadingScreen />}>
+                    <CoverLetter
+                      key={`cover-letter-${coverLetterKey}-${activeCoverLetterId || 'new'}`}
+                      userId={userId}
+                      onBackToHome={handleBackFromCoverLetter}
+                      onBackToDocuments={handleBackFromCoverLetter}
+                      initialTemplateId={selectedCoverTemplateId || undefined}
+                      documentId={activeCoverLetterId || undefined}
+                      onDocumentCreated={(docId) => setActiveCoverLetterId(docId)}
+                      onTemplateChange={(template) => {
+                        setSelectedCoverTemplateId(template);
+                      }}
+                    />
+                  </Suspense>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-slate-500"><p>Loading...</p></div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="w-full min-h-screen flex flex-col">
+              <div className="h-[56px] flex justify-between items-center px-3 sm:px-5 border-b border-slate-200 shrink-0 bg-white/90 backdrop-blur-sm sticky top-0 z-20">
+                <SidebarToggle onOpen={openSidebar} />
+                <button
+                  onClick={handleOpenBackupHelp}
+                  className="group inline-flex items-center gap-2 px-3 sm:px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50 shadow-sm hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+                  aria-label="Backup Help"
+                >
+                  <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center shadow-sm">
+                    <Shield size={13} className="text-white" strokeWidth={2.4} />
+                  </div>
+                  <span className="text-xs sm:text-sm font-semibold text-slate-700 group-hover:text-purple-700 transition-colors">
+                    Backup Help
+                  </span>
+                </button>
+              </div>
+              <Suspense fallback={<LoadingScreen />}>
+                <WorkspacePage
+                  onNavigate={handleWorkspaceNavigate}
+                  userId={userId}
+                  onEditDocument={handleEditDocument}
+                  onEditCoverLetter={handleEditCoverLetter}
+                />
+              </Suspense>
+            </div>
+          )}
+
+          {isBuilderPage ? (
+            <style>{`
+              html, body {
+                height: 100% !important;
+                max-height: 100% !important;
+                overflow: hidden !important;
+                background: #f1f5f9;
+              }
+              body > *, body > * > *, #root, #root > * {
+                height: 100% !important;
+                max-height: 100% !important;
+                overflow: hidden !important;
+              }
+              .app-guest-root {
+                display: block;
+                width: 100%;
+                height: 100vh;
+                min-height: 100vh;
+                max-height: 100vh;
+                overflow: hidden;
+              }
+            `}</style>
+          ) : (
+            <style>{`
+              html, body {
+                height: auto !important;
+                min-height: 100% !important;
+                max-height: none !important;
+                overflow-y: auto !important;
+                overflow-x: hidden !important;
+                background: #f8fafc;
+                color: #0f172a;
+              }
+              body > *, body > * > *, #root, #root > * {
+                height: auto !important;
+                max-height: none !important;
+                overflow-y: visible !important;
+                overflow-x: visible !important;
+              }
+              .app-guest-root {
+                display: block;
+                width: 100%;
+                min-height: 100vh;
+                height: auto;
+                overflow: visible;
+                position: relative;
+              }
+              html, body, * {
+                scrollbar-width: thin !important;
+                scrollbar-color: #cbd5e1 #f1f5f9 !important;
+              }
+              html::-webkit-scrollbar,
+              body::-webkit-scrollbar,
+              *::-webkit-scrollbar {
+                width: 8px !important;
+                height: 8px !important;
+              }
+              html::-webkit-scrollbar-track,
+              body::-webkit-scrollbar-track,
+              *::-webkit-scrollbar-track {
+                background: #f1f5f9 !important;
+              }
+              html::-webkit-scrollbar-thumb,
+              body::-webkit-scrollbar-thumb,
+              *::-webkit-scrollbar-thumb {
+                background: #cbd5e1 !important;
+                border-radius: 6px !important;
+                border: 2px solid #f1f5f9 !important;
+              }
+              html::-webkit-scrollbar-thumb:hover,
+              body::-webkit-scrollbar-thumb:hover,
+              *::-webkit-scrollbar-thumb:hover {
+                background: #94a3b8 !important;
+              }
+              html::-webkit-scrollbar-corner,
+              body::-webkit-scrollbar-corner,
+              *::-webkit-scrollbar-corner {
+                background: transparent !important;
+              }
+            `}</style>
+          )}
+        </div>
+
+        <GlobalSidebar
+          isOpen={isSidebarOpen}
+          onClose={closeSidebar}
+          currentPage={currentRoute}
+          userId={userId}
+          userName={userName}
+          hasPinSet={hasPinSet}
+          onOpenProfile={() => setShowProfilePage(true)}
+        />
+
+        <ProfilePage
+          isOpen={showProfilePage}
+          onClose={() => setShowProfilePage(false)}
+          userId={userId}
+          userName={userName}
+          hasPinSet={hasPinSet}
+          onRestoreClick={() => setShowRestoreModal(true)}
+          onDownloadIdClick={handleDownloadMyId}
+          onSetPinClick={handleSetPinClick}
+          onClearCacheClick={handleClearCacheClick}
+          onDeleteAccountClick={() => setShowDeleteAccount(true)}
+          onLogoutClick={handleLogoutClick}
+        />
+
+        <RestoreData
+          isOpen={showRestoreModal}
+          onClose={() => setShowRestoreModal(false)}
+          onRestored={() => {
+            console.log('[App] Data restored — reloading to show new docs');
+          }}
+        />
+
+        <LogoutWarningPopup
+          isOpen={showLogoutWarning}
+          userId={userId}
+          onCancel={() => setShowLogoutWarning(false)}
+          onConfirmLogout={handleGuestLogout}
+        />
+
+        <ClearCacheConfirm
+          isOpen={showClearCache}
+          userId={userId}
+          onConfirm={handleConfirmClearCache}
+          onCancel={() => setShowClearCache(false)}
+        />
+
+        <DeleteAccountConfirm
+          isOpen={showDeleteAccount}
+          userId={userId}
+          onConfirm={handleDeleteAccountConfirm}
+          onCancel={() => setShowDeleteAccount(false)}
+        />
+
+        <SetPinModal
+          key={`set-pin-${userId}`}
+          isOpen={showSetPin}
+          userId={userId}
+          onClose={() => setShowSetPin(false)}
+          onSuccess={handleSetPinSuccess}
+        />
+
+        {showPinEducation && userId && (
+          <PinEducationPopup
+            userId={userId}
+            onSetPin={handlePinEducationSetPin}
+            onDismiss={handlePinEducationDismiss}
+          />
         )}
-      </div>
-    </>
+
+        <FeedbackFullScreen
+          isOpen={showGlobalFeedback}
+          onClose={() => {
+            setShowGlobalFeedback(false);
+            markFeedbackShown('global');
+          }}
+          source="global"
+        />
+
+        {!isBuilderPage && !showProfilePage && (
+          <button
+            onClick={() => setShowGlobalFeedback(true)}
+            aria-label="Give feedback"
+            className="fixed bottom-6 right-6 z-[9997] group flex items-center gap-2 px-4 py-3 rounded-full bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white text-sm font-semibold shadow-xl shadow-purple-500/30 hover:shadow-purple-500/50 transition-all duration-300 hover:scale-105"
+          >
+            <MessageSquare size={18} className="group-hover:rotate-12 transition-transform duration-300" />
+            <span className="hidden sm:inline">Feedback</span>
+          </button>
+        )}
+      </>
+    </NavigationProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <SidebarProvider>
+      <AppInner />
+    </SidebarProvider>
   );
 }

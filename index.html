@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    
+
     <!-- ============================================
          🔥 CRITICAL: Instagram WebView Fix - CSP Header
          ✅ UPDATED: Allow data: URLs for images, fonts, and fetch
@@ -16,22 +16,73 @@
       frame-src *; 
       style-src * 'unsafe-inline' data:;
     ">
-    
+
     <!-- ============================================
          🔥 GOOGLE SEARCH CONSOLE VERIFICATION
          ============================================ -->
     <meta name="google-site-verification" content="v10fnWTLXgPEuzJDTdtXSmYQ1EBM-oCSObPPrSrNat0" />
-    
+
+    <!-- ============================================
+         🔥 PRIMARY SEO META (Static fallback — SEOHead overrides when JS runs)
+         ============================================ -->
+    <title>Adin AI — Free CV Builder, Cover Letter &amp; Career Assistant</title>
+    <meta
+      name="description"
+      content="Adin AI is a 100% free AI-powered CV builder, cover letter generator, and career assistant. Build professional, ATS-friendly CVs in minutes — no signup, no credit card, no ads."
+    />
+    <meta
+      name="keywords"
+      content="free cv builder, free cover letter generator, free resume builder, free career assistant, ai cv builder, ai resume builder, free cv maker online, ats cv builder, professional cv builder free, free cv builder pakistan, adin ai"
+    />
+    <meta name="author" content="Adin AI" />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large" />
+    <link rel="canonical" href="https://adin-ai-gray.vercel.app/" />
+
+    <!-- ============================================
+         🔥 OPEN GRAPH (Static fallback)
+         ============================================ -->
+    <meta property="og:title" content="Adin AI — Free CV Builder, Cover Letter &amp; Career Assistant" />
+    <meta
+      property="og:description"
+      content="Build professional, ATS-friendly CVs for free with Adin AI. AI-powered writing, 50+ templates, instant PDF download."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://adin-ai-gray.vercel.app/" />
+    <meta property="og:image" content="https://adin-ai-gray.vercel.app/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:site_name" content="Adin AI" />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- ============================================
+         🔥 TWITTER CARDS (Static fallback)
+         ============================================ -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Adin AI — Free CV Builder, Cover Letter &amp; Career Assistant" />
+    <meta
+      name="twitter:description"
+      content="Build professional, ATS-friendly CVs for free with Adin AI. AI-powered writing, 50+ templates, instant PDF download."
+    />
+    <meta name="twitter:image" content="https://adin-ai-gray.vercel.app/og-image.png" />
+    <meta name="twitter:site" content="@adin_ai" />
+    <meta name="twitter:creator" content="@adin_ai" />
+
+    <!-- ============================================
+         🔥 GEO TAGS
+         ============================================ -->
+    <meta name="geo.region" content="PK" />
+    <meta name="geo.placename" content="Pakistan" />
+
     <!-- ============================================
          ✅ PWA: Web App Manifest
          ============================================ -->
     <link rel="manifest" href="/site.webmanifest" />
-    
+
     <!-- ============================================
          ✅ PWA: Apple Touch Icon
          ============================================ -->
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    
+
     <!-- ============================================
          ✅ FAVICON - All sizes
          ============================================ -->
@@ -40,42 +91,69 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/android-chrome-192x192.png" />
     <link rel="icon" type="image/png" sizes="512x512" href="/android-chrome-512x512.png" />
-    
+
     <!-- ============================================
          ✅ VIEWPORT
          ============================================ -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover" />
-    
+
     <!-- ============================================
          ✅ PWA: iOS Safari
          ============================================ -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Adin AI" />
-    
+
     <!-- ============================================
          ✅ THEME COLOR
          ============================================ -->
     <meta name="theme-color" content="#8b5cf6" />
-    
+
+    <!-- ============================================
+         ✅ MS TILE
+         ============================================ -->
+    <meta name="msapplication-TileColor" content="#8b5cf6" />
+    <meta name="msapplication-config" content="/browserconfig.xml" />
+
     <!-- ============================================
          ✅ PREFETCH / PRECONNECT for Performance
          ============================================ -->
     <link rel="preconnect" href="https://js.puter.com" />
     <link rel="preconnect" href="https://clerk.adin-ai.com" />
     <link rel="dns-prefetch" href="https://js.puter.com" />
-    
+
     <!-- ============================================
-         ❌ ALL META TAGS MOVED TO SEOHead.tsx
+         🔥 JSON-LD: Organization + WebSite
+         (Static fallback — SEOHead adds page-specific ones)
          ============================================ -->
-    <!-- Title, Description, Keywords, OG, Twitter, Canonical, Robots, JSON-LD -->
-    <!-- All handled dynamically by SEOHead component -->
-    
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "name": "Adin AI",
+          "alternateName": "Adin AI — Free CV Builder, Cover Letter & Career Assistant",
+          "url": "https://adin-ai-gray.vercel.app",
+          "logo": "https://adin-ai-gray.vercel.app/logo.png",
+          "description": "Adin AI is a 100% free AI-powered career platform. Build professional CVs, generate cover letters, and get career help."
+        },
+        {
+          "@type": "WebSite",
+          "name": "Adin AI",
+          "alternateName": "Adin AI — Free CV Builder, Cover Letter & Career Assistant",
+          "url": "https://adin-ai-gray.vercel.app",
+          "inLanguage": "en"
+        }
+      ]
+    }
+    </script>
+
     <!-- ============================================
          🔥 Puter.js CDN
          ============================================ -->
     <script src="https://js.puter.com/v2/" defer></script>
-    
+
   </head>
   <body>
     <div id="root"></div>

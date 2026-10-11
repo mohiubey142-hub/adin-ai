@@ -18,6 +18,11 @@ export const detectEducation = (t: string): Profession | null => {
     if (t.includes('pakistan studies') || t.includes('pak studies')) return 'pakistan-studies-teacher';
     if (t.includes('history teacher')) return 'history-teacher';
     
+    // ===== BATCH 2 - NEW EDUCATION PROFESSIONS =====
+    if (t.includes('special education') || t.includes('special needs teacher')) return 'special-education-teacher';
+    if (t.includes('school counselor') || t.includes('guidance counselor')) return 'school-counselor';
+    if (t.includes('research assistant') || t.includes('research associate')) return 'research-assistant';
+    
     // ===== NEW: LECTURER DETECTION (Specific - Pehle check) =====
     if (t.includes('lecturer') || t.includes('lectureship')) return 'lecturer';
     
