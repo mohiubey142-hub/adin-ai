@@ -1,4 +1,5 @@
 // App.tsx - Complete updated file with PATH ROUTING + SEO FIXES
+// ✅ THEME: Unified with CVBuilder.tsx (slate-100 bg, purple scrollbar, purple-bordered toasts, purple gradients)
 // ✅ FIX 1: Onboarding skip for public pages
 // ✅ FIX 2: Backward compat — trailing slash handle
 // ✅ FIX 3: URL sync — shortcut clicks update URL
@@ -130,6 +131,53 @@ const sessionRemove = (key: string): void => {
   try { window.sessionStorage.removeItem(key); }
   catch (e) {}
 };
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ THEME — identical to CVBuilder.tsx
+// ═══════════════════════════════════════════════════════════════
+
+const buildScrollbarCss = (force: boolean): string => {
+  const imp = force ? ' !important' : '';
+  return `
+    ::-webkit-scrollbar { width: 6px${imp}; height: 6px${imp}; }
+    ::-webkit-scrollbar-track { background: transparent${imp}; }
+    ::-webkit-scrollbar-thumb {
+      background: linear-gradient(to bottom, #a855f7, #7c3aed)${imp};
+      border-radius: 10px${imp};
+      transition: background 0.3s ease;
+    }
+    ::-webkit-scrollbar-thumb:hover { background: linear-gradient(to bottom, #9333ea, #6d28d9)${imp}; }
+    ::-webkit-scrollbar-corner { background: transparent${imp}; }
+    * { scrollbar-width: thin${imp}; scrollbar-color: #a855f7 transparent${imp}; }
+    .overflow-auto, .overflow-y-auto, .overflow-x-auto { scroll-behavior: smooth; }
+  `;
+};
+
+const AdinToaster = () => (
+  <Toaster
+    position="top-center"
+    reverseOrder={false}
+    gutter={8}
+    containerStyle={{
+      position: 'fixed', top: '20px', left: '50%',
+      transform: 'translateX(-50%)', zIndex: 999999,
+      pointerEvents: 'none',
+    }}
+    toastOptions={{
+      duration: 4000,
+      style: {
+        background: '#ffffff', color: '#0f172a',
+        border: '1px solid rgba(168, 85, 247, 0.25)',
+        padding: '16px 24px', borderRadius: '12px',
+        boxShadow: '0 20px 60px -10px rgba(2, 6, 23, 0.15)',
+        pointerEvents: 'auto', maxWidth: '500px', width: 'auto',
+      },
+      success: { style: { border: '1px solid rgba(34, 197, 94, 0.3)' } },
+      error: { style: { border: '1px solid rgba(239, 68, 68, 0.3)' } },
+      loading: { style: { border: '1px solid rgba(168, 85, 247, 0.3)' } },
+    }}
+  />
+);
 
 // ═══════════════════════════════════════════════════════════════
 // ✅ PATH-BASED ROUTING
@@ -1402,10 +1450,8 @@ Adin AI
             max-height: none !important;
             overflow-y: auto !important;
             overflow-x: hidden !important;
-            background: #f8fafc;
+            background: #f1f5f9;
             color: #0f172a;
-            scrollbar-width: thin;
-            scrollbar-color: #cbd5e1 #f1f5f9;
           }
           body > *, body > * > *, #root, #root > * {
             height: auto !important;
@@ -1413,20 +1459,7 @@ Adin AI
             overflow-y: visible !important;
             overflow-x: visible !important;
           }
-          html::-webkit-scrollbar,
-          body::-webkit-scrollbar { width: 10px; height: 10px; }
-          html::-webkit-scrollbar-track,
-          body::-webkit-scrollbar-track { background: #f1f5f9; }
-          html::-webkit-scrollbar-thumb,
-          body::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 6px;
-            border: 2px solid #f1f5f9;
-          }
-          html::-webkit-scrollbar-thumb:hover,
-          body::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-          html::-webkit-scrollbar-corner,
-          body::-webkit-scrollbar-corner { background: transparent; }
+          ${buildScrollbarCss(false)}
         `}</style>
 
         <LandingPage
@@ -1453,7 +1486,7 @@ Adin AI
       <NavigationProvider onNavigate={handleGlobalNavigate} currentRoute={currentRoute}>
         <>
           <SEOHead title={seoConfig.title} description={seoConfig.description} keywords={seoConfig.keywords} canonicalUrl={seoConfig.canonicalUrl} ogType="website" />
-          <Toaster position="top-right" />
+          <AdinToaster />
 
           <div className="w-full min-h-screen flex flex-col bg-slate-100">
             <Suspense fallback={<LoadingScreen />}>
@@ -1502,19 +1535,19 @@ Adin AI
     <NavigationProvider onNavigate={handleGlobalNavigate} currentRoute={currentRoute}>
       <>
         <SEOHead title={seoConfig.title} description={seoConfig.description} keywords={seoConfig.keywords} canonicalUrl={seoConfig.canonicalUrl} ogType="website" />
-        <Toaster position="top-right" />
+        <AdinToaster />
 
         <div className="app-guest-root w-screen min-h-screen flex bg-slate-100 text-slate-900">
           {currentPage === 'workspace' ? (
             <div className="w-full min-h-screen flex flex-col">
-              <div className="h-[56px] flex justify-between items-center px-3 sm:px-5 border-b border-slate-200 shrink-0 bg-white/90 backdrop-blur-sm sticky top-0 z-20">
+              <div className="h-[56px] flex justify-between items-center px-3 sm:px-5 border-b border-slate-200 shrink-0 bg-white/95 backdrop-blur-md sticky top-0 z-20">
                 <SidebarToggle onOpen={openSidebar} />
                 <button
                   onClick={handleOpenBackupHelp}
                   className="group inline-flex items-center gap-2 px-3 sm:px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50 shadow-sm hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
                   aria-label="Backup Help"
                 >
-                  <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center shadow-sm">
+                  <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-purple-600 to-purple-500 flex items-center justify-center shadow-sm">
                     <Shield size={13} className="text-white" strokeWidth={2.4} />
                   </div>
                   <span className="text-xs sm:text-sm font-semibold text-slate-700 group-hover:text-purple-700 transition-colors">
@@ -1533,14 +1566,14 @@ Adin AI
             </div>
           ) : currentPage === 'my-documents' ? (
             <div className="w-full h-screen flex flex-col overflow-hidden">
-              <div className="h-[56px] flex justify-between items-center px-3 sm:px-5 border-b border-slate-200 shrink-0 bg-white/90 backdrop-blur-sm">
+              <div className="h-[56px] flex justify-between items-center px-3 sm:px-5 border-b border-slate-200 shrink-0 bg-white/95 backdrop-blur-md">
                 <SidebarToggle onOpen={openSidebar} />
                 <button
                   onClick={handleOpenBackupHelp}
                   className="group inline-flex items-center gap-2 px-3 sm:px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50 shadow-sm hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
                   aria-label="Backup Help"
                 >
-                  <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center shadow-sm">
+                  <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-purple-600 to-purple-500 flex items-center justify-center shadow-sm">
                     <Shield size={13} className="text-white" strokeWidth={2.4} />
                   </div>
                   <span className="text-xs sm:text-sm font-semibold text-slate-700 group-hover:text-purple-700 transition-colors">
@@ -1562,14 +1595,14 @@ Adin AI
             </div>
           ) : currentPage === 'templates' ? (
             <div className="w-full h-screen flex flex-col overflow-hidden">
-              <div className="h-[56px] flex justify-between items-center px-3 sm:px-5 border-b border-slate-200 shrink-0 bg-white/90 backdrop-blur-sm">
+              <div className="h-[56px] flex justify-between items-center px-3 sm:px-5 border-b border-slate-200 shrink-0 bg-white/95 backdrop-blur-md">
                 <SidebarToggle onOpen={openSidebar} />
                 <button
                   onClick={handleOpenBackupHelp}
                   className="group inline-flex items-center gap-2 px-3 sm:px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50 shadow-sm hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
                   aria-label="Backup Help"
                 >
-                  <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center shadow-sm">
+                  <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-purple-600 to-purple-500 flex items-center justify-center shadow-sm">
                     <Shield size={13} className="text-white" strokeWidth={2.4} />
                   </div>
                   <span className="text-xs sm:text-sm font-semibold text-slate-700 group-hover:text-purple-700 transition-colors">
@@ -1585,14 +1618,14 @@ Adin AI
             </div>
           ) : currentPage === 'cover-templates' ? (
             <div className="w-full h-screen flex flex-col overflow-hidden">
-              <div className="h-[56px] flex justify-between items-center px-3 sm:px-5 border-b border-slate-200 shrink-0 bg-white/90 backdrop-blur-sm">
+              <div className="h-[56px] flex justify-between items-center px-3 sm:px-5 border-b border-slate-200 shrink-0 bg-white/95 backdrop-blur-md">
                 <SidebarToggle onOpen={openSidebar} />
                 <button
                   onClick={handleOpenBackupHelp}
                   className="group inline-flex items-center gap-2 px-3 sm:px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50 shadow-sm hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
                   aria-label="Backup Help"
                 >
-                  <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center shadow-sm">
+                  <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-purple-600 to-purple-500 flex items-center justify-center shadow-sm">
                     <Shield size={13} className="text-white" strokeWidth={2.4} />
                   </div>
                   <span className="text-xs sm:text-sm font-semibold text-slate-700 group-hover:text-purple-700 transition-colors">
@@ -1644,14 +1677,14 @@ Adin AI
             </div>
           ) : (
             <div className="w-full min-h-screen flex flex-col">
-              <div className="h-[56px] flex justify-between items-center px-3 sm:px-5 border-b border-slate-200 shrink-0 bg-white/90 backdrop-blur-sm sticky top-0 z-20">
+              <div className="h-[56px] flex justify-between items-center px-3 sm:px-5 border-b border-slate-200 shrink-0 bg-white/95 backdrop-blur-md sticky top-0 z-20">
                 <SidebarToggle onOpen={openSidebar} />
                 <button
                   onClick={handleOpenBackupHelp}
                   className="group inline-flex items-center gap-2 px-3 sm:px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50 shadow-sm hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
                   aria-label="Backup Help"
                 >
-                  <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center shadow-sm">
+                  <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-purple-600 to-purple-500 flex items-center justify-center shadow-sm">
                     <Shield size={13} className="text-white" strokeWidth={2.4} />
                   </div>
                   <span className="text-xs sm:text-sm font-semibold text-slate-700 group-hover:text-purple-700 transition-colors">
@@ -1700,7 +1733,7 @@ Adin AI
                 max-height: none !important;
                 overflow-y: auto !important;
                 overflow-x: hidden !important;
-                background: #f8fafc;
+                background: #f1f5f9;
                 color: #0f172a;
               }
               body > *, body > * > *, #root, #root > * {
@@ -1717,38 +1750,7 @@ Adin AI
                 overflow: visible;
                 position: relative;
               }
-              html, body, * {
-                scrollbar-width: thin !important;
-                scrollbar-color: #cbd5e1 #f1f5f9 !important;
-              }
-              html::-webkit-scrollbar,
-              body::-webkit-scrollbar,
-              *::-webkit-scrollbar {
-                width: 8px !important;
-                height: 8px !important;
-              }
-              html::-webkit-scrollbar-track,
-              body::-webkit-scrollbar-track,
-              *::-webkit-scrollbar-track {
-                background: #f1f5f9 !important;
-              }
-              html::-webkit-scrollbar-thumb,
-              body::-webkit-scrollbar-thumb,
-              *::-webkit-scrollbar-thumb {
-                background: #cbd5e1 !important;
-                border-radius: 6px !important;
-                border: 2px solid #f1f5f9 !important;
-              }
-              html::-webkit-scrollbar-thumb:hover,
-              body::-webkit-scrollbar-thumb:hover,
-              *::-webkit-scrollbar-thumb:hover {
-                background: #94a3b8 !important;
-              }
-              html::-webkit-scrollbar-corner,
-              body::-webkit-scrollbar-corner,
-              *::-webkit-scrollbar-corner {
-                background: transparent !important;
-              }
+              ${buildScrollbarCss(true)}
             `}</style>
           )}
         </div>
