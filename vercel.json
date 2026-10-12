@@ -4,7 +4,7 @@
   "trailingSlash": false,
   "rewrites": [
     {
-      "source": "/((?!api|assets|_next|favicon|robots|sitemap|browserconfig|site\\.webmanifest|manifest|og-image|logo|ms-icon|apple-touch-icon|android-chrome|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|css|js|mjs|woff|woff2|ttf|eot|xml|txt|json|webmanifest)).*)",
+      "source": "/((?!api|assets|_next|favicon|robots|sitemap|browserconfig|site\\.webmanifest|manifest|og-image|logo|ms-icon|apple-touch-icon|android-chrome|Templates|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|css|js|mjs|woff|woff2|ttf|eot|xml|txt|json|webmanifest)).*)",
       "destination": "/index.html"
     }
   ],
@@ -41,6 +41,12 @@
     },
     {
       "source": "/assets/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/Templates/(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
       ]
