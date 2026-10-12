@@ -4,41 +4,23 @@
   "trailingSlash": false,
   "rewrites": [
     {
-      "source": "/((?!api|assets|_next|favicon|robots|sitemap|browserconfig|site\\.webmanifest|manifest|og-image|logo|ms-icon|apple-touch-icon|android-chrome|Templates|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|css|js|mjs|woff|woff2|ttf|eot|xml|txt|json|webmanifest)).*)",
+      "source": "/api/:path*",
+      "destination": "/api/:path*"
+    },
+    {
+      "source": "/assets/:path*",
+      "destination": "/assets/:path*"
+    },
+    {
+      "source": "/Templates/:path*",
+      "destination": "/Templates/:path*"
+    },
+    {
+      "source": "/:path*",
       "destination": "/index.html"
     }
   ],
   "headers": [
-    {
-      "source": "/sitemap.xml",
-      "headers": [
-        { "key": "Content-Type", "value": "application/xml; charset=utf-8" },
-        { "key": "Cache-Control", "value": "public, max-age=3600, s-maxage=3600" }
-      ]
-    },
-    {
-      "source": "/robots.txt",
-      "headers": [
-        { "key": "Content-Type", "value": "text/plain; charset=utf-8" },
-        { "key": "Cache-Control", "value": "public, max-age=3600, s-maxage=3600" }
-      ]
-    },
-    {
-      "source": "/site.webmanifest",
-      "headers": [
-        { "key": "Content-Type", "value": "application/manifest+json; charset=utf-8" },
-        { "key": "Cache-Control", "value": "public, max-age=3600" }
-      ]
-    },
-    {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" }
-      ]
-    },
     {
       "source": "/assets/(.*)",
       "headers": [
