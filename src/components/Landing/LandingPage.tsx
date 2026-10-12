@@ -120,6 +120,31 @@ export default function LandingPage({
 }: LandingPageProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0.5, y: 0.5 });
+
+  // Hero fan: on phones/tablets the exact desktop composition (580x520) is scaled to fit the screen width.
+  const heroStageRef = useRef<HTMLDivElement>(null);
+  const [heroFit, setHeroFit] = useState<{ scale: number; isDesktop: boolean }>(() => ({
+    scale: 0.55,
+    isDesktop: typeof window !== 'undefined' && window.innerWidth >= 1024,
+  }));
+  useEffect(() => {
+    const el = heroStageRef.current;
+    if (!el) return;
+    const fit = () => {
+      const isDesktop = window.innerWidth >= 1024;
+      const w = el.clientWidth;
+      // 716 = 580 design width + room for the rotated outer cards; +24 lets their corners use the page padding
+      const scale = isDesktop || !w ? 1 : Math.min(1, (w + 32) / 716);
+      setHeroFit((prev) =>
+        prev.scale === scale && prev.isDesktop === isDesktop ? prev : { scale, isDesktop }
+      );
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    window.addEventListener('resize', fit);
+    return () => { ro.disconnect(); window.removeEventListener('resize', fit); };
+  }, []);
   const [activeTemplateTab, setActiveTemplateTab] = useState<'cv' | 'cover'>('cv');
   const [scrolled, setScrolled] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -353,35 +378,45 @@ export default function LandingPage({
         <div className="grid lg:grid-cols-2 gap-10 lg:gap-14 items-center">
           <div className="text-center lg:text-left">
             <div
-              className="inline-flex flex-wrap items-center gap-2 px-3.5 py-2 rounded-full bg-white/85 backdrop-blur-sm border border-purple-200 shadow-sm animate-fade-up"
+              className="animate-fade-up"
               style={{ animationDelay: '0ms', opacity: 0, animationFillMode: 'forwards' }}
             >
-              <span className="relative flex w-2 h-2 shrink-0">
-                <span className="absolute inline-flex w-full h-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
-                <span className="relative inline-flex w-2 h-2 rounded-full bg-emerald-500" />
-              </span>
+              {/* MOBILE: line 1 = one sentence, line 2 = two items with divider */}
+              <div className="sm:hidden inline-flex flex-col items-center gap-1.5 max-w-full px-4 py-2.5 rounded-2xl bg-white/85 backdrop-blur-sm border border-purple-200 shadow-sm">
+                <div className="flex items-center justify-center gap-2">
+                  <span className="relative flex w-2 h-2 shrink-0">
+                    <span className="absolute inline-flex w-full h-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
+                    <span className="relative inline-flex w-2 h-2 rounded-full bg-emerald-500" />
+                  </span>
+                  <span className="whitespace-nowrap text-[11px] font-semibold text-slate-800 tracking-tight">
+                    100% Free All Premium Features
+                  </span>
+                </div>
+                <div className="flex items-center justify-center gap-1.5">
+                  <span className="whitespace-nowrap text-[11px] font-medium text-slate-600">
+                    No Hidden Charges
+                  </span>
+                  <span className="w-px h-3.5 bg-slate-300" />
+                  <span className="whitespace-nowrap text-[11px] font-medium text-slate-600">
+                    No Signup
+                  </span>
+                </div>
+              </div>
 
-              <span className="text-[11px] sm:text-xs font-semibold text-slate-800 tracking-tight">
-                100% Free
-              </span>
-
-              <span className="hidden sm:inline w-px h-3.5 bg-slate-300" />
-
-              <span className="text-[11px] sm:text-xs font-medium text-slate-600">
-                No Signup
-              </span>
-
-              <span className="hidden sm:inline w-px h-3.5 bg-slate-300" />
-
-              <span className="text-[11px] sm:text-xs font-medium text-slate-600">
-                No Hidden Charges
-              </span>
-
-              <span className="hidden sm:inline w-px h-3.5 bg-slate-300" />
-
-              <span className="text-[11px] sm:text-xs font-semibold text-slate-800 tracking-tight">
-                All Premium Features Free
-              </span>
+              {/* DESKTOP: original single-row pill */}
+              <div className="hidden sm:inline-flex flex-wrap items-center gap-2 px-3.5 py-2 rounded-full bg-white/85 backdrop-blur-sm border border-purple-200 shadow-sm">
+                <span className="relative flex w-2 h-2 shrink-0">
+                  <span className="absolute inline-flex w-full h-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
+                  <span className="relative inline-flex w-2 h-2 rounded-full bg-emerald-500" />
+                </span>
+                <span className="text-xs font-semibold text-slate-800 tracking-tight">100% Free</span>
+                <span className="w-px h-3.5 bg-slate-300" />
+                <span className="text-xs font-medium text-slate-600">No Signup</span>
+                <span className="w-px h-3.5 bg-slate-300" />
+                <span className="text-xs font-medium text-slate-600">No Hidden Charges</span>
+                <span className="w-px h-3.5 bg-slate-300" />
+                <span className="text-xs font-semibold text-slate-800 tracking-tight">All Premium Features Free</span>
+              </div>
             </div>
 
             <h1
@@ -457,8 +492,14 @@ export default function LandingPage({
           </div>
 
           <div
-            className="relative hidden lg:block h-[520px] lg:self-start lg:mt-[56px] animate-fade-up"
-            style={{ animationDelay: '200ms', opacity: 0, animationFillMode: 'forwards' }}
+            ref={heroStageRef}
+            className="relative block w-full mt-2 lg:h-[520px] lg:self-start lg:mt-[56px] animate-fade-up"
+            style={{
+              animationDelay: '200ms',
+              opacity: 0,
+              animationFillMode: 'forwards',
+              ...(heroFit.isDesktop ? {} : { height: 520 * heroFit.scale }),
+            }}
           >
             <div
               className="absolute inset-0 rounded-3xl"
@@ -468,6 +509,20 @@ export default function LandingPage({
               }}
             />
 
+            <div
+              className="absolute top-0"
+              style={
+                heroFit.isDesktop
+                  ? { left: 0, right: 0, bottom: 0 }
+                  : {
+                      left: '50%',
+                      width: 580,
+                      height: 520,
+                      transform: `translateX(-50%) scale(${heroFit.scale})`,
+                      transformOrigin: '50% 0%',
+                    }
+              }
+            >
             {HERO_FAN.map((c) => {
               const o = getParallaxOffset(c.factor);
               return (
@@ -515,6 +570,7 @@ export default function LandingPage({
                   <div className="text-[9px] text-slate-500 leading-tight">GPT-OSS 120B</div>
                 </div>
               </div>
+            </div>
             </div>
           </div>
         </div>
@@ -658,7 +714,7 @@ export default function LandingPage({
           {[
             { step: '01', title: 'Pick a Template', desc: 'Choose from 9 CV or 6 cover letter designs — all ATS-optimized.', icon: <Layout size={20} /> },
             { step: '02', title: 'Fill Your Details', desc: 'Type your info or let AI write it for you. Import from an existing CV.', icon: <Wand2 size={20} /> },
-            { step: '03', title: 'Download & Apply', desc: 'Export as PDF, PNG, or TXT. Ready to send in seconds.', icon: <Download size={20} /> },
+            { step: '03', title: 'Download', desc: 'Export as PDF, PNG, or TXT. Ready to send in seconds.', icon: <Download size={20} /> },
           ].map((s, i) => (
             <div
               key={i}

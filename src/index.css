@@ -22,7 +22,7 @@
 
 /* ---------- Base Styles ---------- */
 body {
-  background-color: var(--bg-dark);
+  background-color: #f1f5f9;
   color: var(--text-primary);
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
