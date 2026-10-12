@@ -6,7 +6,8 @@
 // ✅ Dev: Vite middleware (HMR, fast refresh)
 // ✅ Production: Static files from /dist
 // ✅ SPA fallback: all non-API routes → index.html
-// ✅ API routes: /api/* (JSON, chat, TTS, groq-keys, health)
+// ✅ API routes: /api/* (JSON, chat, TTS, groq-keys, generate, health)
+// ✅ NEW: /api/ai/generate — backend proxy for all Groq feature calls
 // ============================================================
 
 import express from "express";
@@ -77,6 +78,135 @@ app.get("/api/ai/groq-keys", (_req, res) => {
   } catch (err: any) {
     console.error("❌ /api/ai/groq-keys error:", err);
     res.status(500).json({ error: err.message || "Failed to load Groq keys" });
+  }
+});
+
+// ============================================================
+// ✅ NEW: Groq Generate Endpoint — backend proxy
+// ============================================================
+// POST /api/ai/generate
+// Body: { feature, prompt, systemPrompt?, options? }
+// Response: { ok: true, text, source, model } | { ok: false, error, details }
+//
+// Feature priority + cross-feature fallback:
+//   EXPERIENCE → PROJECT → ACHIEVEMENT → COVER_LETTER → SUMMARY
+//
+// Model fallback: openai/gpt-oss-120b → openai/gpt-oss-20b
+// ============================================================
+app.post("/api/ai/generate", async (req, res) => {
+  try {
+    const { feature, prompt, systemPrompt, options } = req.body || {};
+
+    if (!feature || typeof feature !== "string") {
+      return res.status(400).json({ error: "feature is required" });
+    }
+    if (!prompt || typeof prompt !== "string") {
+      return res.status(400).json({ error: "prompt is required" });
+    }
+
+    // Feature → env key mapping
+    const KEY_MAP: Record<string, string | undefined> = {
+      EXPERIENCE:   process.env.GROQ_API_KEY_EXPERIENCE,
+      PROJECT:      process.env.GROQ_API_KEY_PROJECT,
+      ACHIEVEMENT:  process.env.GROQ_API_KEY_ACHIEVEMENT,
+      COVER_LETTER: process.env.GROQ_API_KEY_COVER_LETTER,
+      SUMMARY:      process.env.GROQ_API_KEY_SUMMARY,
+    };
+
+    const FALLBACK_ORDER: Record<string, string[]> = {
+      EXPERIENCE:   ["EXPERIENCE", "PROJECT", "ACHIEVEMENT", "COVER_LETTER", "SUMMARY"],
+      PROJECT:      ["PROJECT", "EXPERIENCE", "ACHIEVEMENT", "COVER_LETTER", "SUMMARY"],
+      ACHIEVEMENT:  ["ACHIEVEMENT", "EXPERIENCE", "PROJECT", "COVER_LETTER", "SUMMARY"],
+      COVER_LETTER: ["COVER_LETTER", "EXPERIENCE", "PROJECT", "ACHIEVEMENT", "SUMMARY"],
+      SUMMARY:      ["SUMMARY", "EXPERIENCE", "PROJECT", "ACHIEVEMENT", "COVER_LETTER"],
+    };
+
+    const order = FALLBACK_ORDER[feature] || [feature];
+    const MODELS = ["openai/gpt-oss-120b", "openai/gpt-oss-20b"];
+    const errors: string[] = [];
+
+    for (const source of order) {
+      const apiKey = KEY_MAP[source];
+      if (!apiKey || !apiKey.trim()) {
+        errors.push(`No key for ${source}`);
+        continue;
+      }
+
+      for (const model of MODELS) {
+        try {
+          const body: any = {
+            model,
+            messages: [
+              ...(systemPrompt ? [{ role: "system", content: systemPrompt }] : []),
+              { role: "user", content: prompt },
+            ],
+            temperature: options?.temperature ?? 0.7,
+            max_tokens: options?.maxTokens ?? 4000,
+            top_p: options?.top_p ?? 0.9,
+            include_reasoning: false,
+          };
+
+          const groqRes = await fetch(
+            "https://api.groq.com/openai/v1/chat/completions",
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${apiKey.trim()}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(body),
+            }
+          );
+
+          if (groqRes.ok) {
+            const data = await groqRes.json();
+            const content = data?.choices?.[0]?.message?.content?.trim() || "";
+            const finishReason = data?.choices?.[0]?.finish_reason;
+
+            if (!content || content.length < 10) {
+              errors.push(`${source}/${model}: empty content (finish=${finishReason})`);
+              continue;
+            }
+            if (finishReason === "length") {
+              errors.push(`${source}/${model}: hit token limit`);
+              continue;
+            }
+
+            const words = content.split(/\s+/).filter(Boolean).length;
+            console.log(
+              `✅ [POST /api/ai/generate] ${feature} → ${source}/${model} — ${words} words`
+            );
+
+            return res.status(200).json({
+              ok: true,
+              text: content,
+              source,
+              model,
+            });
+          }
+
+          const txt = await groqRes.text();
+          errors.push(
+            `${source}/${model}: HTTP ${groqRes.status} ${txt.slice(0, 100)}`
+          );
+        } catch (err: any) {
+          errors.push(`${source}/${model}: ${err?.message || "fetch failed"}`);
+        }
+      }
+    }
+
+    console.error("❌ [POST /api/ai/generate] All keys failed:", errors);
+    return res.status(502).json({
+      ok: false,
+      error: "All Groq keys and models failed",
+      details: errors,
+    });
+  } catch (err: any) {
+    console.error("❌ [POST /api/ai/generate] Unexpected error:", err);
+    return res.status(500).json({
+      ok: false,
+      error: err?.message || "Internal server error",
+    });
   }
 });
 
@@ -317,6 +447,7 @@ async function setupApp() {
     console.log(`🚀 Adin Server listening at http://localhost:${PORT}`);
     console.log(`   Mode: ${IS_PRODUCTION ? "PRODUCTION" : "DEVELOPMENT"}`);
     console.log(`🔑 Groq keys endpoint: http://localhost:${PORT}/api/ai/groq-keys`);
+    console.log(`⚡ Groq generate endpoint: http://localhost:${PORT}/api/ai/generate`);
     console.log(`💚 Health check: http://localhost:${PORT}/api/health`);
   });
 }

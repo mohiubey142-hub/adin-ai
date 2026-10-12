@@ -4,10 +4,6 @@
   "trailingSlash": false,
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
-    },
-    {
       "source": "/((?!api|assets|_next|favicon|robots|sitemap|browserconfig|site\\.webmanifest|manifest|og-image|logo|ms-icon|apple-touch-icon|android-chrome|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|css|js|mjs|woff|woff2|ttf|eot|xml|txt|json|webmanifest)).*)",
       "destination": "/index.html"
     }

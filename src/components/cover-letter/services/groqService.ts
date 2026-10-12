@@ -1,129 +1,82 @@
 // src/components/cover-letter/services/groqService.ts
 // =====================================================
-// ✅ 5 SEPARATE KEYS with priority fallback
+// ✅ Solution B: BACKEND PROXY MODE
+// ✅ Browser se direct Groq call NAHI hoti
+// ✅ Keys server-side rehti hain (secure)
+// ✅ Server handles fallback + model selection + cooldown
 // ✅ include_reasoning: false (GPT-OSS fix)
 // ✅ MAX_TOKENS = 4000
-// ✅ Empty/length response → try next key
 // ✅ Queue-based concurrency control (via makeRequestWithRetry)
-// ✅ rotateNext() on success
+// ✅ AI behavior unchanged — prompts, extraction, cleaning sab same
 // =====================================================
 
 import {
-  FeatureKey,
-  getKeysForFeature,
-  setKeyCooldown,
-  clearKeyCooldown,
   getConfiguredKeyCount,
   hasAnyKey,
-  rotateNext,
 } from '../../cv-builder/services/providers/groqKeyManager';
 import { enqueue } from '../../../services/aiQueueService';
 
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL = 'openai/gpt-oss-120b';
 const MAX_TOKENS = 4000;
 
-const FEATURE: FeatureKey = 'COVER_LETTER';
-
 // ============================================================
-// INTERNAL: raw HTTP loop (not queued)
+// INTERNAL: Backend proxy call (not queued)
 // ============================================================
 const runRequestWithRetry = async (requestBody: any): Promise<any> => {
-  let lastError: Error | null = null;
+  // ✅ Ab browser se direct Groq call NAHI hoti.
+  // Backend /api/ai/generate call hota hai jo keys server-side rakhta hai.
+  console.log('📤 Cover Letter: sending to /api/ai/generate');
 
-  const keys = getKeysForFeature(FEATURE);
+  const messages = requestBody?.messages || [];
+  const systemMsg = messages.find((m: any) => m.role === 'system')?.content;
+  const userMsg = messages.find((m: any) => m.role === 'user')?.content;
 
-  if (keys.length === 0) {
-    throw new Error(
-      'All API keys are rate-limited. Please try again in a moment.'
-    );
+  if (!userMsg) {
+    throw new Error('No user message in request');
   }
+
+  const res = await fetch('/api/ai/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      feature: 'COVER_LETTER',
+      prompt: userMsg,
+      systemPrompt: systemMsg || undefined,
+      options: {
+        temperature: requestBody?.temperature ?? 0.6,
+        maxTokens: requestBody?.max_tokens ?? MAX_TOKENS,
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    console.error('❌ Cover Letter backend proxy failed:', err);
+    throw new Error(err?.error || `Backend proxy failed: HTTP ${res.status}`);
+  }
+
+  const data = await res.json();
+  if (!data?.ok || !data?.text) {
+    console.error('❌ Cover Letter backend returned no text:', data);
+    throw new Error(data?.error || 'Backend returned no text');
+  }
+
+  const content = (data.text || '').trim();
+  const words = content.split(/\s+/).filter(Boolean).length;
 
   console.log(
-    `🔑 Cover Letter: trying ${keys.length} key(s) in order: ${keys
-      .map((k) => k.source)
-      .join(' → ')}`
+    `✅ Cover Letter: success via [${data.source}/${data.model}] — ${words} words`
   );
 
-  for (const { apiKey, source } of keys) {
-    try {
-      console.log(`🔄 Cover Letter: attempting with key [${source}]`);
-
-      const response = await fetch(GROQ_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (response.ok) {
-        const responseData = await response.json();
-        const message = responseData?.choices?.[0]?.message;
-        const content = (message?.content || '').trim();
-        const finishReason = responseData?.choices?.[0]?.finish_reason;
-
-        if (!content || content.length < 50) {
-          console.warn(
-            `⚠️ Cover Letter key [${source}] empty/short content (${content.length} chars, finish=${finishReason}). Trying next key...`
-          );
-          lastError = new Error(
-            `Empty response on [${source}] (finish=${finishReason})`
-          );
-          continue;
-        }
-
-        if (finishReason === 'length') {
-          console.warn(
-            `⚠️ Cover Letter key [${source}] hit token limit (finish=length). Trying next key...`
-          );
-          lastError = new Error(`Token limit reached on [${source}]`);
-          continue;
-        }
-
-        console.log(`✅ Cover Letter: success with key [${source}]`);
-        clearKeyCooldown(source);
-        rotateNext();
-        return responseData;
-      }
-
-      const errorText = await response.text();
-      console.warn(
-        `⚠️ Cover Letter key [${source}] failed: ${response.status} - ${errorText}`
-      );
-
-      if (response.status === 429) {
-        setKeyCooldown(source);
-        lastError = new Error(`Rate limit on [${source}]`);
-        continue;
-      }
-
-      if (response.status === 401 || response.status === 403) {
-        setKeyCooldown(source);
-        lastError = new Error(`Invalid key [${source}] (${response.status})`);
-        continue;
-      }
-
-      if (response.status === 404) {
-        throw new Error(`Model not found: ${errorText}`);
-      }
-
-      lastError = new Error(
-        `API Error on [${source}]: ${response.status} - ${errorText}`
-      );
-      continue;
-    } catch (error) {
-      console.warn(`❌ Cover Letter key [${source}] error:`, error);
-      lastError = error as Error;
-
-      if ((error as Error).message?.includes('Model not found')) {
-        throw error;
-      }
-    }
-  }
-
-  throw lastError || new Error('AI is busy. Please try again in a moment.');
+  // ✅ Groq-compatible shape return karo (baaki code same rahe)
+  return {
+    choices: [
+      {
+        message: { content },
+        finish_reason: 'stop',
+      },
+    ],
+  };
 };
 
 // ============================================================
@@ -1084,7 +1037,7 @@ Return ONLY the body paragraphs.`;
       include_reasoning: false,
     };
 
-    console.log('📤 Sending cover letter request to Groq');
+    console.log('📤 Sending cover letter request to backend proxy');
 
     const responseData = await makeRequestWithRetry(requestBody);
 
