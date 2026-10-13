@@ -10,8 +10,8 @@
 // ✅ FIX (mouse detection): mousemove-based gate.
 //
 // Executive-specific design preserved: navy+gold header band with
-// serif name, badge section headings, timeline experience, 3-column
-// row (Education | Certifications | Languages).
+// serif name, badge section headings, timeline experience; Education,
+// Certifications and Languages are separate single-column sections.
 // ------------------------------------------------------------------
 
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -101,8 +101,6 @@ const SUBTITLE_TO_DESCRIPTION_GAP = 6;
 const ENTRY_GAP = 14;
 const BULLET_DOT_TO_TEXT_GAP = 3 * MM_TO_PT;
 const TITLE_TO_DATE_GAP = 3 * MM_TO_PT;
-const COLUMN_GAP = 3 * MM_TO_PT;
-const COLUMN_CONTENT_INSET_FRACTION = 0.02;
 
 const HEADER_TOP_EXTRA_PADDING = 3 * MM_TO_PT;
 const HEADER_TOP_SIZE_REDUCTION = 4 * MM_TO_PT;
@@ -786,9 +784,13 @@ const Section: React.FC<{
     onEditSection?: (key: string) => void;
     activeSection?: string | null;
     gate: MouseGateApi;
+    hoveredKey: string | null;
+    setHoveredKey: (key: string) => void;
+    clearHovered: (key: string) => void;
     children: React.ReactNode;
-}> = ({ items, sectionKey, first, onEditSection, activeSection, gate, children }) => {
-    const [isHovered, setIsHovered] = useState(false);
+}> = ({ items, sectionKey, first, onEditSection, activeSection, gate, hoveredKey, setHoveredKey, clearHovered, children }) => {
+    // ✅ Shared across ALL page copies (state lives in ExecutiveTemplate)
+    const isHovered = hoveredKey === sectionKey;
     const interactive = !!onEditSection;
     const showLabel = interactive && isHovered;
 
@@ -800,24 +802,24 @@ const Section: React.FC<{
     const handleMouseEnter = (e: React.MouseEvent) => {
         if (!interactive) return;
         if (gate.shouldBlockEnter(sectionKey, e)) return;
-        setIsHovered(true);
+        setHoveredKey(sectionKey);
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
         if (!interactive || isHovered) return;
-        if (gate.onMove(sectionKey, e)) setIsHovered(true);
+        if (gate.onMove(sectionKey, e)) setHoveredKey(sectionKey);
     };
 
     const handleMouseDown = () => {
         if (!interactive) return;
         gate.onPress(sectionKey);
-        setIsHovered(true);
+        setHoveredKey(sectionKey);
     };
 
     const handleMouseLeave = () => {
         if (!interactive) return;
         gate.onLeave(sectionKey);
-        setIsHovered(false);
+        clearHovered(sectionKey);
     };
 
     const ringPad = HOVER_RING_WIDTH;
@@ -850,75 +852,6 @@ const Section: React.FC<{
                 <div style={{ marginTop: pt(contentTopMargin(first)) }}>{children}</div>
             </div>
         </section>
-    );
-};
-
-const ColumnWrapper: React.FC<{
-    sectionKey: string;
-    width: number;
-    marginLeft: number;
-    onEditSection?: (key: string) => void;
-    activeSection?: string | null;
-    gate: MouseGateApi;
-    children: React.ReactNode;
-}> = ({ sectionKey, width, marginLeft, onEditSection, activeSection, gate, children }) => {
-    const [isHovered, setIsHovered] = useState(false);
-    const interactive = !!onEditSection;
-    const showLabel = interactive && isHovered;
-
-    const handleClick = () => {
-        if (!interactive) return;
-        onEditSection!(sectionKey);
-    };
-
-    const handleMouseEnter = (e: React.MouseEvent) => {
-        if (!interactive) return;
-        if (gate.shouldBlockEnter(sectionKey, e)) return;
-        setIsHovered(true);
-    };
-
-    const handleMouseMove = (e: React.MouseEvent) => {
-        if (!interactive || isHovered) return;
-        if (gate.onMove(sectionKey, e)) setIsHovered(true);
-    };
-
-    const handleMouseDown = () => {
-        if (!interactive) return;
-        gate.onPress(sectionKey);
-        setIsHovered(true);
-    };
-
-    const handleMouseLeave = () => {
-        if (!interactive) return;
-        gate.onLeave(sectionKey);
-        setIsHovered(false);
-    };
-
-    const ringPad = HOVER_RING_WIDTH;
-
-    return (
-        <div
-            data-section={sectionKey}
-            onClick={handleClick}
-            onMouseEnter={handleMouseEnter}
-            onMouseMove={handleMouseMove}
-            onMouseDown={handleMouseDown}
-            onMouseLeave={interactive ? handleMouseLeave : undefined}
-            style={{
-                flex: 'none',
-                width: pt(width),
-                marginLeft: pt(marginLeft),
-                minWidth: 0,
-                padding: ringPad,
-                marginTop: -ringPad,
-                marginBottom: -ringPad,
-            }}
-        >
-            <div style={{ ...interactiveWrapperStyle(isHovered, interactive), position: 'relative' }}>
-                {showLabel && <SectionEditLabel />}
-                {children}
-            </div>
-        </div>
     );
 };
 
@@ -972,26 +905,6 @@ const StackedEntry: React.FC<{ fields: StackField[] }> = ({ fields }) => (
     </>
 );
 
-const computeColumnLayouts = (insetFractions: number[], cw: number) => {
-    const n = insetFractions.length;
-    const numDividers = n - 1;
-    const columnWidth = n === 1 ? cw : (cw - numDividers * 2 * COLUMN_GAP) / n;
-    const dividerXs: number[] = [];
-    const layouts: { x: number; contentX: number; maxWidth: number }[] = [];
-    let cursorX = 0;
-    insetFractions.forEach((inset, index) => {
-        const isLast = index === n - 1;
-        const x = cursorX;
-        const contentX = x + columnWidth * inset;
-        const nextBoundaryX = isLast ? cw : x + columnWidth + COLUMN_GAP;
-        const maxWidth = n === 1 ? cw : nextBoundaryX - contentX - COLUMN_GAP;
-        if (!isLast) dividerXs.push(nextBoundaryX);
-        layouts.push({ x, contentX, maxWidth });
-        cursorX = x + columnWidth + 2 * COLUMN_GAP;
-    });
-    return { layouts, dividerXs };
-};
-
 // ====================================================================
 // TEMPLATE
 // ====================================================================
@@ -1024,6 +937,13 @@ const ExecutiveTemplate: React.FC<CVPreviewProps> = (props) => {
     const [pages, setPages] = useState<PageWindow[]>([{ start: 0, end: PAGE_CONTENT_BOTTOM * PX, bleed: 0 }]);
     const [, setFontTick] = useState(0);
     const [headerHovered, setHeaderHovered] = useState(false);
+    // ✅ ONE hover state for every page copy of `body`
+    const [hoveredKey, setHoveredKeyState] = useState<string | null>(null);
+    const setHoveredKey = React.useCallback((key: string) => setHoveredKeyState(key), []);
+    const clearHovered = React.useCallback(
+        (key: string) => setHoveredKeyState((prev) => (prev === key ? null : prev)),
+        []
+    );
 
     // ✅ Mouse gate
     const blockedRef = useRef<Set<string>>(new Set());
@@ -1168,19 +1088,7 @@ const ExecutiveTemplate: React.FC<CVPreviewProps> = (props) => {
 
     const heading = (title: string, icon: SectionIconType): HeadingItem[] => [{ title, icon, x: 0 }];
 
-    const rowColumns: { key: 'education' | 'certifications' | 'languages'; title: string; icon: SectionIconType; inset: number }[] =
-        [];
-    if (validEducations.length > 0) rowColumns.push({ key: 'education', title: 'EDUCATION', icon: 'education', inset: 0 });
-    if (validCertifications.length > 0)
-        rowColumns.push({ key: 'certifications', title: 'CERTIFICATIONS', icon: 'certifications', inset: COLUMN_CONTENT_INSET_FRACTION });
-    if (validLanguages.length > 0)
-        rowColumns.push({ key: 'languages', title: 'LANGUAGES', icon: 'languages', inset: COLUMN_CONTENT_INSET_FRACTION });
-    const columnGeometry = computeColumnLayouts(
-        rowColumns.map((c) => c.inset),
-        CW
-    );
-
-    const renderColumn = (key: 'education' | 'certifications' | 'languages') => {
+    const renderSectionEntries = (key: 'education' | 'certifications' | 'languages') => {
         if (key === 'education') {
             return validEducations.map((edu: any, i: number) => {
                 const degree = clean(edu.degree);
@@ -1206,6 +1114,7 @@ const ExecutiveTemplate: React.FC<CVPreviewProps> = (props) => {
                 return (
                     <div
                         key={i}
+                        {...keepProps}
                         style={{
                             ...entryBlock,
                             marginBottom: pt(i < validEducations.length - 1 ? entryGapAfter(last) : sectionEndTopUp(last))
@@ -1238,6 +1147,7 @@ const ExecutiveTemplate: React.FC<CVPreviewProps> = (props) => {
                 return (
                     <div
                         key={i}
+                        {...keepProps}
                         style={{
                             ...entryBlock,
                             marginBottom: pt(i < validCertifications.length - 1 ? entryGapAfter(last) : sectionEndTopUp(last))
@@ -1266,6 +1176,7 @@ const ExecutiveTemplate: React.FC<CVPreviewProps> = (props) => {
             return (
                 <div
                     key={i}
+                    {...keepProps}
                     style={{
                         ...entryBlock,
                         marginBottom: pt(i < validLanguages.length - 1 ? languageGapAfter(last) : sectionEndTopUp(last))
@@ -1456,6 +1367,9 @@ const ExecutiveTemplate: React.FC<CVPreviewProps> = (props) => {
                         first={L_BODY}
                         onEditSection={onEditSection}
                         gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
                     >
                         <p
                             {...flowProps}
@@ -1481,6 +1395,9 @@ const ExecutiveTemplate: React.FC<CVPreviewProps> = (props) => {
                         first={L_TITLE}
                         onEditSection={onEditSection}
                         gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
                     >
                         {validExperiences.map((exp: any, i: number) => {
                             const title = clean(exp.title);
@@ -1549,58 +1466,49 @@ const ExecutiveTemplate: React.FC<CVPreviewProps> = (props) => {
                     </Section>
                 )}
 
-                {/* ============ EDUCATION | CERTIFICATIONS | LANGUAGES ============ */}
-                {rowColumns.length > 0 && (
-                    <div style={{ marginTop: pt(SECTION_TOP_MARGIN) }}>
-                        <SectionHeading
-                            items={rowColumns.map((c, idx) => ({
-                                title: c.title,
-                                icon: c.icon,
-                                x: columnGeometry.layouts[idx].x
-                            }))}
-                        />
-                        <div
-                            {...keepProps}
-                            style={{
-                                position: 'relative',
-                                display: 'flex',
-                                alignItems: 'flex-start',
-                                marginTop: pt(contentTopMargin(L_TITLE))
-                            }}
-                        >
-                            {columnGeometry.dividerXs.map((dx, i) => (
-                                <div
-                                    key={i}
-                                    style={{
-                                        position: 'absolute',
-                                        left: pt(dx - SECTION_DIVIDER_THICKNESS / 2),
-                                        width: pt(SECTION_DIVIDER_THICKNESS),
-                                        top: pt(-contentTopMargin(L_TITLE)),
-                                        bottom: pt(below(L_BODY) - BODY_LINE_HEIGHT),
-                                        backgroundColor: COLOR_GOLD
-                                    }}
-                                />
-                            ))}
-                            {rowColumns.map((c, idx) => {
-                                const g = columnGeometry.layouts[idx];
-                                const prev = idx > 0 ? columnGeometry.layouts[idx - 1] : null;
-                                const prevEnd = prev ? prev.contentX + prev.maxWidth : 0;
-                                const marginLeft = g.contentX - prevEnd;
-                                return (
-                                    <ColumnWrapper
-                                        key={c.key}
-                                        sectionKey={c.key}
-                                        width={g.maxWidth}
-                                        marginLeft={marginLeft}
-                                        onEditSection={onEditSection}
-                                        gate={gateApi}
-                                    >
-                                        {renderColumn(c.key)}
-                                    </ColumnWrapper>
-                                );
-                            })}
-                        </div>
-                    </div>
+                {validEducations.length > 0 && (
+                    <Section
+                        items={heading('EDUCATION', 'education')}
+                        sectionKey="education"
+                        first={L_TITLE}
+                        onEditSection={onEditSection}
+                        gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
+                    >
+                        {renderSectionEntries('education')}
+                    </Section>
+                )}
+
+                {validCertifications.length > 0 && (
+                    <Section
+                        items={heading('CERTIFICATIONS', 'certifications')}
+                        sectionKey="certifications"
+                        first={L_TITLE}
+                        onEditSection={onEditSection}
+                        gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
+                    >
+                        {renderSectionEntries('certifications')}
+                    </Section>
+                )}
+
+                {validLanguages.length > 0 && (
+                    <Section
+                        items={heading('LANGUAGES', 'languages')}
+                        sectionKey="languages"
+                        first={L_TITLE}
+                        onEditSection={onEditSection}
+                        gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
+                    >
+                        {renderSectionEntries('languages')}
+                    </Section>
                 )}
 
                 {skillLines.length > 0 && (
@@ -1610,6 +1518,9 @@ const ExecutiveTemplate: React.FC<CVPreviewProps> = (props) => {
                         first={L_BODY}
                         onEditSection={onEditSection}
                         gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
                     >
                         <div {...flowProps} style={{ width: '100%' }}>
                             {skillLines.map((line, idx) => (
@@ -1636,6 +1547,9 @@ const ExecutiveTemplate: React.FC<CVPreviewProps> = (props) => {
                         first={L_TITLE}
                         onEditSection={onEditSection}
                         gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
                     >
                         {validAchievements.map((a: any, i: number) => {
                             const title = clean(a.title);
@@ -1677,6 +1591,9 @@ const ExecutiveTemplate: React.FC<CVPreviewProps> = (props) => {
                         first={L_TITLE}
                         onEditSection={onEditSection}
                         gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
                     >
                         {validProjects.map((p: any, i: number) => {
                             const projectName = clean(p.name);

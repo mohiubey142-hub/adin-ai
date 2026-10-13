@@ -461,9 +461,13 @@ const Section: React.FC<{
     onEditSection?: (key: string) => void;
     activeSection?: string | null;
     gate: MouseGateApi;
+    hoveredKey: string | null;
+    setHoveredKey: (key: string) => void;
+    clearHovered: (key: string) => void;
     children: React.ReactNode;
-}> = ({ title, sectionKey, column, fit, firstFontSize, first, onEditSection, activeSection, gate, children }) => {
-    const [isHovered, setIsHovered] = useState(false);
+}> = ({ title, sectionKey, column, fit, firstFontSize, first, onEditSection, activeSection, gate, hoveredKey, setHoveredKey, clearHovered, children }) => {
+    // ✅ Shared across ALL page copies (state lives in CreativeTemplate)
+    const isHovered = hoveredKey === sectionKey;
     const interactive = !!onEditSection;
     const showLabel = interactive && isHovered;
 
@@ -475,24 +479,24 @@ const Section: React.FC<{
     const handleMouseEnter = (e: React.MouseEvent) => {
         if (!interactive) return;
         if (gate.shouldBlockEnter(sectionKey, e)) return;
-        setIsHovered(true);
+        setHoveredKey(sectionKey);
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
         if (!interactive || isHovered) return;
-        if (gate.onMove(sectionKey, e)) setIsHovered(true);
+        if (gate.onMove(sectionKey, e)) setHoveredKey(sectionKey);
     };
 
     const handleMouseDown = () => {
         if (!interactive) return;
         gate.onPress(sectionKey);
-        setIsHovered(true);
+        setHoveredKey(sectionKey);
     };
 
     const handleMouseLeave = () => {
         if (!interactive) return;
         gate.onLeave(sectionKey);
-        setIsHovered(false);
+        clearHovered(sectionKey);
     };
 
     // ✅ Ring room: padding + negative margin
@@ -718,6 +722,13 @@ const CreativeTemplate: React.FC<CVPreviewProps> = (props) => {
     const [, setFontTick] = useState(0);
 
     const [headerHovered, setHeaderHovered] = useState(false);
+    // ✅ ONE hover state for every page copy of the section bodies
+    const [hoveredKey, setHoveredKeyState] = useState<string | null>(null);
+    const setHoveredKey = React.useCallback((key: string) => setHoveredKeyState(key), []);
+    const clearHovered = React.useCallback(
+        (key: string) => setHoveredKeyState((prev) => (prev === key ? null : prev)),
+        []
+    );
     const [photoHovered, setPhotoHovered] = useState(false);
 
     // ✅ Mouse gate
@@ -979,6 +990,9 @@ const CreativeTemplate: React.FC<CVPreviewProps> = (props) => {
                         first={leftFirst === 'contact'}
                         onEditSection={onEditSection}
                         gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
                     >
                         <EntryStack
                             step={METADATA_SIZE}
@@ -1019,6 +1033,9 @@ const CreativeTemplate: React.FC<CVPreviewProps> = (props) => {
                         first={leftFirst === 'skills'}
                         onEditSection={onEditSection}
                         gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
                     >
                         <div>
                             {skillsList.map((skill, i) => (
@@ -1051,6 +1068,9 @@ const CreativeTemplate: React.FC<CVPreviewProps> = (props) => {
                         first={leftFirst === 'languages'}
                         onEditSection={onEditSection}
                         gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
                     >
                         <EntryStack
                             extraGap={0}
@@ -1101,6 +1121,9 @@ const CreativeTemplate: React.FC<CVPreviewProps> = (props) => {
                         first={leftFirst === 'certifications'}
                         onEditSection={onEditSection}
                         gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
                     >
                         <EntryStack
                             extraGap={ENTRY_GAP_PDF}
@@ -1280,6 +1303,9 @@ const CreativeTemplate: React.FC<CVPreviewProps> = (props) => {
                         first={rightFirst === 'summary'}
                         onEditSection={onEditSection}
                         gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
                     >
                         <p
                             {...flowProps}
@@ -1308,6 +1334,9 @@ const CreativeTemplate: React.FC<CVPreviewProps> = (props) => {
                         first={rightFirst === 'experience'}
                         onEditSection={onEditSection}
                         gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
                     >
                         <EntryStack
                             extraGap={ENTRY_GAP_PDF}
@@ -1360,6 +1389,9 @@ const CreativeTemplate: React.FC<CVPreviewProps> = (props) => {
                         first={rightFirst === 'education'}
                         onEditSection={onEditSection}
                         gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
                     >
                         <EntryStack
                             extraGap={ENTRY_GAP_PDF}
@@ -1409,6 +1441,9 @@ const CreativeTemplate: React.FC<CVPreviewProps> = (props) => {
                         first={rightFirst === 'projects'}
                         onEditSection={onEditSection}
                         gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
                     >
                         <EntryStack
                             extraGap={ENTRY_GAP_PDF}
@@ -1487,6 +1522,9 @@ const CreativeTemplate: React.FC<CVPreviewProps> = (props) => {
                         first={rightFirst === 'achievements'}
                         onEditSection={onEditSection}
                         gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
                     >
                         <EntryStack
                             extraGap={ENTRY_GAP_PDF}

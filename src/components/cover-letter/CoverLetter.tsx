@@ -3,7 +3,7 @@
 // ✅ FIX: Removed widget visibility tracking
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import {
   Trash2, Copy, Download, FileText, Eye, CheckCircle2, Sparkles, X, ChevronDown, MessageCircle, Maximize, Minimize, Image as ImageIcon,
 } from 'lucide-react';
@@ -366,6 +366,37 @@ const CoverLetter = ({
     fileName: userName || jobTitle || 'My_Cover_Letter',
     toastId: 'cl-png',
   });
+
+  // ✅ Mobile: preview is only mounted when the Preview tab is open.
+  //    If the user hits "Download PNG" from the export buttons while it is
+  //    closed, mount a hidden off-screen preview just for the capture.
+  const [pngOffscreen, setPngOffscreen] = useState(false);
+
+  const handleDownloadPNG = useCallback(() => {
+    if (pngPreviewRef.current) return downloadPNG();
+    setPngOffscreen(true);
+  }, [downloadPNG]);
+
+  useEffect(() => {
+    if (!pngOffscreen) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await (document as any).fonts?.ready;
+        await new Promise<void>((r) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => r()))
+        );
+        await new Promise((r) => setTimeout(r, 300));
+        if (!cancelled && pngPreviewRef.current) await downloadPNG();
+      } finally {
+        if (!cancelled) setPngOffscreen(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pngOffscreen]);
 
   useEffect(() => {
     const handler = () => setIsFullscreen(!!document.fullscreenElement);
@@ -1267,7 +1298,7 @@ const CoverLetter = ({
       </button>
 
       <button
-        onClick={downloadPNG}
+        onClick={handleDownloadPNG}
         aria-label="Download PNG"
         className="group flex flex-col items-center justify-center gap-2.5 py-5 md:py-6 rounded-2xl bg-white border border-slate-200 hover:border-purple-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-purple-500/10 focus:outline-none focus:ring-4 focus:ring-purple-500/15 transition-all duration-200"
       >
@@ -1345,24 +1376,8 @@ const CoverLetter = ({
           ref={containerRef}
           className="h-screen flex flex-col bg-slate-100 main-scroll smooth-scroll overflow-hidden"
         >
-          <Toaster
-            position="top-center"
-            toastOptions={{
-              duration: 3000,
-              style: {
-                background: '#ffffff',
-                color: '#0f172a',
-                border: '1px solid rgba(168, 85, 247, 0.25)',
-                borderRadius: '12px',
-                padding: '12px 24px',
-                fontSize: '14px',
-                boxShadow: '0 20px 60px -10px rgba(2, 6, 23, 0.15)',
-              },
-              success: { style: { border: '1px solid rgba(34, 197, 94, 0.3)' } },
-              error: { style: { border: '1px solid rgba(239, 68, 68, 0.3)' } },
-              loading: { style: { border: '1px solid rgba(168, 85, 247, 0.3)' } },
-            }}
-          />
+          {/* ✅ Single global toaster lives in App.tsx (AdinToaster). A second one here made every toast show twice. */}
+
 
           <CoverLetterHero
             onOpenSidebar={openSidebar}
@@ -1487,6 +1502,28 @@ const CoverLetter = ({
             </div>
           )}
 
+          {/* ✅ Hidden off-screen preview — mounted ONLY while a PNG export is running */}
+          {pngOffscreen && mobileActiveTab !== 'preview' && (
+            <div
+              aria-hidden="true"
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: '-10000px',
+                width: window.innerWidth,
+                pointerEvents: 'none',
+              }}
+            >
+              <div ref={pngPreviewRef}>
+                <div className="bg-white rounded-xl shadow-md overflow-hidden">
+                  <div className="p-0.5">
+                    {renderPreview()}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <GlobalSidebar
             isOpen={isSidebarOpen}
             onClose={closeSidebar}
@@ -1521,25 +1558,7 @@ const CoverLetter = ({
         ref={containerRef}
         className="h-screen flex flex-col bg-slate-100 smooth-scroll overflow-hidden"
       >
-        <Toaster
-          position="top-center"
-          toastOptions={{
-            duration: 3000,
-            style: {
-              background: '#ffffff',
-              color: '#0f172a',
-              border: '1px solid rgba(168, 85, 247, 0.25)',
-              borderRadius: '12px',
-              padding: '12px 24px',
-              fontSize: '14px',
-              boxShadow: '0 20px 60px -10px rgba(2, 6, 23, 0.15)',
-            },
-            success: { style: { border: '1px solid rgba(34, 197, 94, 0.3)' } },
-            error: { style: { border: '1px solid rgba(239, 68, 68, 0.3)' } },
-            loading: { style: { border: '1px solid rgba(168, 85, 247, 0.3)' } },
-          }}
-        />
-
+        {/* ✅ Single global toaster lives in App.tsx (AdinToaster). A second one here made every toast show twice. */}
         <CoverLetterHero
           onOpenSidebar={openSidebar}
           saveStatus={hasSaved ? 'saved' : 'saving'}

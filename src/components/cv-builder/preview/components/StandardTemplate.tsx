@@ -178,6 +178,10 @@ const PAGE_GAP_PX = 16;
 const PAGE_CONTENT_TOP = TOP_MARGIN - baselineInBox(BODY_LINE_HEIGHT, ENTRY_TITLE_SIZE) + BODY_TOP_PADDING;
 const PAGE_CONTENT_BOTTOM = PAGE_HEIGHT - BOTTOM_MARGIN + 1.5;
 const HEAD_RULE_BLEED_PX = Math.max(0, Math.ceil(-SECTION_BAND_TOP * PX)) + 2;
+// The section band pokes above its heading box (SECTION_BAND_TOP < 0). When the next page starts
+// with a heading, the previous page's window ends exactly at that heading's top, so this overhang
+// showed up as a thin gray line at the bottom of the previous page. Trim it off that window.
+const PREV_PAGE_HEAD_BAND_TRIM_PX = HEAD_RULE_BLEED_PX;
 
 interface PageWindow {
     start: number;
@@ -540,9 +544,13 @@ const Section: React.FC<{
     contentMarginTop: number;
     onEditSection?: (key: string) => void;
     gate: MouseGateApi;
+    hoveredKey: string | null;
+    setHoveredKey: (key: string) => void;
+    clearHovered: (key: string) => void;
     children: React.ReactNode;
-}> = ({ title, sectionKey, marginTop, contentMarginTop, onEditSection, gate, children }) => {
-    const [isHovered, setIsHovered] = useState(false);
+}> = ({ title, sectionKey, marginTop, contentMarginTop, onEditSection, gate, hoveredKey, setHoveredKey, clearHovered, children }) => {
+    // ✅ Shared across ALL page copies (state lives in StandardTemplate)
+    const isHovered = hoveredKey === sectionKey;
     const interactive = !!onEditSection;
     const showLabel = interactive && isHovered;
 
@@ -554,24 +562,24 @@ const Section: React.FC<{
     const handleMouseEnter = (e: React.MouseEvent) => {
         if (!interactive) return;
         if (gate.shouldBlockEnter(sectionKey, e)) return;
-        setIsHovered(true);
+        setHoveredKey(sectionKey);
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
         if (!interactive || isHovered) return;
-        if (gate.onMove(sectionKey, e)) setIsHovered(true);
+        if (gate.onMove(sectionKey, e)) setHoveredKey(sectionKey);
     };
 
     const handleMouseDown = () => {
         if (!interactive) return;
         gate.onPress(sectionKey);
-        setIsHovered(true);
+        setHoveredKey(sectionKey);
     };
 
     const handleMouseLeave = () => {
         if (!interactive) return;
         gate.onLeave(sectionKey);
-        setIsHovered(false);
+        clearHovered(sectionKey);
     };
 
     const ringPad = HOVER_RING_WIDTH;
@@ -853,6 +861,13 @@ const StandardTemplate: React.FC<CVPreviewProps> = (props) => {
     ]);
     const [, setFontTick] = useState(0);
     const [headerHovered, setHeaderHovered] = useState(false);
+    // ✅ ONE hover state for every page copy of `body`
+    const [hoveredKey, setHoveredKeyState] = useState<string | null>(null);
+    const setHoveredKey = React.useCallback((key: string) => setHoveredKeyState(key), []);
+    const clearHovered = React.useCallback(
+        (key: string) => setHoveredKeyState((prev) => (prev === key ? null : prev)),
+        []
+    );
 
     // ✅ Mouse gate
     const blockedRef = useRef<Set<string>>(new Set());
@@ -967,6 +982,9 @@ const StandardTemplate: React.FC<CVPreviewProps> = (props) => {
                 contentMarginTop={headingToContentMargin(offsetFs, firstFs)}
                 onEditSection={onEditSection}
                 gate={gateApi}
+                hoveredKey={hoveredKey}
+                setHoveredKey={setHoveredKey}
+                clearHovered={clearHovered}
             >
                 {children}
             </Section>
@@ -1545,6 +1563,7 @@ const StandardTemplate: React.FC<CVPreviewProps> = (props) => {
 
                     {pages.map((w, k) => {
                         const bleed = k > 0 && w.headStart ? HEAD_RULE_BLEED_PX : 0;
+                        const tailTrim = pages[k + 1]?.headStart ? PREV_PAGE_HEAD_BAND_TRIM_PX : 0;
                         return (
                             <div
                                 key={k}
@@ -1565,7 +1584,7 @@ const StandardTemplate: React.FC<CVPreviewProps> = (props) => {
                                         left: 0,
                                         top: k === 0 ? 0 : `${PAGE_CONTENT_TOP * PX - bleed - (k > 0 ? RING_ROOM_PX : 0)}px`,
                                         width: '100%',
-                                        height: `${w.end - w.start + bleed + (k > 0 ? RING_ROOM_PX : 0)}px`,
+                                        height: `${w.end - w.start + bleed + (k > 0 ? RING_ROOM_PX : 0) - tailTrim}px`,
                                         overflow: 'hidden'
                                     }}
                                 >

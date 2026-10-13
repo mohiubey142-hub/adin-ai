@@ -945,30 +945,6 @@ const HEADER_DIVIDER_TOP_GAP_PT =
 const HEADER_PHOTO_BORDER_WIDTH_PT = 2 * MM_TO_PT;
 
 // ------------------------------------------------------------------
-// EDUCATION/CERTIFICATIONS/LANGUAGES ROW — column geometry (OLD
-// Executive design transfer, explicit follow-up request: OLD
-// Executive's Education/Certifications/Languages row-with-column-
-// dividers layout, reproduced exactly). None of these existed in the
-// current architecture before this request, so they are introduced
-// here, once, as their own named constants rather than raw inline
-// numbers — mirroring OLD Executive's own tuned values (which were
-// mm-based) through the existing MM_TO_PT conversion, same convention
-// as every other mm-sourced constant in this file.
-// ------------------------------------------------------------------
-// AUTO-FIT: bulk spacing — BASE_*/mutable pair.
-const BASE_COLUMN_GAP_MM = 3; // OLD Executive's `gapAroundLine` — reserved on each side of every vertical column divider
-let COLUMN_GAP_MM = BASE_COLUMN_GAP_MM;
-let COLUMN_GAP_PT = COLUMN_GAP_MM * MM_TO_PT;
-// Small nudge applied to a column's CONTENT start only (not its heading,
-// which stays flush with the column's own X) — expressed as a fraction of
-// that column's own width so it scales with column width instead of being
-// a raw pt number. Certifications already used this fraction for its own
-// content start; Languages now reuses the exact same named constant
-// instead of its own separate (much larger) hardcoded fraction, so every
-// column's heading-flush / content-inset relationship is identical.
-const COLUMN_CONTENT_INSET_FRACTION = 0.02;
-
-// ------------------------------------------------------------------
 // SECTION ICON BADGES (reference-image design transfer)
 // ------------------------------------------------------------------
 // The reference image renders every section heading (Professional
@@ -1702,14 +1678,12 @@ function recomputeScaledConstants(scale: number): void {
   DIVIDER_SIDE_GAP_MM = BASE_DIVIDER_SIDE_GAP_MM * scale;
   BULLET_DOT_TO_TEXT_GAP_MM = BASE_BULLET_DOT_TO_TEXT_GAP_MM * scale;
   TITLE_TO_DATE_GAP_MM = BASE_TITLE_TO_DATE_GAP_MM * scale;
-  COLUMN_GAP_MM = BASE_COLUMN_GAP_MM * scale;
 
   // --- Derived constants, recomputed AFTER their sources above ---
   BODY_LINE_HEIGHT = BODY_SIZE * BODY_LINE_HEIGHT_MULTIPLIER;
   DIVIDER_SIDE_GAP_PT = DIVIDER_SIDE_GAP_MM * MM_TO_PT;
   BULLET_DOT_TO_TEXT_GAP_PT = BULLET_DOT_TO_TEXT_GAP_MM * MM_TO_PT;
   TITLE_TO_DATE_GAP_PT = TITLE_TO_DATE_GAP_MM * MM_TO_PT;
-  COLUMN_GAP_PT = COLUMN_GAP_MM * MM_TO_PT;
   TIMELINE_CONTINUATION_TOP_OFFSET_PT = BODY_SIZE * HELVETICA_ASCENT_RATIO;
 }
 
@@ -1733,7 +1707,9 @@ function renderExecutivePDFOnce(data: ExecutivePdfData): { doc: jsPDF; pageCount
   y = addHeader(doc, data, y);
   y = addSummary(doc, data, y);
   y = addExperience(doc, data, y);
-  y = addEducationCertificationsLanguagesRow(doc, data, y);
+  y = addEducation(doc, data, y);
+  y = addCertifications(doc, data, y);
+  y = addLanguages(doc, data, y);
   y = addSkills(doc, data, y);
   y = addAchievements(doc, data, y);
   y = addProjects(doc, data, y);
@@ -3112,259 +3088,80 @@ function addExperienceEntry(
 }
 
 // ====================================================================
-// EDUCATION + CERTIFICATIONS + LANGUAGES ROW (Phase 4 base, replaced
-// by an explicit OLD EXECUTIVE PDF design-transfer follow-up request)
+// EDUCATION, CERTIFICATIONS and LANGUAGES — three separate sections
 // ------------------------------------------------------------------
-// OLD Executive PDF renders Education, Certifications, and Languages
-// as ONE shared row instead of three stacked full-width sections:
-// three column headings on the same baseline, ONE shared divider
-// spanning the full content width beneath them, then each column's
-// own entries flowing independently underneath, with two thin gold
-// vertical divider lines separating the three columns. This is a
-// reproduction of that exact row / column-divider STRUCTURE, per an
-// explicit request to copy it exactly (unlike the earlier OLD
-// Executive color/header transfer, which deliberately left this
-// file's own section layout untouched).
+// Each one is a normal, full-width section, exactly like Achievements
+// and Projects (and exactly like the live ExecutiveTemplate preview,
+// which no longer has a 3-column row): section heading + divider via
+// renderSectionHeading(), then its entries stacked at LEFT_MARGIN /
+// CONTENT_WIDTH. Fixed order: Education -> Certifications -> Languages
+// (between Experience and Skills); a section with no usable entries is
+// skipped entirely and startY is returned unchanged.
 //
-// Column-width proportions: EQUAL widths across however many of the
-// three columns actually have content — see the numColumns-driven
-// columnWidth calculation inside the function below (no longer the
-// old fixed 34% / 31% / 34% split). The small buffers reserved around
-// each vertical divider (COLUMN_GAP_PT) are still ported from OLD
-// Executive's own gapAroundLine — see the COLUMN_* constants declared
-// earlier in this file. Everything WITHIN each column — font sizes,
-// per-field colors, the title/subtitle/detail gap sequence
-// (EXPERIENCE_TITLE_TO_SUBTITLE_GAP, EXPERIENCE_SUBTITLE_TO_DESCRIPTION_GAP),
-// per-entry EXPERIENCE_ENTRY_GAP, topUpToLineHeight() normalization, and
-// checkPageBreak() reservations — is this file's own existing
-// Education/Certifications/Languages typography and spacing, unchanged;
-// only the physical arrangement (equal-width columns, one shared
-// heading row, vertical dividers between whichever columns are active)
-// is new.
+// SPACING: every section starts with `y += SECTION_GAP`, and every
+// render*Column() helper below ends on a BODY_LINE_HEIGHT-normalized
+// trailing advance (topUpToLineHeight()), so the gap between any two
+// sections is the same SECTION_GAP — no per-section special case.
 //
-// Renders only the columns that have usable content, and reflows the
-// remaining ones to fill the freed-up space instead of leaving an empty
-// slot: 3 usable sections split the row three ways, 2 usable sections
-// split it equally in half (with a single divider between them), and 1
-// usable section renders full-width with no divider at all — the same
-// LEFT_MARGIN/CONTENT_WIDTH behavior every other normal section
-// (Summary, Skills, etc.) already uses. If none of the three have any
-// usable content, the whole row is skipped and startY is returned
-// unchanged, like every other section.
+// PAGE BREAKS (same behaviour as the preview's pagination): the heading
+// is only drawn together with its FIRST entry (headingSpaceWithFirstEntry()),
+// and every entry is kept whole — each render*Column() call
+// checkPageBreak()s per entry, so an entry that does not fit the room
+// left on the page moves whole to the next page.
 // Returns the new Y position for whatever gets rendered next.
 // ====================================================================
-function addEducationCertificationsLanguagesRow(doc: jsPDF, data: ExecutivePdfData, startY: number): number {
+
+// Room the heading + divider + the section's first entry need together.
+// Sized from the real first entry (measured via the same render*Column()
+// helper that later draws it, in its non-drawing "measuring" mode) down
+// to real ink-bottom, using the largest entry font size so it can never
+// be smaller than the entry's own checkPageBreak() reservation — the
+// heading therefore can't be left alone at the bottom of a page.
+function headingSpaceWithFirstEntry(firstEntryRawHeight: number): number {
+  const inkHeight = inkBottomHeight(firstEntryRawHeight, BODY_LINE_HEIGHT, EXPERIENCE_TITLE_SIZE);
+  return sectionHeadingToContentOffset(EXPERIENCE_TITLE_SIZE) + keepTogetherHeight(inkHeight, inkHeight);
+}
+
+function addEducation(doc: jsPDF, data: ExecutivePdfData, startY: number): number {
   const educations = (data.educations || []).filter(hasUsableEducationContent);
-  const certifications = (data.certifications || []).filter(hasUsableCertificationContent);
-  const languages = (data.languages || []).filter(hasUsableLanguageContent);
-
-  // --- Build the list of columns that actually have content, in the
-  // fixed Education -> Certifications -> Languages order, skipping any
-  // section the user left empty. Everything below (column count, width,
-  // dividers) is driven entirely by how many of these are present —
-  // 3 present behaves as before, 2 present splits the row's width
-  // equally between just those two, and 1 present renders as a normal,
-  // full-width section (no column math at all), instead of a fixed
-  // slot per section that leaves an empty gap when one is skipped. ---
-  type RowColumn = {
-    label: string;
-    icon: SectionIconType; // see drawSectionIconBadge() — one badge per column heading, same treatment renderSectionHeading() gives every other section
-    contentInsetFraction: number; // fraction of THIS column's own width — 0 for Education (heading and content both flush), COLUMN_CONTENT_INSET_FRACTION for Certifications/Languages (heading flush, content nudged in slightly) — same per-section-type convention as before, just no longer tied to a fixed slot.
-    measure: (maxWidth: number) => number;
-    render: (x: number, maxWidth: number, y: number) => { rawEndY: number; contentEndY: number };
-  };
-
-  const columns: RowColumn[] = [];
-  if (educations.length > 0) {
-    columns.push({
-      label: 'EDUCATION',
-      icon: 'education',
-      contentInsetFraction: 0,
-      measure: (maxWidth) => measureEducationColumnHeight(doc, educations, maxWidth),
-      render: (x, maxWidth, y) => renderEducationColumn(doc, educations, x, maxWidth, y),
-    });
-  }
-  if (certifications.length > 0) {
-    columns.push({
-      label: 'CERTIFICATIONS',
-      icon: 'certifications',
-      contentInsetFraction: COLUMN_CONTENT_INSET_FRACTION,
-      measure: (maxWidth) => measureCertificationColumnHeight(doc, certifications, maxWidth),
-      render: (x, maxWidth, y) => renderCertificationColumn(doc, certifications, x, maxWidth, y),
-    });
-  }
-  if (languages.length > 0) {
-    columns.push({
-      label: 'LANGUAGES',
-      icon: 'languages',
-      contentInsetFraction: COLUMN_CONTENT_INSET_FRACTION,
-      measure: (maxWidth) => measureLanguageColumnHeight(doc, languages, maxWidth),
-      render: (x, maxWidth, y) => renderLanguageColumn(doc, languages, x, maxWidth, y),
-    });
-  }
-
-  const numColumns = columns.length;
-  if (numColumns === 0) {
+  if (educations.length === 0) {
     return startY;
   }
 
-  let y = startY;
+  let y = startY + SECTION_GAP;
+  const firstEntryHeight = measureEducationColumnHeight(doc, [educations[0]], CONTENT_WIDTH);
+  y = checkPageBreak(doc, y, headingSpaceWithFirstEntry(firstEntryHeight));
+  y = renderSectionHeading(doc, 'EDUCATION', y, EXPERIENCE_TITLE_SIZE, 'education');
 
-  // Space between the previous section and this row — same relationship
-  // as every other "previous section -> next section" gap in this file.
-  y += SECTION_GAP;
+  return renderEducationColumn(doc, educations, LEFT_MARGIN, CONTENT_WIDTH, y).rawEndY;
+}
 
-  // --- Column widths: with only ONE column present, it behaves exactly
-  // like every other normal, full-width section (LEFT_MARGIN start,
-  // full CONTENT_WIDTH, no divider, no content inset) — the same
-  // LEFT_MARGIN/CONTENT_WIDTH convention addSkills()/addSummary()/etc.
-  // already use. With 2 or 3 columns present, CONTENT_WIDTH minus the
-  // gap reserved on both sides of every vertical divider between them
-  // (COLUMN_GAP_PT on each side = 2 * COLUMN_GAP_PT per divider) is
-  // split into numColumns EQUAL widths — the same equal-width guarantee
-  // whether 2 or 3 columns are showing, instead of a value tied to a
-  // hardcoded column count. ---
-  const numDividers = numColumns - 1;
-  const columnWidth = numColumns === 1
-    ? CONTENT_WIDTH
-    : (CONTENT_WIDTH - numDividers * 2 * COLUMN_GAP_PT) / numColumns;
-
-  // --- Column X-geometry (left to right): heading flush at the
-  // column's own X (same convention for every column, regardless of
-  // type or position), content nudged in by that column's own inset
-  // fraction, and a wrap width measured against whichever boundary
-  // comes next — the midpoint of the divider gap before the following
-  // column, or the page's own right margin for the last column.
-  // Computed here, independent of Y, so it can be used BOTH for
-  // measuring each column's real content height up front (right below)
-  // and later for actually drawing — the heading text itself isn't
-  // drawn until further down, once the row's final Y is settled. ---
-  const dividerXs: number[] = [];
-  const columnLayouts: { x: number; contentX: number; maxWidth: number }[] = [];
-  let cursorX = LEFT_MARGIN;
-
-  columns.forEach((column, index) => {
-    const isLast = index === numColumns - 1;
-    const x = cursorX;
-    const contentX = x + columnWidth * column.contentInsetFraction;
-    const nextBoundaryX = isLast
-      ? PAGE_WIDTH - RIGHT_MARGIN
-      : x + columnWidth + COLUMN_GAP_PT;
-    const maxWidth = numColumns === 1
-      ? CONTENT_WIDTH
-      : nextBoundaryX - contentX - COLUMN_GAP_PT;
-
-    if (!isLast) {
-      dividerXs.push(nextBoundaryX);
-    }
-
-    columnLayouts.push({ x, contentX, maxWidth });
-    cursorX = x + columnWidth + 2 * COLUMN_GAP_PT;
-  });
-
-  // --- Measure every active column's REAL content height up front,
-  // using the exact same per-entry typography/gap math each
-  // render*Column function uses internally (see
-  // measureEducationColumnHeight()/measureCertificationColumnHeight()/
-  // measureLanguageColumnHeight() below) — but without drawing any ink
-  // or calling checkPageBreak(). This is what lets the row make ONE
-  // page-break decision for the whole row (right below), instead of
-  // each column deciding independently: previously, Education/
-  // Certifications/Languages each called checkPageBreak() internally,
-  // per-entry, using their OWN copy of y — so if (say) Certifications'
-  // content ran long enough to trigger its own doc.addPage() partway
-  // through, that moved the ENTIRE document's current page forward
-  // while Education (already fully drawn) stayed on the old page, and
-  // Languages then rendered at the Y coordinates meant for the OLD
-  // page but onto whatever page Certifications had just switched to —
-  // scattering the three columns' entries across mismatched pages
-  // instead of keeping them aligned as one row. Reserving the tallest
-  // column's full measured height for the row up front means none of
-  // the three render calls below ever need to trigger their own
-  // internal page break in practice, so all three stay column-aligned
-  // on whichever single page the row lands on. ---
-  const measuredHeights = columns.map((column, index) => column.measure(columnLayouts[index].maxWidth));
-  const rawMaxMeasuredHeight = Math.max(...measuredHeights);
-
-  // Room for the heading row plus the row's REAL measured content
-  // height (not just a first-line placeholder), so the heading and
-  // every column's content move together to a fresh page as one unit
-  // whenever the row as a whole doesn't fit. Every column's own
-  // measured height already ends normalized to a BODY_LINE_HEIGHT-
-  // equivalent trailing advance (see topUpToLineHeight(), applied
-  // unconditionally at the end of every render*Column() entry loop), so
-  // the ink-bottom reservation for the row as a whole is measured the
-  // same way a single BODY_LINE_HEIGHT paragraph line would be (see
-  // inkBottomHeight()/keepTogetherHeight() near checkPageBreak()) —
-  // reserving down to real ink, not the extra leading past it.
-  const inkMaxMeasuredHeight = inkBottomHeight(rawMaxMeasuredHeight, BODY_LINE_HEIGHT, BODY_SIZE);
-  const maxMeasuredHeight = keepTogetherHeight(inkMaxMeasuredHeight, inkMaxMeasuredHeight);
-  const headingSpaceNeeded = sectionHeadingToContentOffset(EXPERIENCE_TITLE_SIZE) + maxMeasuredHeight;
-  y = checkPageBreak(doc, y, headingSpaceNeeded);
-
-  const headingBaselineY = y;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(HEADING_SIZE);
-  doc.setTextColor(...COLOR_SECTION_HEADLINE);
-  // Each column heading gets its own icon badge (see drawSectionIconBadge()
-  // above), left-anchored at that column's own X — exactly where its
-  // label used to start — with the label itself shifted right by the
-  // same SECTION_ICON_TEXT_SHIFT_PT every other section heading uses.
-  // This only moves each column's HEADING text; contentX/maxWidth (and
-  // therefore every column's width, content-wrap, and divider position)
-  // are untouched.
-  columns.forEach((column, index) => {
-    drawSectionIconBadge(doc, column.icon, columnLayouts[index].x, headingBaselineY);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(HEADING_SIZE);
-    doc.setTextColor(...COLOR_SECTION_HEADLINE);
-    doc.text(column.label, columnLayouts[index].x + SECTION_ICON_TEXT_SHIFT_PT, headingBaselineY);
-  });
-
-  // --- ONE shared divider spanning the full content width, positioned
-  // with the exact same heading->divider->content geometry every other
-  // section heading uses (see sectionHeadingToContentOffset() and
-  // renderSectionHeading() above) — drawn once here, not once per
-  // column, since every active heading shares it. ---
-  const headingInkBottomY = headingBaselineY; // ALL-CAPS heading, no descender ink
-  const dividerTopEdgeY = headingInkBottomY + DIVIDER_SIDE_GAP_PT;
-  const dividerCenterY = dividerTopEdgeY + SECTION_DIVIDER_THICKNESS / 2;
-  const dividerBottomEdgeY = dividerTopEdgeY + SECTION_DIVIDER_THICKNESS;
-  doc.setDrawColor(...COLOR_SECTION_DIVIDER);
-  doc.setLineWidth(SECTION_DIVIDER_THICKNESS);
-  doc.line(LEFT_MARGIN, dividerCenterY, PAGE_WIDTH - RIGHT_MARGIN, dividerCenterY);
-
-  const contentStartY = headingBaselineY + sectionHeadingToContentOffset(EXPERIENCE_TITLE_SIZE);
-
-  // --- Each active column's own entries, independently flowing
-  // underneath the shared divider — this file's existing Education/
-  // Certification/Language typography, spacing, and per-entry
-  // normalization, just re-flowed into that column's own width instead
-  // of a fixed slot. ---
-  const results = columns.map((column, index) =>
-    column.render(columnLayouts[index].contentX, columnLayouts[index].maxWidth, contentStartY)
-  );
-
-  const rowBottomY = Math.max(...results.map((r) => r.rawEndY));
-
-  // --- Vertical column divider lines, re-enabled: one at each
-  // dividerXs position (already computed above as the exact midpoint of
-  // the COLUMN_GAP_PT buffer reserved on each side of every column
-  // boundary — untouched, so this draws INTO existing whitespace rather
-  // than reserving any new gap or moving any column). Each line runs
-  // from the shared heading divider's own bottom edge down to the row's
-  // real bottom (the tallest column's rawEndY, same value this function
-  // returns), reusing the same divider color/thickness as every other
-  // divider in this file — no new color or magic thickness introduced. ---
-  if (dividerXs.length > 0) {
-    doc.setDrawColor(...COLOR_SECTION_DIVIDER);
-    doc.setLineWidth(SECTION_DIVIDER_THICKNESS);
-    dividerXs.forEach((dividerX) => {
-      doc.line(dividerX, dividerBottomEdgeY, dividerX, rowBottomY);
-    });
+function addCertifications(doc: jsPDF, data: ExecutivePdfData, startY: number): number {
+  const certifications = (data.certifications || []).filter(hasUsableCertificationContent);
+  if (certifications.length === 0) {
+    return startY;
   }
 
-  return rowBottomY;
+  let y = startY + SECTION_GAP;
+  const firstEntryHeight = measureCertificationColumnHeight(doc, [certifications[0]], CONTENT_WIDTH);
+  y = checkPageBreak(doc, y, headingSpaceWithFirstEntry(firstEntryHeight));
+  y = renderSectionHeading(doc, 'CERTIFICATIONS', y, EXPERIENCE_TITLE_SIZE, 'certifications');
+
+  return renderCertificationColumn(doc, certifications, LEFT_MARGIN, CONTENT_WIDTH, y).rawEndY;
+}
+
+function addLanguages(doc: jsPDF, data: ExecutivePdfData, startY: number): number {
+  const languages = (data.languages || []).filter(hasUsableLanguageContent);
+  if (languages.length === 0) {
+    return startY;
+  }
+
+  let y = startY + SECTION_GAP;
+  const firstEntryHeight = measureLanguageColumnHeight(doc, [languages[0]], CONTENT_WIDTH);
+  y = checkPageBreak(doc, y, headingSpaceWithFirstEntry(firstEntryHeight));
+  y = renderSectionHeading(doc, 'LANGUAGES', y, EXPERIENCE_TITLE_SIZE, 'languages');
+
+  return renderLanguageColumn(doc, languages, LEFT_MARGIN, CONTENT_WIDTH, y).rawEndY;
 }
 
 // An entry counts as "usable" if it has ANY content worth printing —
@@ -3381,8 +3178,9 @@ function hasUsableEducationContent(edu: ExecutivePdfEducation | null | undefined
   );
 }
 
-// Measures Education/Certifications/Languages' REAL content height for
-// the shared row above, WITHOUT drawing any ink or ever adding a page —
+// Measures Education/Certifications/Languages' REAL content height (used
+// to reserve room for a section's heading + first entry), WITHOUT drawing
+// any ink or ever adding a page —
 // by calling the real render*Column() function in its own "measuring"
 // mode (see the `measuring` parameter on each), so this can never drift
 // out of sync with what actually gets drawn (the bug a hand-duplicated
@@ -3400,20 +3198,15 @@ function measureLanguageColumnHeight(doc: jsPDF, languages: ExecutivePdfLanguage
   return renderLanguageColumn(doc, languages, 0, maxWidth, 0, true).rawEndY;
 }
 
-// Renders the Education column of the shared row above: one block per
-// entry — Degree (bold, COLOR_HEADING), Institution (COLOR_METADATA),
-// then Year/Grade combined on one line (COLOR_BODY, matching the
-// Professional Summary's body-content color) — using this file's own
-// existing entry
-// typography/gap constants, wrapped to this column's own width instead
-// of CONTENT_WIDTH. Mirrors the exact field-sequence/gap-conditional
-// pattern renderCertificationColumn() already uses for its own three-field
-// sequence (name/date/credential here becomes degree/institution/
-// dateText). Returns both the column's normal ("raw") end Y — used for
-// the row's own next-entry gap and as one input to the whole row's
-// return value — and its real, visible content-bottom Y (excluding the
-// per-entry trailing normalization), which is what the vertical column
-// dividers actually measure against.
+// Renders the Education section's entries, one block per entry, each
+// field on its own line: Degree (bold, COLOR_HEADING), Institution,
+// Date (year) and Grade (all COLOR_BODY) — this file's own existing
+// entry typography/gap constants, wrapped to the width it is given
+// (CONTENT_WIDTH for the full-width section). Same field-sequence/
+// gap-conditional pattern renderCertificationColumn() uses. Returns the
+// section's normal ("raw") end Y — the next section's SECTION_GAP is
+// measured from it — and its real, visible content-bottom Y (excluding
+// the per-entry trailing normalization).
 function renderEducationColumn(
   doc: jsPDF,
   educations: ExecutivePdfEducation[],
@@ -3567,11 +3360,11 @@ function renderEducationColumn(
   return { rawEndY: y, contentEndY };
 }
 
-// Renders the Certifications column of the shared row above: Name
+// Renders the Certifications section's entries: Name
 // (bold, COLOR_HEADING), Date (COLOR_BODY), Credential ID (COLOR_BODY —
 // both match the Professional Summary's body-content color). Mirrors
 // renderCertificationColumn()'s exact field-sequence/gap-conditional
-// pattern, wrapped to this column's own width. See renderEducationColumn()
+// pattern, wrapped to the width it is given. See renderEducationColumn()
 // above for the meaning of the returned {rawEndY, contentEndY} pair.
 function renderCertificationColumn(
   doc: jsPDF,
@@ -3713,7 +3506,7 @@ function getProficiencyDisplayLabel(proficiency: string): string {
   return labels[proficiency] || proficiency;
 }
 
-// Renders the Languages column of the shared row above. VISUAL FORMAT
+// Renders the Languages section's entries. VISUAL FORMAT
 // UPDATE: each language entry is now rendered as two stacked lines —
 //   Language Name   (bold, COLOR_HEADING, EXPERIENCE_TITLE_SIZE)
 //   Language Level  (normal, COLOR_METADATA, EXPERIENCE_SUBTITLE_SIZE)
@@ -4895,8 +4688,8 @@ function keepTogetherHeight(fullHeight: number, leadHeight: number): number {
 // ====================================================================
 // PAGE-BREAK HELPER
 // Used by addSummary(), addExperience()/addExperienceEntry(),
-// addEducationCertificationsLanguagesRow() (and its renderEducationColumn()/
-// renderCertificationColumn()/renderLanguageColumn() column helpers), addSkills(),
+// addEducation()/addCertifications()/addLanguages() (and their renderEducationColumn()/
+// renderCertificationColumn()/renderLanguageColumn() entry helpers), addSkills(),
 // addAchievements()/addAchievementEntry(), addProjects()/
 // addProjectEntry() (and every future section) to decide whether there
 // is enough room left on the current page for the next chunk of content.

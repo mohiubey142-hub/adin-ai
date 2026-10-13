@@ -532,9 +532,13 @@ const Section: React.FC<{
     onEditSection?: (key: string) => void;
     activeSection?: string | null;
     gate: MouseGateApi;
+    hoveredKey: string | null;
+    setHoveredKey: (key: string) => void;
+    clearHovered: (key: string) => void;
     children: React.ReactNode;
-}> = ({ title, sectionKey, marginTop, contentMarginTop, onEditSection, activeSection, gate, children }) => {
-    const [isHovered, setIsHovered] = useState(false);
+}> = ({ title, sectionKey, marginTop, contentMarginTop, onEditSection, activeSection, gate, hoveredKey, setHoveredKey, clearHovered, children }) => {
+    // ✅ Shared across ALL page copies (state lives in MinimalTemplate)
+    const isHovered = hoveredKey === sectionKey;
     const interactive = !!onEditSection;
     const showLabel = interactive && isHovered;
 
@@ -546,24 +550,24 @@ const Section: React.FC<{
     const handleMouseEnter = (e: React.MouseEvent) => {
         if (!interactive) return;
         if (gate.shouldBlockEnter(sectionKey, e)) return;
-        setIsHovered(true);
+        setHoveredKey(sectionKey);
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
         if (!interactive || isHovered) return;
-        if (gate.onMove(sectionKey, e)) setIsHovered(true);
+        if (gate.onMove(sectionKey, e)) setHoveredKey(sectionKey);
     };
 
     const handleMouseDown = () => {
         if (!interactive) return;
         gate.onPress(sectionKey);
-        setIsHovered(true);
+        setHoveredKey(sectionKey);
     };
 
     const handleMouseLeave = () => {
         if (!interactive) return;
         gate.onLeave(sectionKey);
-        setIsHovered(false);
+        clearHovered(sectionKey);
     };
 
     return (
@@ -745,6 +749,13 @@ const MinimalTemplate: React.FC<CVPreviewProps> = (props) => {
     const [breaks, setBreaks] = useState<string[]>([]);
     const [, setFontTick] = useState(0);
     const [headerHovered, setHeaderHovered] = useState(false);
+    // ✅ ONE hover state for every page copy of `body`
+    const [hoveredKey, setHoveredKeyState] = useState<string | null>(null);
+    const setHoveredKey = React.useCallback((key: string) => setHoveredKeyState(key), []);
+    const clearHovered = React.useCallback(
+        (key: string) => setHoveredKeyState((prev) => (prev === key ? null : prev)),
+        []
+    );
 
     // ✅ Mouse gate
     const blockedRef = useRef<Set<string>>(new Set());
@@ -859,6 +870,9 @@ const MinimalTemplate: React.FC<CVPreviewProps> = (props) => {
                 onEditSection={onEditSection}
                 activeSection={activeSection}
                 gate={gateApi}
+                hoveredKey={hoveredKey}
+                setHoveredKey={setHoveredKey}
+                clearHovered={clearHovered}
             >
                 {children}
             </Section>

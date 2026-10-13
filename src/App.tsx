@@ -67,7 +67,7 @@ import {
   Lock,
   MessageSquare,
 } from "lucide-react";
-import toast, { Toaster } from "react-hot-toast";
+import toast, { Toaster, useToasterStore } from "react-hot-toast";
 import { sendToAI, saveMemoryFromResponse } from "./services/ai";
 import { saveMemory, loadMemory } from "./utils/memory";
 import { LoadingScreen } from "./components/LoadingScreen";
@@ -153,31 +153,47 @@ const buildScrollbarCss = (force: boolean): string => {
   `;
 };
 
-const AdinToaster = () => (
-  <Toaster
-    position="top-center"
-    reverseOrder={false}
-    gutter={8}
-    containerStyle={{
-      position: 'fixed', top: '20px', left: '50%',
-      transform: 'translateX(-50%)', zIndex: 999999,
-      pointerEvents: 'none',
-    }}
-    toastOptions={{
-      duration: 4000,
-      style: {
-        background: '#ffffff', color: '#0f172a',
-        border: '1px solid rgba(168, 85, 247, 0.25)',
-        padding: '16px 24px', borderRadius: '12px',
-        boxShadow: '0 20px 60px -10px rgba(2, 6, 23, 0.15)',
-        pointerEvents: 'auto', maxWidth: '500px', width: 'auto',
-      },
-      success: { style: { border: '1px solid rgba(34, 197, 94, 0.3)' } },
-      error: { style: { border: '1px solid rgba(239, 68, 68, 0.3)' } },
-      loading: { style: { border: '1px solid rgba(168, 85, 247, 0.3)' } },
-    }}
-  />
-);
+// Only the newest toast stays visible. Older ones are dismissed, so repeated /
+// double notifications from sections, handlers or AI actions never pile up.
+// (Raise MAX_VISIBLE_TOASTS if you ever want more than one at a time.)
+const MAX_VISIBLE_TOASTS = 1;
+
+const AdinToaster = () => {
+  const { toasts } = useToasterStore();
+
+  useEffect(() => {
+    toasts
+      .filter((t) => t.visible)
+      .filter((_, i) => i >= MAX_VISIBLE_TOASTS)
+      .forEach((t) => toast.dismiss(t.id));
+  }, [toasts]);
+
+  return (
+    <Toaster
+      position="top-center"
+      reverseOrder={false}
+      gutter={8}
+      containerStyle={{
+        position: 'fixed', top: '20px', left: '50%',
+        transform: 'translateX(-50%)', zIndex: 999999,
+        pointerEvents: 'none',
+      }}
+      toastOptions={{
+        duration: 4000,
+        style: {
+          background: '#ffffff', color: '#0f172a',
+          border: '1px solid rgba(168, 85, 247, 0.25)',
+          padding: '16px 24px', borderRadius: '12px',
+          boxShadow: '0 20px 60px -10px rgba(2, 6, 23, 0.15)',
+          pointerEvents: 'auto', maxWidth: '500px', width: 'auto',
+        },
+        success: { style: { border: '1px solid rgba(34, 197, 94, 0.3)' } },
+        error: { style: { border: '1px solid rgba(239, 68, 68, 0.3)' } },
+        loading: { style: { border: '1px solid rgba(168, 85, 247, 0.3)' } },
+      }}
+    />
+  );
+};
 
 // ═══════════════════════════════════════════════════════════════
 // ✅ PATH-BASED ROUTING

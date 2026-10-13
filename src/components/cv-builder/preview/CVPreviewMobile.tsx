@@ -3,6 +3,9 @@
 // ✅ NEW: onEditSection + activeSection pass-through to templates
 // ✅ NEW: Download PNG — html-to-image (dynamic import, zero bundle cost)
 // ✅ NEW: forwardRef — exposes `downloadPNG` to the parent.
+// ✅ NEW: autoDownloadPNG — hidden/off-screen export mode so the
+//         Export & Download buttons work even when this preview is
+//         not visible (mobile Edit tab).
 
 import React, { useRef, useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { Eye, Download, ChevronDown, Copy, FileText, FileDown, MessageCircle, Image as ImageIcon } from 'lucide-react';
@@ -149,7 +152,14 @@ const DownloadDropdown: React.FC<DownloadDropdownProps> = ({
 // ============================================
 // CVPreviewMobile
 // ============================================
-const CVPreviewMobile = forwardRef<any, CVPreviewProps>((props, ref) => {
+type CVPreviewMobileProps = CVPreviewProps & {
+    /** When true, waits for layout/fonts/images then captures a PNG automatically. */
+    autoDownloadPNG?: boolean;
+    /** Called once the automatic capture finishes (success or failure). */
+    onAutoDownloadPNGDone?: () => void;
+};
+
+const CVPreviewMobile = forwardRef<any, CVPreviewMobileProps>((props, ref) => {
     const { backgroundStyle } = useTemplateStyles(props.template);
 
     // ✅ PNG capture target — forwarded to parent.
@@ -164,6 +174,57 @@ const CVPreviewMobile = forwardRef<any, CVPreviewProps>((props, ref) => {
     useImperativeHandle(ref, () => ({
         downloadPNG,
     }), [downloadPNG]);
+
+    // ✅ Hidden/off-screen export mode: wait for fonts, layout & images, then capture.
+    //    Every wait is TIME-BOUNDED — an off-screen lazy image or a stalled
+    //    font promise must never leave the export hanging silently.
+    useEffect(() => {
+        if (!props.autoDownloadPNG) return;
+        let cancelled = false;
+
+        const withTimeout = (p: Promise<unknown>, ms: number) =>
+            Promise.race([p, new Promise((r) => setTimeout(r, ms))]);
+
+        (async () => {
+            try {
+                await withTimeout(
+                    Promise.resolve((document as any).fonts?.ready),
+                    1500
+                );
+                await new Promise<void>((r) =>
+                    requestAnimationFrame(() => requestAnimationFrame(() => r()))
+                );
+                const imgs = Array.from(
+                    previewBodyRef.current?.querySelectorAll('img') ?? []
+                ) as HTMLImageElement[];
+                await withTimeout(
+                    Promise.all(
+                        imgs.map((img) => {
+                            img.loading = 'eager'; // off-screen lazy images never load otherwise
+                            return img.complete
+                                ? null
+                                : new Promise((r) => {
+                                      img.onload = img.onerror = () => r(null);
+                                  });
+                        })
+                    ),
+                    2500
+                );
+                // let templates measure/scale themselves
+                await new Promise((r) => setTimeout(r, 300));
+                if (!cancelled) await downloadPNG();
+            } catch (err) {
+                console.error('[CVPreviewMobile] auto PNG export failed:', err);
+            } finally {
+                if (!cancelled) props.onAutoDownloadPNGDone?.();
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [props.autoDownloadPNG]);
 
     const renderTemplate = () => {
         const templateProps: CVPreviewProps = {

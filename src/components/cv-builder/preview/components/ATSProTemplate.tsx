@@ -14,7 +14,7 @@
 // right-aligned dates, 8pt bullet indent.
 // ------------------------------------------------------------------
 
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { CVPreviewProps } from '../types/previewTypes';
 import { safeText } from '../utils/renderHelpers';
 
@@ -191,53 +191,144 @@ interface PageWindow {
     start: number;
     end: number;
     top: number;
+    // Extra strip rendered ABOVE `start` so the hover ring of a section that begins
+    // exactly at the page top is not clipped. Must be 0 when the page starts in the
+    // middle of a text block, otherwise the previous line's tail shows up there.
+    ring: number;
 }
+
+// Each visible page copy tells its sections which slice of the document it shows, so the
+// "Click to edit" label is drawn ONLY on the page that holds the section's bottom edge.
+// Otherwise the top of the label (it is taller than a short section tail) pokes into the
+// previous page and looks like the ring is trying to close there.
+interface PageCtxValue {
+    start: number;
+    end: number;
+    bottoms: Record<string, number>;
+}
+const PageCtx = createContext<PageCtxValue | null>(null);
 
 type UnitKind = 'keep' | 'flow' | 'head';
 const unit = (kind: UnitKind, first: M) => ({ 'data-unit': kind, 'data-b': bIn(first) } as const);
 
-const offsetTopWithin = (el: HTMLElement, root: HTMLElement): number => {
-    let y = 0;
-    let node: HTMLElement | null = el;
-    while (node && node !== root) {
-        y += node.offsetTop;
-        node = node.offsetParent as HTMLElement | null;
-    }
-    return y;
-};
+// Safety distance (px) a page cut is moved up into the blank gap above a block.
+const CUT_LIFT_PX = 2;
 
 const AUTO_FIT_MIN_SCALE = 0.85;
 const AUTO_FIT_STEP = 0.02;
 const AUTO_FIT_MAX_OVERFLOW_PT = (PAGE_HEIGHT - TOP_MARGIN - BOTTOM_MARGIN) * 0.35;
 
-const computePages = (root: HTMLElement, fit: number): { pages: PageWindow[]; contentBottom: number } => {
-    const wrap = root.querySelector<HTMLElement>('[data-scale-wrap]');
-    const wrapTop = wrap ? offsetTopWithin(wrap, root) : 0;
+// ✅ Real line boundaries (root coordinates, same space as unit.top).
+// A page may only be cut BETWEEN two rendered text lines, never through one.
+const collectLineBreaks = (root: HTMLElement): number[] => {
+    if (typeof document === 'undefined') return [];
+    const rootRect = root.getBoundingClientRect();
+    const k = root.offsetWidth > 0 && rootRect.width > 0 ? rootRect.width / root.offsetWidth : 1;
+    const rects: { top: number; bottom: number }[] = [];
+    const range = document.createRange();
+
+    root.querySelectorAll<HTMLElement>('[data-unit]').forEach((el) => {
+        if (el.dataset.unit === 'head') return;
+        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        let node: Node | null = walker.nextNode();
+        while (node) {
+            if (node.textContent && node.textContent.trim()) {
+                range.selectNodeContents(node);
+                const list = range.getClientRects();
+                for (let i = 0; i < list.length; i++) {
+                    const r = list[i];
+                    if (r.height > 0) rects.push({ top: (r.top - rootRect.top) / k, bottom: (r.bottom - rootRect.top) / k });
+                }
+            }
+            node = walker.nextNode();
+        }
+    });
+
+    rects.sort((a, b) => a.top - b.top);
+    const breaks: number[] = [];
+    let gTop = 0;
+    let gBottom = 0;
+    let have = false;
+    rects.forEach((r) => {
+        if (!have) {
+            gTop = r.top;
+            gBottom = r.bottom;
+            have = true;
+            return;
+        }
+        // same visual line (mixed fonts / marker + text): starts within the top 60% of current line
+        if (r.top < gTop + (gBottom - gTop) * 0.6) {
+            gBottom = Math.max(gBottom, r.bottom);
+            return;
+        }
+        // Text rects are font content-areas. With line-height ~1em (entry titles / sub-lines)
+        // consecutive rects OVERLAP. Cutting at the upper rect's bottom leaves ~0px between the
+        // upper line's descenders and the next line's tops, so a sliver of the next line leaks
+        // onto the previous page. Cut in the middle of the real glyph gap instead:
+        // between the upper bottom and the next line's cap-height (~17% below its rect top).
+        if (r.top < gBottom) {
+            const nextGlyphTop = r.top + (r.bottom - r.top) * 0.17;
+            breaks.push(nextGlyphTop > gBottom ? (gBottom + nextGlyphTop) / 2 : gBottom);
+        } else {
+            breaks.push((gBottom + r.top) / 2);
+        }
+        gTop = r.top;
+        gBottom = r.bottom;
+    });
+    return breaks;
+};
+
+const computePages = (
+    root: HTMLElement,
+    fit: number
+): { pages: PageWindow[]; contentBottom: number; sectionBottoms: Record<string, number> } => {
+    // ✅ Exact geometry (same space as collectLineBreaks): offsetTop is integer-rounded and the
+    // error adds up through nested elements, which put a cut a few px INSIDE a line.
+    const rootRect = root.getBoundingClientRect();
+    const k = root.offsetWidth > 0 && rootRect.width > 0 ? rootRect.width / root.offsetWidth : 1;
     const LH = BODY_LINE_HEIGHT * PX * fit;
     const bodyB = bIn(M_BODY);
     const bottomPx = PAGE_CONTENT_BOTTOM * PX;
     const topFor = (firstB: number) => (TOP_MARGIN - firstB) * PX + BODY_TOP_PADDING;
     const windowFor = (firstB: number) => bottomPx - topFor(firstB);
 
-    const units = Array.from(root.querySelectorAll<HTMLElement>('[data-unit]')).map((el) => ({
-        kind: el.dataset.unit as UnitKind,
-        b: parseFloat(el.dataset.b || '') || bodyB,
-        top: wrap ? wrapTop + offsetTopWithin(el, wrap) * fit : offsetTopWithin(el, root),
-        height: el.offsetHeight * fit
-    }));
+    const units = Array.from(root.querySelectorAll<HTMLElement>('[data-unit]')).map((el) => {
+        const r = el.getBoundingClientRect();
+        return {
+            kind: el.dataset.unit as UnitKind,
+            b: parseFloat(el.dataset.b || '') || bodyB,
+            top: (r.top - rootRect.top) / k,
+            height: r.height / k
+        };
+    });
     const contentBottom = units.reduce((max, u) => Math.max(max, u.top + u.height), 0);
 
     const pages: PageWindow[] = [];
     let start = 0;
     let curTop = 0;
+    let curRing = 0;
     let limit = bottomPx;
-    const newPage = (cut: number, firstB: number) => {
-        pages.push({ start, end: cut, top: curTop });
-        start = cut;
-        curTop = topFor(firstB);
+    // `lift`: when a page starts at the top of a block (heading / entry / paragraph) the cut is
+    // moved a few px UP into the blank gap above it. The previous page then can never show the
+    // top of the first line, and the new page can never lose it. `top` is compensated, so the
+    // block still lands exactly where it did before.
+    const newPage = (cut: number, firstB: number, ring: number, lift = 0) => {
+        const at = cut - lift;
+        pages.push({ start, end: at, top: curTop, ring: curRing });
+        start = at;
+        curRing = ring;
+        curTop = topFor(firstB) - lift;
         limit = cut + windowFor(firstB);
     };
+    const lineBreaks = collectLineBreaks(root);
     const lineCut = (top: number) => {
+        let best = -1;
+        for (let i = 0; i < lineBreaks.length; i++) {
+            const b = lineBreaks[i];
+            if (b > limit) break;
+            if (b > top + 1 && b > start + 1) best = b;
+        }
+        if (best > 0) return best;
         const cut = top + Math.floor((limit - top) / LH) * LH;
         return cut > start + 1 ? cut : limit;
     };
@@ -251,24 +342,31 @@ const computePages = (root: HTMLElement, fit: number): { pages: PageWindow[]; co
             if (next) {
                 needed = next.kind === 'flow' ? next.top + LH : Math.min(next.top + next.height, u.top + windowFor(u.b));
             }
-            if (Math.max(needed, bottom) > limit && u.top > start + 1) newPage(u.top, u.b);
+            if (Math.max(needed, bottom) > limit && u.top > start + 1) newPage(u.top, u.b, RING_ROOM_PX, CUT_LIFT_PX);
             return;
         }
 
         if (u.kind === 'keep') {
-            if (bottom > limit && u.top > start + 1) newPage(u.top, u.b);
-            while (bottom > limit) newPage(lineCut(u.top), bodyB);
+            if (bottom > limit && u.top > start + 1) newPage(u.top, u.b, RING_ROOM_PX, CUT_LIFT_PX);
+            while (bottom > limit) newPage(lineCut(u.top), bodyB, RING_ROOM_PX);
             return;
         }
 
         while (bottom > limit) {
-            if (u.top > limit - LH && u.top > start + 1) newPage(u.top, u.b);
-            else newPage(lineCut(u.top), bodyB);
+            if (u.top > limit - LH && u.top > start + 1) newPage(u.top, u.b, RING_ROOM_PX, CUT_LIFT_PX);
+            else newPage(lineCut(u.top), bodyB, RING_ROOM_PX);
         }
     });
 
-    pages.push({ start, end: limit, top: curTop });
-    return { pages, contentBottom };
+    pages.push({ start, end: limit, top: curTop, ring: curRing });
+
+    const sectionBottoms: Record<string, number> = {};
+    root.querySelectorAll<HTMLElement>('section[data-section]').forEach((el) => {
+        const r = el.getBoundingClientRect();
+        sectionBottoms[el.dataset.section || ''] = (r.bottom - rootRect.top) / k;
+    });
+
+    return { pages, contentBottom, sectionBottoms };
 };
 
 let measureCanvas: HTMLCanvasElement | null = null;
@@ -531,11 +629,19 @@ const Section: React.FC<{
     onEditSection?: (key: string) => void;
     activeSection?: string | null;
     gate: MouseGateApi;
+    hoveredKey: string | null;
+    setHoveredKey: (key: string) => void;
+    clearHovered: (key: string) => void;
     children: React.ReactNode;
-}> = ({ title, sectionKey, marginTop, first, offsetFont, onEditSection, activeSection, gate, children }) => {
-    const [isHovered, setIsHovered] = useState(false);
+}> = ({ title, sectionKey, marginTop, first, offsetFont, onEditSection, activeSection, gate, hoveredKey, setHoveredKey, clearHovered, children }) => {
+    // ✅ Shared across ALL page copies (state lives in ATSProTemplate)
+    const isHovered = hoveredKey === sectionKey;
     const interactive = !!onEditSection;
-    const showLabel = interactive && isHovered;
+    const pageCtx = useContext(PageCtx);
+    const sectionBottom = pageCtx ? pageCtx.bottoms[sectionKey] : undefined;
+    const labelOnThisPage =
+        !pageCtx || sectionBottom === undefined || (sectionBottom > pageCtx.start && sectionBottom <= pageCtx.end + 2);
+    const showLabel = interactive && isHovered && labelOnThisPage;
 
     const handleClick = () => {
         if (!interactive) return;
@@ -545,24 +651,24 @@ const Section: React.FC<{
     const handleMouseEnter = (e: React.MouseEvent) => {
         if (!interactive) return;
         if (gate.shouldBlockEnter(sectionKey, e)) return;
-        setIsHovered(true);
+        setHoveredKey(sectionKey);
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
         if (!interactive || isHovered) return;
-        if (gate.onMove(sectionKey, e)) setIsHovered(true);
+        if (gate.onMove(sectionKey, e)) setHoveredKey(sectionKey);
     };
 
     const handleMouseDown = () => {
         if (!interactive) return;
         gate.onPress(sectionKey);
-        setIsHovered(true);
+        setHoveredKey(sectionKey);
     };
 
     const handleMouseLeave = () => {
         if (!interactive) return;
         gate.onLeave(sectionKey);
-        setIsHovered(false);
+        clearHovered(sectionKey);
     };
 
     return (
@@ -693,9 +799,17 @@ const ATSProTemplate: React.FC<CVPreviewProps> = (props) => {
     const fitState = useRef({ sig: '', active: false, locked: false });
     const { profilePhoto: _photo, ...propsWithoutPhoto } = props as any;
     const contentSig = JSON.stringify(propsWithoutPhoto) + (profilePhoto ? profilePhoto.length : 0);
-    const [pages, setPages] = useState<PageWindow[]>([{ start: 0, end: PAGE_CONTENT_BOTTOM * PX, top: 0 }]);
+    const [pages, setPages] = useState<PageWindow[]>([{ start: 0, end: PAGE_CONTENT_BOTTOM * PX, top: 0, ring: 0 }]);
     const [, setFontTick] = useState(0);
-    const [headerHovered, setHeaderHovered] = useState(false);
+    const [secBottoms, setSecBottoms] = useState<Record<string, number>>({});
+    // ✅ ONE hover state for every page copy of `body`
+    const [hoveredKey, setHoveredKeyState] = useState<string | null>(null);
+    const setHoveredKey = React.useCallback((key: string) => setHoveredKeyState(key), []);
+    const clearHovered = React.useCallback(
+        (key: string) => setHoveredKeyState((prev) => (prev === key ? null : prev)),
+        []
+    );
+    const headerHovered = hoveredKey === 'personal';
 
     // ✅ Mouse gate
     const blockedRef = useRef<Set<string>>(new Set());
@@ -1319,8 +1433,9 @@ const ATSProTemplate: React.FC<CVPreviewProps> = (props) => {
             }
         }
 
-        const { pages: next, contentBottom } = computePages(measureRef.current, fit);
+        const { pages: next, contentBottom, sectionBottoms } = computePages(measureRef.current, fit);
         setPages((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+        setSecBottoms((prev) => (JSON.stringify(prev) === JSON.stringify(sectionBottoms) ? prev : sectionBottoms));
 
         if (fs.locked) return;
         const lastOverflowPt = (contentBottom - next[next.length - 1].start) / PX;
@@ -1357,24 +1472,24 @@ const ATSProTemplate: React.FC<CVPreviewProps> = (props) => {
     const handleHeaderEnter = (e: React.MouseEvent) => {
         if (!headerInteractive) return;
         if (gateApi.shouldBlockEnter('personal', e)) return;
-        setHeaderHovered(true);
+        setHoveredKey('personal');
     };
 
     const handleHeaderMove = (e: React.MouseEvent) => {
         if (!headerInteractive || headerHovered) return;
-        if (gateApi.onMove('personal', e)) setHeaderHovered(true);
+        if (gateApi.onMove('personal', e)) setHoveredKey('personal');
     };
 
     const handleHeaderDown = () => {
         if (!headerInteractive) return;
         gateApi.onPress('personal');
-        setHeaderHovered(true);
+        setHoveredKey('personal');
     };
 
     const handleHeaderLeave = () => {
         if (!headerInteractive) return;
         gateApi.onLeave('personal');
-        setHeaderHovered(false);
+        clearHovered('personal');
     };
 
     const body = (
@@ -1522,6 +1637,9 @@ const ATSProTemplate: React.FC<CVPreviewProps> = (props) => {
                             offsetFont={s.offsetFont}
                             onEditSection={onEditSection}
                             gate={gateApi}
+                            hoveredKey={hoveredKey}
+                            setHoveredKey={setHoveredKey}
+                            clearHovered={clearHovered}
                         >
                             {s.body}
                         </Section>
@@ -1583,9 +1701,9 @@ const ATSProTemplate: React.FC<CVPreviewProps> = (props) => {
                                 style={{
                                     position: 'absolute',
                                     left: 0,
-                                    top: k === 0 ? `${w.top}px` : `${w.top - RING_ROOM_PX}px`,
+                                    top: `${w.top - w.ring}px`,
                                     width: '100%',
-                                    height: `${w.end - w.start + (k === 0 ? 0 : RING_ROOM_PX)}px`,
+                                    height: `${w.end - w.start + w.ring}px`,
                                     overflow: 'hidden'
                                 }}
                             >
@@ -1593,11 +1711,13 @@ const ATSProTemplate: React.FC<CVPreviewProps> = (props) => {
                                     style={{
                                         position: 'absolute',
                                         left: 0,
-                                        top: `${-w.start + (k === 0 ? 0 : RING_ROOM_PX)}px`,
+                                        top: `${-w.start + w.ring}px`,
                                         width: pt(PAGE_WIDTH)
                                     }}
                                 >
-                                    {body}
+                                    <PageCtx.Provider value={{ start: w.start, end: w.end, bottoms: secBottoms }}>
+                                        {body}
+                                    </PageCtx.Provider>
                                 </div>
                             </div>
                         </div>

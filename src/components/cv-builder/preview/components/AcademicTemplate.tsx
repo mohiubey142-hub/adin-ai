@@ -427,9 +427,13 @@ const Section: React.FC<{
     onEditSection?: (key: string) => void;
     activeSection?: string | null;
     gate: MouseGateApi;
+    hoveredKey: string | null;
+    setHoveredKey: (key: string) => void;
+    clearHovered: (key: string) => void;
     children: React.ReactNode;
-}> = ({ title, sectionKey, firstContentFontSize, extraTop = 0, onEditSection, activeSection, gate, children }) => {
-    const [isHovered, setIsHovered] = useState(false);
+}> = ({ title, sectionKey, firstContentFontSize, extraTop = 0, onEditSection, activeSection, gate, hoveredKey, setHoveredKey, clearHovered, children }) => {
+    // ✅ Shared across ALL page copies (state lives in AcademicTemplate)
+    const isHovered = hoveredKey === sectionKey;
     const interactive = !!onEditSection;
     const showLabel = interactive && isHovered;
 
@@ -441,24 +445,24 @@ const Section: React.FC<{
     const handleMouseEnter = (e: React.MouseEvent) => {
         if (!interactive) return;
         if (gate.shouldBlockEnter(sectionKey, e)) return;
-        setIsHovered(true);
+        setHoveredKey(sectionKey);
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
         if (!interactive || isHovered) return;
-        if (gate.onMove(sectionKey, e)) setIsHovered(true);
+        if (gate.onMove(sectionKey, e)) setHoveredKey(sectionKey);
     };
 
     const handleMouseDown = () => {
         if (!interactive) return;
         gate.onPress(sectionKey);
-        setIsHovered(true);
+        setHoveredKey(sectionKey);
     };
 
     const handleMouseLeave = () => {
         if (!interactive) return;
         gate.onLeave(sectionKey);
-        setIsHovered(false);
+        clearHovered(sectionKey);
     };
 
     return (
@@ -810,7 +814,14 @@ const AcademicTemplate: React.FC<CVPreviewProps> = (props) => {
     const contentSig = JSON.stringify(propsWithoutPhoto) + (profilePhoto ? profilePhoto.length : 0);
     const [pages, setPages] = useState<PageWindow[]>([{ start: 0, end: PAGE_CONTENT_BOTTOM * PX, top: 0 }]);
     const [, setFontTick] = useState(0);
-    const [headerHovered, setHeaderHovered] = useState(false);
+    // ✅ ONE hover state for every page copy of `body`
+    const [hoveredKey, setHoveredKeyState] = useState<string | null>(null);
+    const setHoveredKey = React.useCallback((key: string) => setHoveredKeyState(key), []);
+    const clearHovered = React.useCallback(
+        (key: string) => setHoveredKeyState((prev) => (prev === key ? null : prev)),
+        []
+    );
+    const headerHovered = hoveredKey === 'personal';
 
     // ✅ Mouse gate
     const blockedRef = useRef<Set<string>>(new Set());
@@ -913,24 +924,24 @@ const AcademicTemplate: React.FC<CVPreviewProps> = (props) => {
     const handleHeaderEnter = (e: React.MouseEvent) => {
         if (!headerInteractive) return;
         if (gateApi.shouldBlockEnter('personal', e)) return;
-        setHeaderHovered(true);
+        setHoveredKey('personal');
     };
 
     const handleHeaderMove = (e: React.MouseEvent) => {
         if (!headerInteractive || headerHovered) return;
-        if (gateApi.onMove('personal', e)) setHeaderHovered(true);
+        if (gateApi.onMove('personal', e)) setHoveredKey('personal');
     };
 
     const handleHeaderDown = () => {
         if (!headerInteractive) return;
         gateApi.onPress('personal');
-        setHeaderHovered(true);
+        setHoveredKey('personal');
     };
 
     const handleHeaderLeave = () => {
         if (!headerInteractive) return;
         gateApi.onLeave('personal');
-        setHeaderHovered(false);
+        clearHovered('personal');
     };
 
     const body = (
@@ -1079,6 +1090,9 @@ const AcademicTemplate: React.FC<CVPreviewProps> = (props) => {
                         extraTop={SUMMARY_EXTRA_GAP}
                         onEditSection={onEditSection}
                         gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
                     >
                         <Entry unit="flow" rows={[{ kind: 'body', advance: 0, node: safeText(summaryText) }]} />
                     </Section>
@@ -1091,6 +1105,9 @@ const AcademicTemplate: React.FC<CVPreviewProps> = (props) => {
                         firstContentFontSize={ENTRY_TITLE_SIZE}
                         onEditSection={onEditSection}
                         gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
                     >
                         <div style={entryList(ENTRY_GAP)}>
                             {validExperiences.map((exp: any, i: number) => (
@@ -1107,6 +1124,9 @@ const AcademicTemplate: React.FC<CVPreviewProps> = (props) => {
                         firstContentFontSize={ENTRY_TITLE_SIZE}
                         onEditSection={onEditSection}
                         gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
                     >
                         <div style={entryList(ENTRY_GAP)}>
                             {validEducations.map((edu: any, i: number) => (
@@ -1123,6 +1143,9 @@ const AcademicTemplate: React.FC<CVPreviewProps> = (props) => {
                         firstContentFontSize={ENTRY_TITLE_SIZE}
                         onEditSection={onEditSection}
                         gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
                     >
                         <div style={entryList(ENTRY_GAP)}>
                             {validCertifications.map((c: any, i: number) => (
@@ -1139,6 +1162,9 @@ const AcademicTemplate: React.FC<CVPreviewProps> = (props) => {
                         firstContentFontSize={BODY_SIZE}
                         onEditSection={onEditSection}
                         gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
                     >
                         <Entry unit="flow" rows={[{ kind: 'body', advance: 0, node: <SkillsGrid skills={skillsList} /> }]} />
                     </Section>
@@ -1151,6 +1177,9 @@ const AcademicTemplate: React.FC<CVPreviewProps> = (props) => {
                         firstContentFontSize={ENTRY_TITLE_SIZE}
                         onEditSection={onEditSection}
                         gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
                     >
                         <div style={entryList(0)}>
                             {validLanguages.map((l: any, i: number) => (
@@ -1167,6 +1196,9 @@ const AcademicTemplate: React.FC<CVPreviewProps> = (props) => {
                         firstContentFontSize={ENTRY_TITLE_SIZE}
                         onEditSection={onEditSection}
                         gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
                     >
                         <div style={entryList(ENTRY_GAP)}>
                             {validAchievements.map((a: any, i: number) => (
@@ -1183,6 +1215,9 @@ const AcademicTemplate: React.FC<CVPreviewProps> = (props) => {
                         firstContentFontSize={ENTRY_TITLE_SIZE}
                         onEditSection={onEditSection}
                         gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
                     >
                         <div style={entryList(ENTRY_GAP)}>
                             {validProjects.map((p: any, i: number) => (

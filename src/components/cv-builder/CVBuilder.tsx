@@ -7,10 +7,13 @@
 // ✅ KICKRESUME STYLE: previewData debounced state (800ms)
 // ✅ KICKRESUME STYLE: useAutoSave debounce 1000ms
 // ✅ KICKRESUME STYLE: Sheet sync effects throttled
+// ✅ FIX: Removed duplicate Toaster (App.tsx renders the single global one)
+// ✅ FIX: PDF/Preview now include entries with ANY filled field (not just "complete" ones)
+//         - usable* arrays (OR logic) → for PDF/preview
+//         - complete* arrays (AND logic) → for scoring/validation (unchanged behavior)
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import { Toaster } from 'react-hot-toast';
 import {
   AlertCircle, X, Pencil, Eye,
   User, Briefcase, GraduationCap, Languages as LanguagesIcon,
@@ -878,18 +881,156 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
         };
     }, []);
 
+    // ============================================================
+    // ✅ FILTER LOGIC — 2 versions per section
+    // ------------------------------------------------------------
+    // "Complete" (AND) → used by scoring/validation (unchanged behavior)
+    // "Usable"   (OR)  → used by PDF download + preview (all non-empty shown)
+    // ============================================================
+
+    // --- Experience ---
     const isExperienceComplete = useCallback((exp: any): boolean => {
         return !!(exp.title?.trim() && exp.company?.trim() && exp.startDate?.trim() && exp.endDate?.trim() && exp.description?.trim());
     }, []);
 
+    const isExperienceUsable = useCallback((exp: any): boolean => {
+        return !!(
+            exp.title?.trim() ||
+            exp.company?.trim() ||
+            exp.startDate?.trim() ||
+            exp.endDate?.trim() ||
+            exp.description?.trim() ||
+            exp.location?.trim()
+        );
+    }, []);
+
+    // ✅ Used by scoring/validation (unchanged)
     const getCompleteExperiences = useMemo(() => {
         return experiences.filter(exp => isExperienceComplete(exp));
     }, [experiences, isExperienceComplete]);
 
+    // ✅ Used by PDF download (NEW)
+    const usableExperiences = useMemo(() => {
+        return experiences.filter(exp => isExperienceUsable(exp));
+    }, [experiences, isExperienceUsable]);
+
+    // --- Education ---
+    const isEducationComplete = useCallback((edu: any): boolean => {
+        return !!(edu.degree?.trim() && edu.institution?.trim());
+    }, []);
+
+    const isEducationUsable = useCallback((edu: any): boolean => {
+        return !!(
+            edu.degree?.trim() ||
+            edu.institution?.trim() ||
+            edu.startDate?.trim() ||
+            edu.endDate?.trim() ||
+            edu.description?.trim() ||
+            edu.location?.trim()
+        );
+    }, []);
+
+    const getCompleteEducations = useMemo(() => {
+        return educations.filter(edu => isEducationComplete(edu));
+    }, [educations, isEducationComplete]);
+
+    const usableEducations = useMemo(() => {
+        return educations.filter(edu => isEducationUsable(edu));
+    }, [educations, isEducationUsable]);
+
+    // --- Projects ---
+    const isProjectComplete = useCallback((proj: any): boolean => {
+        return !!(proj.name?.trim() && proj.description?.trim());
+    }, []);
+
+    const isProjectUsable = useCallback((proj: any): boolean => {
+        return !!(
+            proj.name?.trim() ||
+            proj.description?.trim() ||
+            proj.link?.trim() ||
+            proj.startDate?.trim() ||
+            proj.endDate?.trim() ||
+            (Array.isArray(proj.technologies) && proj.technologies.length > 0)
+        );
+    }, []);
+
+    const getCompleteProjects = useMemo(() => {
+        return projects.filter(proj => isProjectComplete(proj));
+    }, [projects, isProjectComplete]);
+
+    const usableProjects = useMemo(() => {
+        return projects.filter(proj => isProjectUsable(proj));
+    }, [projects, isProjectUsable]);
+
+    // --- Certifications ---
+    const isCertificationComplete = useCallback((cert: any): boolean => {
+        return !!(cert.name?.trim() && cert.issuer?.trim());
+    }, []);
+
+    const isCertificationUsable = useCallback((cert: any): boolean => {
+        return !!(
+            cert.name?.trim() ||
+            cert.issuer?.trim() ||
+            cert.date?.trim() ||
+            cert.link?.trim() ||
+            cert.credentialId?.trim()
+        );
+    }, []);
+
+    const getCompleteCertifications = useMemo(() => {
+        return certifications.filter(cert => isCertificationComplete(cert));
+    }, [certifications, isCertificationComplete]);
+
+    const usableCertifications = useMemo(() => {
+        return certifications.filter(cert => isCertificationUsable(cert));
+    }, [certifications, isCertificationUsable]);
+
+    // --- Languages ---
+    const isLanguageComplete = useCallback((lang: any): boolean => {
+        return !!(lang.language?.trim() && lang.proficiency?.trim());
+    }, []);
+
+    const isLanguageUsable = useCallback((lang: any): boolean => {
+        return !!(lang.language?.trim() || lang.proficiency?.trim());
+    }, []);
+
+    const getCompleteLanguages = useMemo(() => {
+        return languages.filter(lang => isLanguageComplete(lang));
+    }, [languages, isLanguageComplete]);
+
+    const usableLanguages = useMemo(() => {
+        return languages.filter(lang => isLanguageUsable(lang));
+    }, [languages, isLanguageUsable]);
+
+    // --- Achievements ---
+    const isAchievementComplete = useCallback((ach: any): boolean => {
+        return !!(ach.title?.trim() && ach.description?.trim());
+    }, []);
+
+    const isAchievementUsable = useCallback((ach: any): boolean => {
+        return !!(
+            ach.title?.trim() ||
+            ach.date?.trim() ||
+            ach.description?.trim() ||
+            ach.shortDescription?.trim()
+        );
+    }, []);
+
+    const getCompleteAchievements = useMemo(() => {
+        return achievements.filter(ach => isAchievementComplete(ach));
+    }, [achievements, isAchievementComplete]);
+
+    const usableAchievements = useMemo(() => {
+        return achievements.filter(ach => isAchievementUsable(ach));
+    }, [achievements, isAchievementUsable]);
+
+    // ============================================================
+    // ✅ Scoring & Validation — UNCHANGED (still uses "complete" arrays)
+    // ============================================================
     const validation = useValidation(
         personalInfo, phoneNumber, selectedCountryCode,
-        getCompleteExperiences, educations, projects, skills,
-        certifications, languages, achievements, professionalSummary
+        getCompleteExperiences, getCompleteEducations, getCompleteProjects, skills,
+        getCompleteCertifications, getCompleteLanguages, getCompleteAchievements, professionalSummary
     );
     const {
         sectionStatuses, phoneError, errors, setErrors,
@@ -899,8 +1040,9 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
 
     const scores = useScoreCalculation(
         personalInfo, phoneNumber, getCompleteExperiences,
-        educations, projects, skills, languages, certifications,
-        achievements, professionalSummary, selectedCountryCode
+        getCompleteEducations, getCompleteProjects, skills, getCompleteLanguages,
+        getCompleteCertifications,
+        getCompleteAchievements, professionalSummary, selectedCountryCode
     );
     const {
         realWeightedAverage, realCompletionPercentage, realBreakdown,
@@ -931,7 +1073,6 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
         if (!docId) return;
         if (!userId) return;
 
-        // ✅ THROTTLE: 5 seconds mein sirf 1 baar sync
         const now = Date.now();
         if (now - lastSheetSyncTimeRef.current < SHEET_SYNC_THROTTLE_MS) {
             return;
@@ -1046,10 +1187,19 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
         applyAIEnhancement
     } = aiActions;
 
+    // ============================================================
+    // ✅ FIX: downloadActions now receives USABLE arrays (OR logic)
+    //         → PDF shows every entry with ANY filled field
+    // ============================================================
     const downloadActions = createDownloadActions(
         personalInfo, phoneNumber, selectedCountryCode, professionalSummary,
-        getCompleteExperiences, educations, projects, certifications,
-        languages, achievements, skills, template, profilePhoto
+        usableExperiences,
+        usableEducations,
+        usableProjects,
+        usableCertifications,
+        usableLanguages,
+        usableAchievements,
+        skills, template, profilePhoto
     );
     const {
         downloadPDF, downloadClassicPDF, downloadMinimalPDF, downloadModernPDF,
@@ -1265,6 +1415,27 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
+    const [pngOffscreen, setPngOffscreen] = useState(false);
+
+    const handleDownloadPNG = useCallback(() => {
+        if (previewHandleRef.current) {
+            return previewHandleRef.current.downloadPNG();
+        }
+        if (isMobile) {
+            toast.loading('Preparing PNG...', { id: 'cv-png-mobile' });
+            setPngOffscreen(true);
+        }
+    }, [isMobile]);
+
+    useEffect(() => {
+        if (!pngOffscreen) return;
+        const t = setTimeout(() => {
+            setPngOffscreen(false);
+            toast.dismiss('cv-png-mobile');
+        }, 30000);
+        return () => clearTimeout(t);
+    }, [pngOffscreen]);
+
     const renderAllSections = () => (
         <div className="space-y-3">
             <AccordionSection
@@ -1422,7 +1593,7 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
                         onCopy={handleCopyCV}
                         onDownloadPDF={handleDownloadPDF}
                         onDownloadTXT={handleDownloadTXT}
-                        onDownloadPNG={() => previewHandleRef.current?.downloadPNG()}
+                        onDownloadPNG={handleDownloadPNG}
                         onClear={clearAllData}
                     />
                 </div>
@@ -1445,30 +1616,6 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
             </script>
 
             <div ref={containerRef} className="h-full flex flex-col bg-slate-100 text-slate-900">
-                <Toaster
-                    position="top-center"
-                    reverseOrder={false}
-                    gutter={8}
-                    containerStyle={{
-                        position: 'fixed', top: '20px', left: '50%',
-                        transform: 'translateX(-50%)', zIndex: 999999,
-                        pointerEvents: 'none',
-                    }}
-                    toastOptions={{
-                        duration: 4000,
-                        style: {
-                            background: '#ffffff', color: '#0f172a',
-                            border: '1px solid rgba(168, 85, 247, 0.25)',
-                            padding: '16px 24px', borderRadius: '12px',
-                            boxShadow: '0 20px 60px -10px rgba(2, 6, 23, 0.15)',
-                            pointerEvents: 'auto', maxWidth: '500px', width: 'auto',
-                        },
-                        success: { style: { border: '1px solid rgba(34, 197, 94, 0.3)' } },
-                        error: { style: { border: '1px solid rgba(239, 68, 68, 0.3)' } },
-                        loading: { style: { border: '1px solid rgba(168, 85, 247, 0.3)' } },
-                    }}
-                />
-
                 <style>{`
                     ::-webkit-scrollbar {
                         width: 6px;
@@ -1551,7 +1698,6 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
                             ref={previewPaneRef}
                             className="w-full lg:w-1/2 overflow-auto bg-gradient-to-b from-slate-100 via-slate-50 to-slate-100"
                         >
-                            {/* ✅ KICKRESUME STYLE: Preview gets DEBOUNCED data */}
                             <CVPreview
                                 ref={previewHandleRef}
                                 personalInfo={previewData.personalInfo}
@@ -1584,8 +1730,8 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
 
                     {isMobile && mobileTab === 'preview' && (
                         <div className="w-full overflow-auto pb-20 bg-slate-100">
-                            {/* ✅ KICKRESUME STYLE: Mobile preview gets DEBOUNCED data */}
                             <CVPreviewMobile
+                                ref={previewHandleRef}
                                 personalInfo={previewData.personalInfo}
                                 phoneNumber={previewData.phoneNumber}
                                 selectedCountryCode={previewData.selectedCountryCode}
@@ -1609,6 +1755,41 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
                                 onOpenFeedback={() => setShowFeedbackModal(true)}
                                 onEditSection={handleEditSection}
                                 activeSection={activeSection}
+                            />
+                        </div>
+                    )}
+
+                    {isMobile && pngOffscreen && mobileTab !== 'preview' && (
+                        <div
+                            aria-hidden="true"
+                            style={{
+                                position: 'fixed',
+                                top: 0,
+                                left: '-10000px',
+                                width: window.innerWidth,
+                                pointerEvents: 'none',
+                            }}
+                        >
+                            <CVPreviewMobile
+                                personalInfo={previewData.personalInfo}
+                                phoneNumber={previewData.phoneNumber}
+                                selectedCountryCode={previewData.selectedCountryCode}
+                                professionalSummary={previewData.professionalSummary}
+                                experiences={previewData.experiences}
+                                educations={previewData.educations}
+                                projects={previewData.projects}
+                                certifications={previewData.certifications}
+                                languages={previewData.languages}
+                                achievements={previewData.achievements}
+                                skills={previewData.skills}
+                                profilePhoto={previewData.profilePhoto}
+                                template={previewData.template}
+                                atsScore={realWeightedAverage}
+                                strength={getStrengthStatus(realWeightedAverage)}
+                                completionPercentage={realCompletionPercentage}
+                                sectionStatuses={sectionStatuses}
+                                autoDownloadPNG
+                                onAutoDownloadPNGDone={() => setPngOffscreen(false)}
                             />
                         </div>
                     )}

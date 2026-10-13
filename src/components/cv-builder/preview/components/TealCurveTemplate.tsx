@@ -615,9 +615,13 @@ const Section: React.FC<{
     onEditSection?: (key: string) => void;
     activeSection?: string | null;
     gate: MouseGateApi;
+    hoveredKey: string | null;
+    setHoveredKey: (key: string) => void;
+    clearHovered: (key: string) => void;
     children: React.ReactNode;
-}> = ({ title, sectionKey, first, onEditSection, activeSection, gate, children }) => {
-    const [isHovered, setIsHovered] = useState(false);
+}> = ({ title, sectionKey, first, onEditSection, activeSection, gate, hoveredKey, setHoveredKey, clearHovered, children }) => {
+    // ✅ Shared across ALL page copies (state lives in TealCurveTemplate)
+    const isHovered = hoveredKey === sectionKey;
     const interactive = !!onEditSection;
     const showLabel = interactive && isHovered;
 
@@ -629,24 +633,24 @@ const Section: React.FC<{
     const handleMouseEnter = (e: React.MouseEvent) => {
         if (!interactive) return;
         if (gate.shouldBlockEnter(sectionKey, e)) return;
-        setIsHovered(true);
+        setHoveredKey(sectionKey);
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
         if (!interactive || isHovered) return;
-        if (gate.onMove(sectionKey, e)) setIsHovered(true);
+        if (gate.onMove(sectionKey, e)) setHoveredKey(sectionKey);
     };
 
     const handleMouseDown = () => {
         if (!interactive) return;
         gate.onPress(sectionKey);
-        setIsHovered(true);
+        setHoveredKey(sectionKey);
     };
 
     const handleMouseLeave = () => {
         if (!interactive) return;
         gate.onLeave(sectionKey);
-        setIsHovered(false);
+        clearHovered(sectionKey);
     };
 
     return (
@@ -727,6 +731,13 @@ const TealCurveTemplate: React.FC<CVPreviewProps> = (props) => {
     const [pages, setPages] = useState<PageWindow[]>([{ start: 0, end: PAGE_CONTENT_BOTTOM * PX }]);
     const [, setFontTick] = useState(0);
     const [headerHovered, setHeaderHovered] = useState(false);
+    // ✅ ONE hover state for every page copy of `body`
+    const [hoveredKey, setHoveredKeyState] = useState<string | null>(null);
+    const setHoveredKey = React.useCallback((key: string) => setHoveredKeyState(key), []);
+    const clearHovered = React.useCallback(
+        (key: string) => setHoveredKeyState((prev) => (prev === key ? null : prev)),
+        []
+    );
 
     // ✅ Mouse gate
     const blockedRef = useRef<Set<string>>(new Set());
@@ -1034,6 +1045,9 @@ const TealCurveTemplate: React.FC<CVPreviewProps> = (props) => {
                         onEditSection={onEditSection}
                         activeSection={activeSection}
                         gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
                     >
                         <p
                             {...flowProps}
@@ -1061,6 +1075,9 @@ const TealCurveTemplate: React.FC<CVPreviewProps> = (props) => {
                         onEditSection={onEditSection}
                         activeSection={activeSection}
                         gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
                     >
                         {validExperiences.map((exp: any, i: number) => {
                             const title = clean(exp.title);
@@ -1110,6 +1127,9 @@ const TealCurveTemplate: React.FC<CVPreviewProps> = (props) => {
                         onEditSection={onEditSection}
                         activeSection={activeSection}
                         gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
                     >
                         {validEducations.map((edu: any, i: number) => {
                             const degree = clean(edu.degree);
@@ -1157,6 +1177,9 @@ const TealCurveTemplate: React.FC<CVPreviewProps> = (props) => {
                         onEditSection={onEditSection}
                         activeSection={activeSection}
                         gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
                     >
                         {validCertifications.map((c: any, i: number) => {
                             const certName = clean(c.name);
@@ -1197,6 +1220,9 @@ const TealCurveTemplate: React.FC<CVPreviewProps> = (props) => {
                         onEditSection={onEditSection}
                         activeSection={activeSection}
                         gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
                     >
                         <div {...flowProps} style={{ width: '100%' }}>
                             {skillLines.map((line, idx) => (
@@ -1224,6 +1250,9 @@ const TealCurveTemplate: React.FC<CVPreviewProps> = (props) => {
                         onEditSection={onEditSection}
                         activeSection={activeSection}
                         gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
                     >
                         {validLanguages.map((l: any, i: number) => {
                             const language = clean(l.language);
@@ -1270,6 +1299,9 @@ const TealCurveTemplate: React.FC<CVPreviewProps> = (props) => {
                         onEditSection={onEditSection}
                         activeSection={activeSection}
                         gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
                     >
                         {validAchievements.map((a: any, i: number) => {
                             const title = clean(a.title);
@@ -1312,6 +1344,9 @@ const TealCurveTemplate: React.FC<CVPreviewProps> = (props) => {
                         onEditSection={onEditSection}
                         activeSection={activeSection}
                         gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
                     >
                         {validProjects.map((p: any, i: number) => {
                             const projectName = clean(p.name);
