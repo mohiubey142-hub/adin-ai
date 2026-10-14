@@ -11,6 +11,10 @@
 //
 // AI input: { name, tech, details }
 // AI output: string[]  →  bulletSuggestions  →  user selects up to 3 (no minimum)  →  description
+//
+// ✅ NEW: Validation — Project Name and Technologies required before generating
+// ✅ NEW: Button ALWAYS enabled (only disabled while loading) — blank fields pe toast error
+//         (same behavior as ExperienceSection)
 
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
@@ -28,7 +32,7 @@ interface ProjectsSectionProps {
     updateProject: (i: number, field: keyof ProjectItem, value: string) => void;
     generateDescription: (index: number, proj: ProjectItem) => void;
     generateAI?: (index: number, proj: ProjectItem) => void | string[] | Promise<void | string[]>;
-    generating: boolean;
+    generating: string | null;   // ✅ FIX: section-specific key
     aiGenerating?: string | null;
 }
 
@@ -80,6 +84,8 @@ const ProjectsSection: React.FC<ProjectsSectionProps> = ({
     generateDescription, generateAI, generating, aiGenerating,
 }) => {
     const [isGenerating, setIsGenerating] = useState<number | null>(null);
+    // ✅ ONE-AT-A-TIME: kisi bhi section mein generation chal rahi ho to naya start nahi hoga
+    const isBusy = !!generating || !!aiGenerating || isGenerating !== null;
 
     // ============================================
     // AI BULLET SUGGESTOR MODAL STATE
@@ -110,13 +116,29 @@ const ProjectsSection: React.FC<ProjectsSectionProps> = ({
 
     // ============================================
     // GENERATE → opens the picker modal
+    //
+    // ✅ NEW VALIDATION (same as ExperienceSection):
+    //    Project Name + Technologies — dono zaroori.
+    //    Agar koi bhi khaali ho → toast error + return.
+    //    AI call nahi hogi, koi output nahi aayega.
+    //    (Button click se pehle hi check — silent return nahi)
     // ============================================
     const handleGenerateBullets = async (idx: number, proj: ProjectItem) => {
-        if (!proj.name?.trim()) return;
-        if (!proj.tech?.trim()) {
-            toast.error('Please add Technologies / Tools Used first');
+        // ✅ ONE-AT-A-TIME guard
+        if (isBusy) {
+            toast.error('Please wait — another generation is already in progress.', { id: 'gen-busy' });
             return;
         }
+
+        // ✅ VALIDATION — AI call se PEHLE check karo
+        const nameOk = proj.name?.trim();
+        const techOk = proj.tech?.trim();
+
+        if (!nameOk || !techOk) {
+            toast.error('Please fill Project Name and Technologies / Tools Used before generating.');
+            return;
+        }
+
         setIsGenerating(idx);
         try {
             let bullets: string[] = [];
@@ -250,7 +272,7 @@ const ProjectsSection: React.FC<ProjectsSectionProps> = ({
         <div className="space-y-4">
             <div className="space-y-3.5">
                 {projects.map((proj, idx) => {
-                    const isLoading = generating || isGenerating === idx || aiGenerating === `proj-${idx}`;
+                    const isLoading = generating === `proj-${idx}` || isGenerating === idx || aiGenerating === `proj-${idx}`;
 
                     return (
                         <div
@@ -326,11 +348,12 @@ const ProjectsSection: React.FC<ProjectsSectionProps> = ({
                                     </p>
                                 </div>
 
-                                {/* (4) Generate with AI button — opens the AI Suggestor modal */}
+                                {/* (4) Generate with AI button — ALWAYS enabled (except while loading) */}
+                                {/*     Blank fields pe click karne par toast error aayega */}
                                 <div className="flex justify-end pt-1">
                                     <button
                                         onClick={() => handleGenerateBullets(idx, proj)}
-                                        disabled={isLoading || !proj.name?.trim() || !proj.tech?.trim()}
+                                        disabled={isLoading || isBusy}
                                         className="h-9 px-3.5 rounded-lg bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white font-semibold text-xs tracking-tight flex items-center gap-2 transition-all duration-200 shadow-md shadow-purple-600/20 hover:shadow-lg hover:shadow-purple-600/30 focus:outline-none focus:ring-4 focus:ring-purple-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         {isLoading ? (

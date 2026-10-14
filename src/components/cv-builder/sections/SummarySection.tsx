@@ -13,7 +13,8 @@ interface SummarySectionProps {
     setProfessionalSummary: (summary: string) => void;
     generateSummary: () => void;
     generateAISummary?: () => Promise<void>;
-    generating: boolean;
+    // ✅ FIX: section-specific key (boolean nahi)
+    generating: string | null;
     aiGenerating?: string | null;
     personalInfo?: any;
     experiences?: any[];
@@ -71,6 +72,8 @@ const SummarySection: React.FC<SummarySectionProps> = ({
         words: 0, chars: 0, score: 0, quality: '', warnings: [] as string[],
     });
     const [isGenerating, setIsGenerating] = useState(false);
+    // ✅ ONE-AT-A-TIME: kisi bhi section mein generation chal rahi ho to naya start nahi hoga
+    const isBusy = !!generating || !!aiGenerating || isGenerating;
 
     const setSummarySafe = (summary: string) => {
         const cleaned = removeAllColons(summary);
@@ -78,6 +81,11 @@ const SummarySection: React.FC<SummarySectionProps> = ({
     };
 
     const handleGenerateSummary = async () => {
+        // ✅ ONE-AT-A-TIME guard
+        if (isBusy) {
+            toast.error('Please wait — another generation is already in progress.', { id: 'gen-busy' });
+            return;
+        }
         if (!personalInfo?.title) {
             toast.error('Please fill your job title in Personal Information first');
             return;
@@ -158,7 +166,9 @@ const SummarySection: React.FC<SummarySectionProps> = ({
         return 'text-slate-500';
     };
 
-    const isLoading = generating || isGenerating || !!aiGenerating;
+    // ✅ FIX: sirf Summary ki apni loading — pehle `!!aiGenerating` tha jo kisi bhi section ke
+    //    Gen button par Summary button ko bhi spin karwa deta tha.
+    const isLoading = generating === 'summary' || isGenerating || aiGenerating === 'summary';
 
     return (
         <div className="space-y-5">
@@ -166,7 +176,7 @@ const SummarySection: React.FC<SummarySectionProps> = ({
             <div className="flex justify-end">
                 <button
                     onClick={handleGenerateSummary}
-                    disabled={isLoading}
+                    disabled={isLoading || isBusy}
                     className="h-10 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white font-semibold text-sm tracking-tight flex items-center gap-2 transition-all duration-200 shadow-md shadow-purple-600/20 hover:shadow-lg hover:shadow-purple-600/30 focus:outline-none focus:ring-4 focus:ring-purple-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     {isLoading ? (

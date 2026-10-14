@@ -255,7 +255,9 @@ export const createAIActions = (
     setSkills: (skills: string) => void,
     setProjects: (projects: any[]) => void,
     setAchievements: (achievements: any[]) => void,
-    setGenerating: (generating: boolean) => void,
+    // ✅ FIX: ab boolean nahi — section-specific key ('summary', 'exp-0', 'proj-1', 'ach-0', 'skills')
+    //    taake ek section ka Gen button dabane se baaki sections ke buttons loading na dikhayein.
+    setGenerating: (value: string | null | ((prev: string | null) => string | null)) => void,
     setAiGenerating: (id: string | null) => void,
     setAiEnhancerLoading: (id: string | null) => void,
     setIsEnhancerUsed: (value: boolean) => void,
@@ -271,6 +273,13 @@ export const createAIActions = (
         return exp.isValid !== false;
     };
 
+    // ✅ FIX: Section-specific loading helpers.
+    //    start → apni key set karo. stop → sirf tab clear karo jab key abhi bhi wahi ho
+    //    (taake agar doosra section beech mein start ho gaya ho to uski loading na toote).
+    const startGenerating = (key: string) => setGenerating(key);
+    const stopGenerating = (key: string) =>
+        setGenerating(prev => (prev === key ? null : prev));
+
     // Skills Enhancement
     const enhanceSkills = () => {
         if (!skills.trim()) {
@@ -284,7 +293,7 @@ export const createAIActions = (
             });
             return;
         }
-        setGenerating(true);
+        startGenerating('skills');
         toast.loading('Enhancing your skills...', { id: 'skills' });
         
         setTimeout(() => {
@@ -300,7 +309,7 @@ export const createAIActions = (
                     border: '1px solid rgba(168, 85, 247, 0.3)',
                 }
             });
-            setGenerating(false);
+            stopGenerating('skills');
         }, 800);
     };
 
@@ -322,7 +331,7 @@ export const createAIActions = (
             return;
         }
         
-        setGenerating(true);
+        startGenerating('skills');
         toast.loading('Analyzing your skills...', { id: 'skills' });
         
         setTimeout(() => {
@@ -367,7 +376,7 @@ export const createAIActions = (
                     border: '1px solid rgba(168, 85, 247, 0.3)',
                 }
             });
-            setGenerating(false);
+            stopGenerating('skills');
         }, 1000);
     };
 
@@ -709,7 +718,13 @@ export const createAIActions = (
             }
         }
 
-        setGenerating(true);
+        // ✅ FIX: section-specific key — Summary page ke Summary button ke liye 'summary',
+        //    baaki ke liye exp-/proj-/ach- + index (same keys jo AI handlers aiGenerating mein use karte hain)
+        const genKey =
+            type === 'summary'
+                ? 'summary'
+                : `${type === 'experience' ? 'exp' : type === 'project' ? 'proj' : 'ach'}-${index ?? 0}`;
+        startGenerating(genKey);
         toast.loading(`Generating professional ${type} content...`, { id: 'desc' });
         
         // ✅ EXPERIENCE — Special handling
@@ -778,7 +793,7 @@ export const createAIActions = (
                     }
                 });
             }
-            setGenerating(false);
+            stopGenerating(genKey);
             return;
         }
         
@@ -822,7 +837,7 @@ export const createAIActions = (
                     }
                 });
             }
-            setGenerating(false);
+            stopGenerating(genKey);
             return;
         }
         
@@ -866,7 +881,7 @@ export const createAIActions = (
                     }
                 });
             }
-            setGenerating(false);
+            stopGenerating(genKey);
             return;
         }
         
@@ -919,7 +934,7 @@ export const createAIActions = (
                 }
             });
         }
-        setGenerating(false);
+        stopGenerating(genKey);
     };
 
     // ✅ AI ENHANCER

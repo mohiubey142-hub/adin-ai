@@ -12,6 +12,12 @@
 //         bubbling event handlers) taake har child element ke apne
 //         onClick/onFocus ko override NA karein — sirf parent ko bubble
 //         ho kar mil jayein. Isse koi field tootegi nahi.
+//
+// ✅ FIX: Button/link clicks ab onContentInteract trigger NAHI karte.
+//         Capture-phase mein button pe click hone se pehle hi guard
+//         lagaya gaya hai — isse Gen/Remove/Add buttons dabane se
+//         auto-scroll nahi hota, aur saare sections apni jagah rehte hain.
+//         Inputs/textareas/selects ka behavior bilkul same hai.
 
 import React from 'react';
 import { ChevronDown } from 'lucide-react';
@@ -27,9 +33,12 @@ interface AccordionSectionProps {
     badge?: string;
     /**
      * ✅ Optional — agar diya gaya, to jab bhi accordion ke andar koi bhi
-     * child element focus ya click ho, ye callback us `id` ke saath call
-     * hoga. Parent isse preview pane ko us section par scroll karwa
-     * sakta hai.
+     * INPUT/TEXTAREA/SELECT focus ya click ho, ye callback us `id` ke
+     * saath call hoga. Parent isse preview pane ko us section par scroll
+     * karwa sakta hai.
+     *
+     * ✅ Button/link clicks isse trigger NAHI karte — sirf editable
+     *    elements se trigger hota hai.
      *
      * Undefined hone par, koi extra handler nahi lagta — component
      * bilkul pehle jaisa behave karta hai.
@@ -48,15 +57,28 @@ const AccordionSection: React.FC<AccordionSectionProps> = ({
     badge,
     onContentInteract,
 }) => {
-    // ✅ Capture-phase handlers: click/focus kisi bhi child par ho,
-    //    parent ko milta hai. Ye React ke synthetic events ka
-    //    "capture" phase hai, isliye child ke apne handlers block
-    //    nahi karte, aur stopPropagation() bhi humein rok nahi sakta.
+    // ✅ Capture-phase handler: focus kisi bhi child par ho, parent ko
+    //    milta hai. React ke synthetic events ka "capture" phase hai,
+    //    isliye child ke apne handlers block nahi karte.
+    //    Focus sirf input-able elements pe hota hai (buttons pe focus
+    //    ho sakta hai lekin ye rare hai aur user-initiated hai — isliye
+    //    focus handler unchanged rakha gaya hai).
     const handleContentFocus = onContentInteract
         ? () => onContentInteract(id)
         : undefined;
+
+    // ✅ FIX: Click handler mein button/link guard.
+    //    Button ya link pe click hua to onContentInteract skip karo —
+    //    warna Gen/Remove/Add buttons dabane se parent auto-scroll
+    //    trigger karta hai aur poora editor pane shift ho jata hai.
     const handleContentClick = onContentInteract
-        ? () => onContentInteract(id)
+        ? (e: React.MouseEvent<HTMLDivElement>) => {
+            const target = e.target as HTMLElement | null;
+            if (target && (target.closest('button') || target.closest('a'))) {
+                return;   // button/link click — skip auto-scroll
+            }
+            onContentInteract(id);
+        }
         : undefined;
 
     return (
@@ -123,11 +145,12 @@ const AccordionSection: React.FC<AccordionSectionProps> = ({
                 >
                     <div className="overflow-hidden">
                         {/* Inner content — subtle slate wash for separation.
-                            ✅ onFocusCapture / onClickCapture: andar ke kisi
-                            bhi field par focus/click hone par parent ko
-                            `id` ke saath notify karo — lekin sirf jab
-                            accordion OPEN ho (band accordion ke content
-                            par interaction anyway nahi hota). */}
+                            ✅ onFocusCapture: kisi bhi field par focus hone
+                            par parent ko notify karo (unchanged — inputs,
+                            textareas, selects ke liye).
+                            ✅ onClickCapture: ab button/link clicks ko skip
+                            karta hai — sirf non-button elements (labels,
+                            divs, etc.) ke clicks pe trigger hota hai. */}
                         <div
                             className="px-4 sm:px-5 pt-4 pb-5 border-t border-slate-100 bg-slate-50/40"
                             onFocusCapture={isOpen ? handleContentFocus : undefined}

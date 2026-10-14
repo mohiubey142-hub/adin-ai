@@ -19,7 +19,7 @@ interface SkillsSectionProps {
     setSkills: (skills: string) => void;
     enhanceSkills: () => void;
     expandSkills?: () => void;
-    generating: boolean;
+    generating: string | null;   // ✅ FIX: section-specific key
     personalInfo?: any;
 }
 
@@ -358,7 +358,7 @@ const SkillsSection: React.FC<SkillsSectionProps> = ({
 
                 <button
                     onClick={handleGetSuggestions}
-                    disabled={isSuggesting || generating}
+                    disabled={isSuggesting || generating === 'skills'}
                     className="h-9 px-3.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs tracking-tight flex items-center gap-2 transition-all duration-200 shadow-md shadow-emerald-600/20 hover:shadow-lg hover:shadow-emerald-600/30 focus:outline-none focus:ring-4 focus:ring-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-md"
                 >
                     AI Suggestor

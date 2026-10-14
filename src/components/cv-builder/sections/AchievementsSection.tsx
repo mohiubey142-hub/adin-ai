@@ -5,6 +5,9 @@
 //         Skills' "AI Suggestor" / Projects' bullet picker) — system can
 //         generate as many bullet suggestions as it wants, user can only
 //         SELECT up to 2.
+// ✅ NEW: Button ALWAYS enabled (only disabled while loading) — blank title pe toast error
+//         (same behavior as ExperienceSection & ProjectsSection)
+// ✅ NEW: Achievement Title now shows required (*) indicator
 
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
@@ -27,7 +30,7 @@ interface AchievementsSectionProps {
     //    generateDescription in that case, so nothing breaks if the parent
     //    isn't updated yet.
     generateAI?: (index: number, ach: AchievementItem) => void | string[] | Promise<void | string[]>;
-    generating: boolean;
+    generating: string | null;   // ✅ FIX: section-specific key
     aiGenerating?: string | null;
 }
 
@@ -68,6 +71,8 @@ const AchievementsSection: React.FC<AchievementsSectionProps> = ({
     generateDescription, generateAI, generating, aiGenerating,
 }) => {
     const [isGenerating, setIsGenerating] = useState<number | null>(null);
+    // ✅ ONE-AT-A-TIME: kisi bhi section mein generation chal rahi ho to naya start nahi hoga
+    const isBusy = !!generating || !!aiGenerating || isGenerating !== null;
 
     // ============================================
     // ✅ AI BULLET SUGGESTOR MODAL STATE
@@ -83,13 +88,24 @@ const AchievementsSection: React.FC<AchievementsSectionProps> = ({
     // ============================================
     // ✅ GENERATE → opens the picker modal instead of
     //    writing straight into the textarea
+    //
+    // ✅ NEW VALIDATION (same as ExperienceSection/ProjectsSection):
+    //    Achievement Title zaroori. Agar khaali ho → toast error + return.
+    //    AI call nahi hogi, koi output nahi aayega.
     // ============================================
     const handleGenerateBullets = async (idx: number, ach: AchievementItem) => {
+        // ✅ ONE-AT-A-TIME guard
+        if (isBusy) {
+            toast.error('Please wait — another generation is already in progress.', { id: 'gen-busy' });
+            return;
+        }
+
         // eslint-disable-next-line no-console
         console.log('[AchievementsSection] handleGenerateBullets called', { idx, title: ach.title, shortDescription: ach.shortDescription });
 
+        // ✅ VALIDATION — AI call se PEHLE check karo
         if (!ach.title?.trim()) {
-            console.warn('[AchievementsSection] Blocked: title is empty');
+            toast.error('Please fill Achievement Title before generating.');
             return;
         }
         // ✅ Achievement Details is OPTIONAL — only the title is required.
@@ -210,9 +226,8 @@ const AchievementsSection: React.FC<AchievementsSectionProps> = ({
         <div className="space-y-4">
             <div className="space-y-3.5">
                 {achievements.map((ach, idx) => {
-                    const isLoading = generating || isGenerating === idx || aiGenerating === `ach-${idx}`;
+                    const isLoading = generating === `ach-${idx}` || isGenerating === idx || aiGenerating === `ach-${idx}`;
                     const shortDescWordCount = countWords(ach.shortDescription || '');
-                    const canGenerate = !!ach.title?.trim();
 
                     return (
                         <div
@@ -237,7 +252,7 @@ const AchievementsSection: React.FC<AchievementsSectionProps> = ({
                             <div className="space-y-3">
                                 <div>
                                     <label className="text-sm font-medium text-slate-700 mb-1.5 block">
-                                        Achievement Title
+                                        Achievement Title <span className="text-red-500">*</span>
                                     </label>
                                     <input
                                         type="text"
@@ -302,7 +317,7 @@ const AchievementsSection: React.FC<AchievementsSectionProps> = ({
                                     <div className="flex justify-end items-center mb-1.5 gap-3 flex-wrap">
                                         <button
                                             onClick={() => handleGenerateBullets(idx, ach)}
-                                            disabled={isLoading || !canGenerate}
+                                            disabled={isLoading || isBusy}
                                             className="h-9 px-3.5 rounded-lg bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white font-semibold text-xs tracking-tight flex items-center gap-2 transition-all duration-200 shadow-md shadow-purple-600/20 hover:shadow-lg hover:shadow-purple-600/30 focus:outline-none focus:ring-4 focus:ring-purple-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             {isLoading ? (
@@ -329,12 +344,6 @@ const AchievementsSection: React.FC<AchievementsSectionProps> = ({
                                         rows={6}
                                         className={`${baseInput} ${normalInput} resize-none`}
                                     />
-                                    {!canGenerate && !isLoading && (
-                                        <p className="flex items-center gap-1.5 text-xs text-amber-600 mt-1.5">
-                                            <AlertCircle size={12} />
-                                            Fill Achievement Title to enable generation
-                                        </p>
-                                    )}
                                 </div>
                             </div>
                         </div>

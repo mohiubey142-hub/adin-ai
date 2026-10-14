@@ -2,6 +2,7 @@
 // Premium — transparent wrapper, nested cards white with subtle border
 // Level selector removed from UI. All other features intact.
 // ✅ UPDATED: Full clean on regenerate — old bullets, plain lines, text sab remove
+// ✅ NEW: Validation — Job Title, Company, Start Date, End Date required before generating
 
 import React, { useRef, useState } from 'react';
 import toast from 'react-hot-toast';
@@ -17,7 +18,8 @@ interface ExperienceSectionProps {
     updateExperience: (i: number, field: keyof ExperienceItem, value: string) => void;
     generateDescription: (index: number, exp: ExperienceItem) => void;
     generateAI?: (index: number, exp: ExperienceItem) => void | string[] | Promise<void | string[]>;
-    generating: boolean;
+    generating: string | null;   // ✅ FIX: section-specific key
+    aiGenerating?: string | null;   // ✅ ONE-AT-A-TIME (CVBuilder already passes this)
 }
 
 const AdinAIIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
@@ -54,8 +56,9 @@ const ExperienceItemComponent: React.FC<{
     removeExperience: (i: number) => void;
     onGenerateClick: (index: number, exp: ExperienceItem) => void;
     isLoading: boolean;
+    isBusy: boolean;   // ✅ ONE-AT-A-TIME: koi aur generation chal rahi ho to button disabled (spinner nahi)
     totalExperiences: number;
-}> = ({ exp, idx, updateExperience, removeExperience, onGenerateClick, isLoading, totalExperiences }) => {
+}> = ({ exp, idx, updateExperience, removeExperience, onGenerateClick, isLoading, isBusy, totalExperiences }) => {
     const titleInputRef = useRef<HTMLInputElement>(null);
 
     return (
@@ -141,9 +144,9 @@ const ExperienceItemComponent: React.FC<{
                         </label>
                         <button
                             onClick={() => onGenerateClick(idx, exp)}
-                            disabled={isLoading}
+                            disabled={isLoading || isBusy}
                             className={`h-9 px-3.5 rounded-lg font-semibold text-xs tracking-tight flex items-center gap-2 transition-all duration-200 ${
-                                isLoading
+                                isLoading || isBusy
                                     ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
                                     : 'bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white shadow-md shadow-purple-600/20 hover:shadow-lg hover:shadow-purple-600/30 focus:outline-none focus:ring-4 focus:ring-purple-500/20'
                             }`}
@@ -176,9 +179,11 @@ const ExperienceItemComponent: React.FC<{
 
 const ExperienceSection: React.FC<ExperienceSectionProps> = ({
     experiences, addExperience, removeExperience, updateExperience,
-    generateDescription, generateAI, generating,
+    generateDescription, generateAI, generating, aiGenerating,
 }) => {
     const [isGenerating, setIsGenerating] = useState<number | null>(null);
+    // ✅ ONE-AT-A-TIME: kisi bhi section mein generation chal rahi ho to naya start nahi hoga
+    const isBusy = !!generating || !!aiGenerating || isGenerating !== null;
 
     // ============================================
     // ✅ AI BULLET SUGGESTOR MODAL STATE
@@ -191,8 +196,30 @@ const ExperienceSection: React.FC<ExperienceSectionProps> = ({
     // ============================================
     // ✅ GENERATE → opens the picker modal
     //    FULL CLEAN: purana sab kuch remove
+    //
+    // ✅ NEW VALIDATION:
+    //    Job Title, Company, Start Date, End Date — chaaron zaroori.
+    //    Agar koi bhi khaali ho → toast error + return.
+    //    AI call nahi hogi, koi output nahi aayega.
     // ============================================
     const handleGenerateClick = async (idx: number, exp: ExperienceItem) => {
+        // ✅ ONE-AT-A-TIME guard
+        if (isBusy) {
+            toast.error('Please wait — another generation is already in progress.', { id: 'gen-busy' });
+            return;
+        }
+
+        // ✅ VALIDATION — AI call se PEHLE check karo
+        const titleOk = exp.title?.trim();
+        const companyOk = exp.company?.trim();
+        const startOk = exp.startDate?.trim();
+        const endOk = exp.endDate?.trim();
+
+        if (!titleOk || !companyOk || !startOk || !endOk) {
+            toast.error('Please fill Job Title, Company, Start Date, and End Date before generating.');
+            return;
+        }
+
         setIsGenerating(idx);
         try {
             let bullets: string[] = [];
@@ -299,7 +326,8 @@ const ExperienceSection: React.FC<ExperienceSectionProps> = ({
                         updateExperience={updateExperience}
                         removeExperience={removeExperience}
                         onGenerateClick={handleGenerateClick}
-                        isLoading={generating || isGenerating === idx}
+                        isLoading={generating === `exp-${idx}` || isGenerating === idx || aiGenerating === `exp-${idx}`}
+                        isBusy={isBusy}
                         totalExperiences={experiences.length}
                     />
                 ))}

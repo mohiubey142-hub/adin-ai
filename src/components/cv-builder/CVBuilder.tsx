@@ -11,6 +11,7 @@
 // ✅ FIX: PDF/Preview now include entries with ANY filled field (not just "complete" ones)
 //         - usable* arrays (OR logic) → for PDF/preview
 //         - complete* arrays (AND logic) → for scoring/validation (unchanged behavior)
+// ✅ FIX: Button clicks no longer trigger auto-scroll (Gen buttons stay in place)
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import toast from 'react-hot-toast';
@@ -523,8 +524,27 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
         });
     }, [isDesktop, autoScrollHooks]);
 
+    // ============================================================
+    // ✅ FIX: Button clicks no longer trigger auto-scroll.
+    //    Root cause: Gen buttons (and every other button inside a
+    //    section) bubbled their click up to AccordionSection's
+    //    onContentInteract, which called this handler → 'fit' scroll
+    //    → the whole editor pane shifted → ALL sections visually
+    //    moved at once.
+    //
+    //    Fix: bail out early when the interaction came from a button
+    //    (or anything inside a button). Inputs / textareas / selects
+    //    still behave exactly as before — auto-scroll only for those.
+    // ============================================================
     const handleFieldInteraction = useCallback((sectionKey: string) => {
         if (!isDesktop) return;
+
+        // ✅ Button guard — no auto-scroll on button clicks
+        const activeEl = document.activeElement as HTMLElement | null;
+        const isButtonInteraction =
+            !!activeEl &&
+            (activeEl.tagName === 'BUTTON' || !!activeEl.closest('button'));
+        if (isButtonInteraction) return;
 
         const now = Date.now();
         if (
@@ -595,7 +615,9 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
 
     const [hasReachedPreview, setHasReachedPreview] = useState(() => savedData?.hasReachedPreview || false);
     const [showSuccessCard, setShowSuccessCard] = useState(false);
-    const [generating, setGenerating] = useState(false);
+    // ✅ FIX: boolean ki jagah section-specific key ('summary' | 'exp-0' | 'proj-1' | 'ach-0' | 'skills' | null)
+    //    — ab ek section ka Gen button dabane se baaki sections ke buttons loading nahi dikhate.
+    const [generating, setGenerating] = useState<string | null>(null);
     const [aiGenerating, setAiGenerating] = useState<string | null>(null);
     const [aiEnhancerLoading, setAiEnhancerLoading] = useState<string | null>(null);
     const [originalSummary, setOriginalSummary] = useState<string>('');
