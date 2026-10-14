@@ -1806,6 +1806,7 @@ Adin AI
         <LogoutWarningPopup
           isOpen={showLogoutWarning}
           userId={userId}
+          hasPinSet={hasPinSet}
           onCancel={() => setShowLogoutWarning(false)}
           onConfirmLogout={handleGuestLogout}
         />

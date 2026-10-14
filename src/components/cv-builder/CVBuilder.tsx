@@ -12,6 +12,7 @@
 //         - usable* arrays (OR logic) → for PDF/preview
 //         - complete* arrays (AND logic) → for scoring/validation (unchanged behavior)
 // ✅ FIX: Button clicks no longer trigger auto-scroll (Gen buttons stay in place)
+// ✅ FIX: Mobile par section click/open karne par editor auto-scroll (desktop jaisa)
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import toast from 'react-hot-toast';
@@ -514,12 +515,17 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
             }
         }
 
-        if (!willBeOpen || !isDesktop) return;
+        if (!willBeOpen) return;
 
+        // ✅ FIX: Mobile par bhi section open hone par editor auto-scroll ho
+        //    (preview pane mobile par editor ke saath visible nahi hota,
+        //     isliye preview scroll sirf desktop par)
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 scrollEditorToSection(editorPaneRef, key, 'reveal', autoScrollHooks);
-                scrollPreviewToSection(previewPaneRef, key, PREVIEW_SCROLL_OFFSET_PX, autoScrollHooks);
+                if (isDesktop) {
+                    scrollPreviewToSection(previewPaneRef, key, PREVIEW_SCROLL_OFFSET_PX, autoScrollHooks);
+                }
             });
         });
     }, [isDesktop, autoScrollHooks]);

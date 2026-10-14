@@ -5,7 +5,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import {
-  Trash2, Copy, Download, FileText, Eye, CheckCircle2, Sparkles, X, ChevronDown, MessageCircle, Maximize, Minimize, Image as ImageIcon,
+  Trash2, Copy, Download, FileText, Eye, CheckCircle2, Sparkles, X, ChevronDown, MessageCircle, Maximize, Minimize, Image as ImageIcon, Pencil,
 } from 'lucide-react';
 
 import Step1Details from './steps/Step1Details';
@@ -266,7 +266,7 @@ interface CoverLetterProps {
   onTemplateChange?: (template: CoverLetterTemplateId) => void;
 }
 
-type TabType = 'preview';
+type TabType = 'edit' | 'preview';
 
 type SectionKey = 'personal' | 'job' | 'experience' | 'skills';
 
@@ -309,9 +309,102 @@ const CoverLetter = ({
 
   const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({ ...DEFAULT_OPEN_STATE });
 
-  const toggleSection = useCallback((key: SectionKey) => {
-    setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
+  // ✅ Auto-reveal: section open hone par (mobile + desktop dono) wo section view me aa jaye
+  const openSectionsRef = useRef(openSections);
+  openSectionsRef.current = openSections;
+  const lastPointerTargetRef = useRef<EventTarget | null>(null);
+  const revealCleanupRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    const onDown = (e: Event) => { lastPointerTargetRef.current = e.target; };
+    document.addEventListener('pointerdown', onDown, true);
+    return () => {
+      document.removeEventListener('pointerdown', onDown, true);
+      revealCleanupRef.current?.();
+    };
   }, []);
+
+  const revealSection = useCallback((key: SectionKey) => {
+    try {
+      // Header button dhoondo: pehle last pointer target, phir focused element
+      const candidates = [lastPointerTargetRef.current, document.activeElement];
+      lastPointerTargetRef.current = null;
+      let btn: HTMLElement | null = null;
+      for (const c of candidates) {
+        if (c instanceof HTMLElement) {
+          const b = c.closest<HTMLElement>('button[aria-expanded]');
+          if (b) { btn = b; break; }
+        }
+      }
+      const byId = document.getElementById(`section-${key}`);
+      const anchor: HTMLElement | null = byId || btn;
+      if (!anchor) return;
+
+      const wrapper: HTMLElement =
+        byId || btn!.closest<HTMLElement>('section') || btn!.parentElement || btn!;
+      const controlledId = btn?.getAttribute('aria-controls');
+      const controlled = controlledId ? document.getElementById(controlledId) : null;
+
+      // Nearest scrollable parent (mobile: main div, desktop: left column)
+      let scroller: HTMLElement | null = anchor.parentElement;
+      while (scroller) {
+        const oy = window.getComputedStyle(scroller).overflowY;
+        if ((oy === 'auto' || oy === 'scroll') && scroller.scrollHeight > scroller.clientHeight + 1) break;
+        scroller = scroller.parentElement;
+      }
+
+      const M = 12;
+      const bottomMargin = M + (window.innerWidth < 640 ? 80 : 0); // mobile fixed bottom bar
+
+      const run = () => {
+        if (!anchor.isConnected) return;
+        const sc = scroller ? scroller.getBoundingClientRect() : null;
+        const scTop = sc ? sc.top : 0;
+        const viewH = scroller ? scroller.clientHeight : window.innerHeight;
+        const top = anchor.getBoundingClientRect().top - scTop;
+        const wRect = wrapper.getBoundingClientRect();
+        const cRect = controlled ? controlled.getBoundingClientRect() : null;
+        const bottom = Math.max(wRect.bottom, cRect ? cRect.bottom : 0) - scTop;
+
+        const fits = bottom - top <= viewH - M - bottomMargin;
+        let delta = 0;
+        if (!fits || top < M) delta = top - M;
+        else if (bottom > viewH - bottomMargin) delta = bottom - viewH + bottomMargin;
+        if (Math.abs(delta) < 2) return;
+
+        if (scroller) scroller.scrollBy({ top: delta, behavior: 'smooth' });
+        else window.scrollBy({ top: delta, behavior: 'smooth' });
+      };
+
+      // Pehle ki pending reveal cancel karo
+      revealCleanupRef.current?.();
+
+      // Accordion animation ke baad bhi re-check (height badalti hai)
+      const timers: number[] = [];
+      const target: EventTarget = scroller || window;
+      const cancel = () => {
+        timers.forEach(t => window.clearTimeout(t));
+        ['wheel', 'touchstart', 'keydown'].forEach(ev => target.removeEventListener(ev, cancel));
+        if (revealCleanupRef.current === cancel) revealCleanupRef.current = null;
+      };
+      // User khud scroll kare to auto-scroll ruk jaye
+      ['wheel', 'touchstart', 'keydown'].forEach(ev =>
+        target.addEventListener(ev, cancel, { passive: true })
+      );
+      revealCleanupRef.current = cancel;
+      timers.push(window.setTimeout(run, 60));
+      timers.push(window.setTimeout(() => { run(); cancel(); }, 380));
+    } catch (err) {
+      // Scroll sirf enhancement hai — kabhi UI ko break na kare
+      console.warn('revealSection failed', err);
+    }
+  }, []);
+
+  const toggleSection = useCallback((key: SectionKey) => {
+    const willOpen = !openSectionsRef.current[key];
+    setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
+    if (willOpen) revealSection(key);
+  }, [revealSection]);
 
   const [userName, setUserName] = useState('');
   const [email, setEmail] = useState('');
@@ -347,7 +440,7 @@ const CoverLetter = ({
   const [isLoadingCV, setIsLoadingCV] = useState(false);
   const [cvBannerDismissed, setCvBannerDismissed] = useState(false);
 
-  const [mobileActiveTab, setMobileActiveTab] = useState<TabType | null>(null);
+  const [mobileActiveTab, setMobileActiveTab] = useState<TabType>('edit');
   const [isMobile, setIsMobile] = useState(false);
 
   const [internalDocumentId, setInternalDocumentId] = useState<string | null>(documentId || null);
@@ -1106,7 +1199,7 @@ const CoverLetter = ({
   const currentTemplate = templates.find(t => t.id === selectedTemplate) || templates[0];
 
   const handleMobileTabClick = (tabId: TabType) => {
-    setMobileActiveTab(mobileActiveTab === tabId ? null : tabId);
+    setMobileActiveTab(tabId);
   };
 
   useEffect(() => {
@@ -1384,7 +1477,11 @@ const CoverLetter = ({
             saveStatus={hasSaved ? 'saved' : 'saving'}
           />
 
-          <div className="flex-1 overflow-y-auto overflow-x-hidden pb-24 min-h-0">
+          <div
+            className={`flex-1 overflow-y-auto overflow-x-hidden pb-24 min-h-0 ${
+              mobileActiveTab !== 'edit' ? 'hidden' : 'block'
+            }`}
+          >
             <div className="w-full px-3 py-4">
               <div className="max-w-7xl mx-auto">
                 {renderCVBanner()}
@@ -1443,58 +1540,70 @@ const CoverLetter = ({
             </div>
           </div>
 
-          <div className="flex-shrink-0 fixed bottom-0 left-0 right-0 z-20 bg-white/95 backdrop-blur-md border-t border-slate-200 px-3 py-2 shadow-lg">
+          <div className="flex-shrink-0 fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200 px-3 py-2 shadow-lg">
             <div className="max-w-7xl mx-auto">
               <div className="flex gap-2">
                 <button
+                  onClick={() => handleMobileTabClick('edit')}
+                  className={`flex-1 flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl text-sm font-medium transition-all duration-300 touch-manipulation ${
+                    mobileActiveTab === 'edit'
+                      ? 'bg-gradient-to-r from-purple-600 to-purple-500 text-white shadow-lg shadow-purple-500/30'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-800'
+                  }`}
+                >
+                  <Pencil size={18} className="flex-shrink-0" />
+                  <span>Edit</span>
+                </button>
+                <button
                   onClick={() => handleMobileTabClick('preview')}
-                  className={`flex-1 flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl text-sm font-medium transition-all duration-300 ${
+                  className={`flex-1 flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl text-sm font-medium transition-all duration-300 touch-manipulation ${
                     mobileActiveTab === 'preview'
                       ? 'bg-gradient-to-r from-purple-600 to-purple-500 text-white shadow-lg shadow-purple-500/30'
                       : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-800'
                   }`}
                 >
-                  <Eye size={18} />
+                  <Eye size={18} className="flex-shrink-0" />
                   <span>Preview</span>
                 </button>
               </div>
             </div>
           </div>
 
+          {/* ✅ Preview tab — full pane (same as CV Builder mobile), not a bottom sheet */}
           {mobileActiveTab === 'preview' && (
-            <div className="fixed bottom-20 left-0 right-0 z-10 max-h-[60vh] overflow-auto bg-slate-100 border-t border-slate-200 rounded-t-2xl shadow-2xl p-4">
-              <div className="max-w-7xl mx-auto">
-                <div className="p-0">
-                  <div className="flex items-center justify-between mb-3 py-2">
-                    <h3 className="text-xs font-semibold flex items-center gap-2 text-purple-600 tracking-wide">
-                      <Eye size={13} />
+            <div className="flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden pb-24 bg-slate-100">
+              <div className="w-full p-2">
+                <div className="flex items-center justify-between gap-3 mb-4 px-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Eye size={18} className="text-purple-600 flex-shrink-0" />
+                    <h3 className="text-sm font-semibold text-purple-600 truncate">
                       Live Preview
                     </h3>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setShowFeedbackModal(true)}
-                        aria-label="Give feedback"
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white text-[11px] font-semibold shadow-md shadow-purple-600/20 hover:shadow-lg hover:shadow-purple-600/30 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-purple-500/20"
-                      >
-                        <MessageCircle size={12} />
-                        <span>Feedback</span>
-                      </button>
-
-                      <DownloadDropdown
-                        onCopy={copyToClipboard}
-                        onDownloadPDF={downloadPDF}
-                        onDownloadTXT={downloadTXT}
-                        onDownloadPNG={downloadPNG}
-                      />
-                    </div>
                   </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setShowFeedbackModal(true)}
+                      aria-label="Give feedback"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white text-[11px] font-semibold shadow-md shadow-purple-600/20 hover:shadow-lg hover:shadow-purple-600/30 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-purple-500/20"
+                    >
+                      <MessageCircle size={12} />
+                      <span>Feedback</span>
+                    </button>
 
-                  <div ref={pngPreviewRef}>
-                    <div className="bg-white rounded-xl shadow-md overflow-hidden">
-                      <div className="p-0.5">
-                        {renderPreview()}
-                      </div>
+                    <DownloadDropdown
+                      onCopy={copyToClipboard}
+                      onDownloadPDF={downloadPDF}
+                      onDownloadTXT={downloadTXT}
+                      onDownloadPNG={downloadPNG}
+                    />
+                  </div>
+                </div>
+
+                <div ref={pngPreviewRef}>
+                  <div className="bg-white rounded-xl shadow-md overflow-hidden">
+                    <div className="p-0.5">
+                      {renderPreview()}
                     </div>
                   </div>
                 </div>

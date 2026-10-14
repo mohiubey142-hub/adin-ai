@@ -6,11 +6,13 @@
 // ✅ Body scroll lock via CSS class (overrides App.tsx !important)
 // ✅ Sectioned layout with hairline separators
 // ✅ Removed: "NEW" badge, gradient hero, decorative circles
+// ✅ NEW: "Guest Account" info button — opens a clean modal explaining
+//         what a Guest Account is and why we give it.
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   X, Copy, CloudDownload, Download, Lock, HardDrive, Trash2, LogOut,
-  ChevronRight,
+  ChevronRight, Info, Gift,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -46,6 +48,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   onDeleteAccountClick,
   onLogoutClick,
 }) => {
+  const [showGuestInfo, setShowGuestInfo] = useState(false);
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -57,6 +61,21 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
       document.body.classList.remove('profile-page-open');
     };
   }, [isOpen]);
+
+  // Close guest-info popup automatically if the whole profile page closes.
+  useEffect(() => {
+    if (!isOpen) setShowGuestInfo(false);
+  }, [isOpen]);
+
+  // Esc key closes the guest-info popup first, then the profile page.
+  useEffect(() => {
+    if (!showGuestInfo) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowGuestInfo(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showGuestInfo]);
 
   if (!isOpen) return null;
 
@@ -125,6 +144,27 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
           scrollbar-width: thin;
           scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
         }
+
+        .guest-info-scroll::-webkit-scrollbar {
+          width: 6px;
+        }
+        .guest-info-scroll::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .guest-info-scroll::-webkit-scrollbar-thumb {
+          background: rgba(148, 163, 184, 0.4);
+          border-radius: 10px;
+        }
+        .guest-info-scroll::-webkit-scrollbar-thumb:hover {
+          background: rgba(100, 116, 139, 0.6);
+        }
+        .guest-info-scroll::-webkit-scrollbar-corner {
+          background: transparent;
+        }
+        .guest-info-scroll {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+        }
       `}</style>
 
       {/* Header bar */}
@@ -158,9 +198,21 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
               <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight truncate">
                 {userName || 'User'}
               </h2>
-              <p className="text-sm text-slate-500 mt-0.5">
-                Guest Account
-              </p>
+
+              {/* ✅ Guest Account — clickable info button (Option A) */}
+              <button
+                type="button"
+                onClick={() => setShowGuestInfo(true)}
+                aria-label="What is a Guest Account?"
+                className="group inline-flex items-center gap-1.5 mt-0.5 text-sm text-slate-500 hover:text-purple-600 transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/30 rounded"
+              >
+                <span>Guest Account</span>
+                <Info
+                  size={13}
+                  strokeWidth={2.2}
+                  className="text-slate-400 group-hover:text-purple-600 transition-colors duration-150"
+                />
+              </button>
             </div>
           </section>
 
@@ -269,6 +321,115 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
           </p>
         </main>
       </div>
+
+      {/* ✅ Guest Account Info Modal */}
+      {showGuestInfo && (
+        <div
+          className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setShowGuestInfo(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="About your Guest Account"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full sm:max-w-md max-h-[85vh] flex flex-col rounded-t-2xl sm:rounded-2xl bg-white border border-slate-200 shadow-2xl shadow-black/20 overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300"
+          >
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-purple-600 to-blue-500 shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center shrink-0">
+                  <Gift size={15} className="text-white" strokeWidth={2.4} />
+                </div>
+                <h3 className="text-sm font-semibold text-white tracking-tight truncate">
+                  Your Guest Account
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowGuestInfo(false)}
+                aria-label="Close"
+                className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/15 transition-colors duration-200 shrink-0"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Modal body */}
+            <div className="guest-info-scroll flex-1 min-h-0 overflow-y-auto px-5 py-5 space-y-5">
+
+              {/* What is it */}
+              <div>
+                <h4 className="text-sm font-semibold text-slate-900 mb-2">
+                  What is a Guest Account?
+                </h4>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  A private space we automatically create for you — no email,
+                  no password, no signup required. It comes with a unique{' '}
+                  <strong className="text-slate-800">User ID</strong> and an
+                  optional <strong className="text-slate-800">4-digit PIN</strong>{' '}
+                  for extra security.
+                </p>
+              </div>
+
+              <div className="h-px bg-slate-100" />
+
+              {/* Why we give it */}
+              <div>
+                <h4 className="text-sm font-semibold text-slate-900 mb-3">
+                  Why do we give it to you?
+                </h4>
+                <div className="space-y-3">
+                  <InfoStep
+                    number="1"
+                    title="Try before signup"
+                    body="Use the app freely, decide later. No email upfront."
+                  />
+                  <InfoStep
+                    number="2"
+                    title="Private by default"
+                    body="Your data stays yours. We never sell or share it."
+                  />
+                  <InfoStep
+                    number="3"
+                    title="Restore on any device"
+                    body="Your User ID + PIN brings your work anywhere."
+                  />
+                  <InfoStep
+                    number="4"
+                    title="Full control"
+                    body="Download your ID, export documents, or delete anytime."
+                  />
+                </div>
+              </div>
+
+              <div className="h-px bg-slate-100" />
+
+              {/* Backup key */}
+              <div className="rounded-xl bg-purple-50/60 border border-purple-100 px-4 py-3.5">
+                <h4 className="text-xs font-semibold uppercase tracking-widest text-purple-700 mb-1.5">
+                  Your backup key
+                </h4>
+                <p className="text-sm text-slate-700 leading-relaxed">
+                  <strong className="text-slate-900">User ID + 4-digit PIN</strong>.
+                  Save them somewhere safe — they're your only key to restore
+                  your account on another device.
+                </p>
+              </div>
+
+            </div>
+
+            {/* Modal footer */}
+            <div className="px-5 py-4 border-t border-slate-100 shrink-0">
+              <button
+                onClick={() => setShowGuestInfo(false)}
+                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 text-white font-semibold text-sm tracking-tight transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-purple-500/20 active:scale-[0.98]"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -339,5 +500,30 @@ const ProfileRow: React.FC<ProfileRowProps> = ({
     </button>
   );
 };
+
+// ═══════════════════════════════════════════════════════════════
+// Info step component (for the Guest Account modal)
+// ═══════════════════════════════════════════════════════════════
+interface InfoStepProps {
+  number: string;
+  title: string;
+  body: string;
+}
+
+const InfoStep: React.FC<InfoStepProps> = ({ number, title, body }) => (
+  <div className="flex items-start gap-3">
+    <div className="shrink-0 w-6 h-6 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-[11px] font-bold mt-0.5">
+      {number}
+    </div>
+    <div className="min-w-0 flex-1">
+      <div className="text-sm font-semibold text-slate-900 leading-tight">
+        {title}
+      </div>
+      <div className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+        {body}
+      </div>
+    </div>
+  </div>
+);
 
 export default ProfilePage;

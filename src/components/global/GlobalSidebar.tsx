@@ -1,6 +1,8 @@
 // src/components/global/GlobalSidebar.tsx
 // ✅ FULL PROFESSIONAL POLISH
 // ✅ UPDATED: Editors section labels → "CV Builder" + "Cover Letter"
+// ✅ UPDATED: Sidebar user ID shows only first 8 characters + "..." (truncated)
+//             Full ID is always visible in ProfilePage.
 // - Toggle drawer design (ChatGPT/DeepSeek style)
 // - Logo image from public/icon-1024x1024.png
 // - Clean header (no purple glow)
@@ -105,7 +107,11 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({
 
     const avatarLetter = getAvatarLetter(userName);
     const avatarGradient = getAvatarGradient(userName);
-    const shortId = userId ? userId.slice(0, 12).toUpperCase() : null;
+
+    // ✅ Sidebar shows only the first 8 characters of the user ID, followed by
+    //    "..." to signal the rest is hidden. The full ID is always visible in
+    //    ProfilePage (where the user needs it for backup / restore).
+    const shortId = userId ? `${userId.slice(0, 8)}...` : null;
 
     return (
         <>
@@ -250,7 +256,7 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({
                             <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white shadow-sm" />
                         </div>
 
-                        {/* Name + ID */}
+                        {/* Name + ID (truncated) */}
                         <div className="min-w-0 flex-1 text-left">
                             <div className="text-[13.5px] font-bold text-slate-900 truncate leading-tight">
                                 {userName || 'User'}

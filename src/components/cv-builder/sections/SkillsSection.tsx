@@ -480,6 +480,32 @@ const SkillsSection: React.FC<SkillsSectionProps> = ({
                         onClick={(e) => e.stopPropagation()}
                         className="w-full max-w-md max-h-[80vh] flex flex-col rounded-2xl bg-white border border-slate-200 shadow-2xl shadow-black/20 overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-2 duration-300"
                     >
+                        {/* ✅ Scoped scrollbar theme — popup ke emerald/teal theme se match (global purple scrollbar override) */}
+                        <style>{`
+                            .ai-suggestor-scroll {
+                                scrollbar-width: thin;
+                                scrollbar-color: #059669 #f1f5f9;
+                            }
+                            .ai-suggestor-scroll::-webkit-scrollbar {
+                                width: 6px;
+                                height: 6px;
+                            }
+                            .ai-suggestor-scroll::-webkit-scrollbar-track {
+                                background: #f1f5f9;
+                                border-radius: 10px;
+                            }
+                            .ai-suggestor-scroll::-webkit-scrollbar-thumb {
+                                background: linear-gradient(to bottom, #059669, #0d9488);
+                                border-radius: 10px;
+                            }
+                            .ai-suggestor-scroll::-webkit-scrollbar-thumb:hover {
+                                background: linear-gradient(to bottom, #047857, #0f766e);
+                            }
+                            .ai-suggestor-scroll::-webkit-scrollbar-corner {
+                                background: transparent;
+                            }
+                        `}</style>
+
                         {/* Modal Header */}
                         <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 shrink-0">
                             <div>
@@ -497,7 +523,7 @@ const SkillsSection: React.FC<SkillsSectionProps> = ({
                         </div>
 
                         {/* Modal Body */}
-                        <div className="flex-1 overflow-y-auto px-5 py-4">
+                        <div className="ai-suggestor-scroll flex-1 overflow-y-auto px-5 py-4">
                             <div className="flex items-center justify-between mb-3">
                                 <span className="text-[10px] text-slate-400 font-medium">
                                     Tap + to add, − to remove
