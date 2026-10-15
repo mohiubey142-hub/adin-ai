@@ -126,6 +126,26 @@ export const countryCodes = [
     { code: 'NI', country: 'Nicaragua', flag: '🇳🇮', dialCode: '+505', pattern: /^\d{8}$/, example: '81234567', length: 8 },
 ];
 
+// ============================================
+// ✅ NEW: Country helpers (backward compatible)
+// Purani saved values ('+92') aur nayi ISO values ('PK') dono chalti hain
+// ============================================
+export const DEFAULT_COUNTRY_CODE = 'PK';
+
+export type CountryCodeItem = (typeof countryCodes)[number];
+
+export const findCountry = (value?: string): CountryCodeItem | undefined => {
+    if (!value) return undefined;
+    return (
+        countryCodes.find((c) => c.code === value) ||
+        countryCodes.find((c) => c.dialCode === value)
+    );
+};
+
+// Hamesha valid ISO code return karta hai (purani '+92' -> 'PK', unknown -> default)
+export const normalizeCountryCode = (value?: string): string =>
+    findCountry(value)?.code || DEFAULT_COUNTRY_CODE;
+
 export const steps = [
     { num: 1, name: 'Personal', icon: '👤' },
     { num: 2, name: 'Experience', icon: '💼' },

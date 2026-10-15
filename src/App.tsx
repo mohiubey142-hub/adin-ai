@@ -1469,7 +1469,7 @@ Adin AI
             background: #f1f5f9;
             color: #0f172a;
           }
-          body > *, body > * > *, #root, #root > * {
+          body > *:not([data-portal-root]), body > *:not([data-portal-root]) > *, #root, #root > * {
             height: auto !important;
             max-height: none !important;
             overflow-y: visible !important;
@@ -1727,7 +1727,7 @@ Adin AI
                 overflow: hidden !important;
                 background: #f1f5f9;
               }
-              body > *, body > * > *, #root, #root > * {
+              body > *:not([data-portal-root]), body > *:not([data-portal-root]) > *, #root, #root > * {
                 height: 100% !important;
                 max-height: 100% !important;
                 overflow: hidden !important;
@@ -1752,7 +1752,7 @@ Adin AI
                 background: #f1f5f9;
                 color: #0f172a;
               }
-              body > *, body > * > *, #root, #root > * {
+              body > *:not([data-portal-root]), body > *:not([data-portal-root]) > *, #root, #root > * {
                 height: auto !important;
                 max-height: none !important;
                 overflow-y: visible !important;

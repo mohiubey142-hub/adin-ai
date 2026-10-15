@@ -2,6 +2,7 @@
 // ✅ NEW: Paper-like design — click anywhere = editor
 // ✅ 3-dot menu: Pin, Rename, Download (PDF/TXT), Delete
 // ✅ PNG removed from direct download (available in editor only)
+// ✅ FIXED: Mobile 3-dot menu — centered, comfortable padding, no border compression
 
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
@@ -26,11 +27,14 @@ interface DocumentCardProps {
 
 // ✅ Menu positioning constants (px) — keep widths in sync with the rendered menus
 const MENU_WIDTH_PX = 192;           // main 3-dot menu width
+const MENU_WIDTH_MOBILE_PX = 176;    // slightly narrower on small screens
 const SUBMENU_WIDTH_PX = 128;        // Download (PDF/TXT) submenu width
 const SUBMENU_GAP_PX = 4;            // gap between menu and submenu
 const MENU_GAP_PX = 6;               // gap between the 3-dot button and the menu
 const VIEWPORT_MARGIN_PX = 8;        // minimum distance from the viewport edges
+const MOBILE_VIEWPORT_MARGIN_PX = 12; // a bit more breathing room on mobile
 const MENU_Z_INDEX = 99999;
+const MOBILE_BREAKPOINT_PX = 640;
 
 // Button position (viewport coordinates) captured when the menu is opened
 interface MenuAnchor {
@@ -44,6 +48,7 @@ interface MenuPosition {
     top: number;
     right: number;
     submenuOpensLeft: boolean;
+    isMobile: boolean;
 }
 
 const DocumentCard: React.FC<DocumentCardProps> = ({
@@ -71,28 +76,44 @@ const DocumentCard: React.FC<DocumentCardProps> = ({
     }, [menuOpen]);
 
     // ✅ Measure the menu, then place it fully inside the viewport.
-    // Cards at the bottom of the list have no room below the button, so the menu
-    // flips ABOVE the button (and is clamped to the viewport as a last resort).
+    // On mobile: always center horizontally with equal breathing room so it never
+    // hugs the screen border and never feels compressed.
+    // On desktop: anchor to the button, flip above when there's no room below.
     useLayoutEffect(() => {
         if (!menuOpen || !menuAnchor || !menuRef.current) return;
 
         const menuHeight = menuRef.current.offsetHeight;
-        const spaceBelow = window.innerHeight - menuAnchor.bottom - MENU_GAP_PX - VIEWPORT_MARGIN_PX;
-        const spaceAbove = menuAnchor.top - MENU_GAP_PX - VIEWPORT_MARGIN_PX;
+        const isMobile = window.innerWidth < MOBILE_BREAKPOINT_PX;
+        const margin = isMobile ? MOBILE_VIEWPORT_MARGIN_PX : VIEWPORT_MARGIN_PX;
+
+        const spaceBelow = window.innerHeight - menuAnchor.bottom - MENU_GAP_PX - margin;
+        const spaceAbove = menuAnchor.top - MENU_GAP_PX - margin;
         const openAbove = menuHeight > spaceBelow && spaceAbove > spaceBelow;
 
         const preferredTop = openAbove
             ? menuAnchor.top - MENU_GAP_PX - menuHeight
             : menuAnchor.bottom + MENU_GAP_PX;
-        const maxTop = window.innerHeight - VIEWPORT_MARGIN_PX - menuHeight;
-        const top = Math.max(VIEWPORT_MARGIN_PX, Math.min(preferredTop, maxTop));
+        const maxTop = window.innerHeight - margin - menuHeight;
+        const top = Math.max(margin, Math.min(preferredTop, maxTop));
 
-        // Download submenu opens to the right of the menu; flip it to the left
-        // when there isn't enough room (cards in the right-most column).
+        // Mobile: always center horizontally using the viewport width,
+        // ignoring the button anchor so the menu feels balanced.
+        const menuWidth = isMobile ? MENU_WIDTH_MOBILE_PX : MENU_WIDTH_PX;
+        const centeredRight = Math.max(
+            margin,
+            (window.innerWidth - menuWidth) / 2
+        );
+
+        // Desktop submenu flip: only matters when not mobile
         const submenuOpensLeft =
-            menuAnchor.right < SUBMENU_WIDTH_PX + SUBMENU_GAP_PX + VIEWPORT_MARGIN_PX;
+            menuAnchor.right < SUBMENU_WIDTH_PX + SUBMENU_GAP_PX + margin;
 
-        setMenuPos({ top, right: menuAnchor.right, submenuOpensLeft });
+        setMenuPos({
+            top,
+            right: isMobile ? centeredRight : menuAnchor.right,
+            submenuOpensLeft,
+            isMobile,
+        });
     }, [menuOpen, menuAnchor]);
 
     useEffect(() => {
@@ -170,6 +191,8 @@ const DocumentCard: React.FC<DocumentCardProps> = ({
         setDownloadSubmenuOpen(false);
         onDownload?.(doc.id, kind, format);
     };
+
+    const menuWidth = menuPos?.isMobile ? MENU_WIDTH_MOBILE_PX : MENU_WIDTH_PX;
 
     return (
         <>
@@ -274,7 +297,7 @@ const DocumentCard: React.FC<DocumentCardProps> = ({
                         position: 'fixed',
                         top: menuPos?.top ?? 0,
                         right: menuPos?.right ?? menuAnchor.right,
-                        width: MENU_WIDTH_PX,
+                        width: menuWidth,
                         zIndex: MENU_Z_INDEX,
                         visibility: menuPos ? 'visible' : 'hidden',
                     }}

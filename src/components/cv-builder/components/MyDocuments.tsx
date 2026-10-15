@@ -7,6 +7,7 @@
 // ✅ UPDATED: DocumentCard uses paper design
 // ✅ UPDATED: Download handler — PDF/TXT only (PNG available in editor only)
 // ✅ NEW: Unlimited thumbnails — Intersection Observer in DocumentThumbnail handles perf
+// ✅ FIXED: Mobile stat cards (CV/CL/Storage) equal size + proper number scaling
 
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { Plus, FileText, Mail, ChevronDown, AlertTriangle, HardDrive } from 'lucide-react';
@@ -539,25 +540,28 @@ const MyDocuments: React.FC<MyDocumentsProps> = ({
                         )}
 
                         {totalCount > 0 && (
-                            <div className="grid grid-cols-3 gap-3 mb-6">
-                                <div className="rounded-xl border border-slate-200 bg-white p-3.5">
-                                    <div className="flex items-center gap-2 text-slate-500 text-[11px] font-medium uppercase tracking-wide mb-1">
-                                        <FileText size={12} /> CVs
+                            <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-6">
+                                <div className="rounded-xl border border-slate-200 bg-white p-2.5 sm:p-3.5 flex flex-col justify-between min-h-[76px] sm:min-h-[88px]">
+                                    <div className="flex items-center gap-1.5 sm:gap-2 text-slate-500 text-[10px] sm:text-[11px] font-medium uppercase tracking-wide mb-1">
+                                        <FileText size={12} className="flex-shrink-0" />
+                                        <span className="truncate">CVs</span>
                                     </div>
-                                    <p className="text-xl font-bold text-slate-900">{resumeDocs?.length || 0}</p>
+                                    <p className="text-lg sm:text-xl font-bold text-slate-900 leading-none">{resumeDocs?.length || 0}</p>
                                 </div>
-                                <div className="rounded-xl border border-slate-200 bg-white p-3.5">
-                                    <div className="flex items-center gap-2 text-slate-500 text-[11px] font-medium uppercase tracking-wide mb-1">
-                                        <Mail size={12} /> Cover Letters
+                                <div className="rounded-xl border border-slate-200 bg-white p-2.5 sm:p-3.5 flex flex-col justify-between min-h-[76px] sm:min-h-[88px]">
+                                    <div className="flex items-center gap-1.5 sm:gap-2 text-slate-500 text-[10px] sm:text-[11px] font-medium uppercase tracking-wide mb-1">
+                                        <Mail size={12} className="flex-shrink-0" />
+                                        <span className="truncate">Cover Letters</span>
                                     </div>
-                                    <p className="text-xl font-bold text-slate-900">{coverDocs?.length || 0}</p>
+                                    <p className="text-lg sm:text-xl font-bold text-slate-900 leading-none">{coverDocs?.length || 0}</p>
                                 </div>
-                                <div className="rounded-xl border border-slate-200 bg-white p-3.5">
-                                    <div className="flex items-center gap-2 text-slate-500 text-[11px] font-medium uppercase tracking-wide mb-1">
-                                        <HardDrive size={12} /> Storage
+                                <div className="rounded-xl border border-slate-200 bg-white p-2.5 sm:p-3.5 flex flex-col justify-between min-h-[76px] sm:min-h-[88px]">
+                                    <div className="flex items-center gap-1.5 sm:gap-2 text-slate-500 text-[10px] sm:text-[11px] font-medium uppercase tracking-wide mb-1">
+                                        <HardDrive size={12} className="flex-shrink-0" />
+                                        <span className="truncate">Storage</span>
                                     </div>
-                                    <p className="text-xl font-bold text-slate-900">
-                                        {storageMB.toFixed(1)}<span className="text-xs font-medium text-slate-400 ml-0.5">MB</span>
+                                    <p className="text-lg sm:text-xl font-bold text-slate-900 leading-none">
+                                        {storageMB.toFixed(1)}<span className="text-[10px] sm:text-xs font-medium text-slate-400 ml-0.5">MB</span>
                                     </p>
                                 </div>
                             </div>

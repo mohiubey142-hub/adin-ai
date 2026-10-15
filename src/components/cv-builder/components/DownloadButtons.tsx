@@ -1,17 +1,19 @@
 // src/components/cv-builder/components/DownloadButtons.tsx
+// ✅ Clear All button removed from the UI (onClear prop kept optional, so nothing else breaks).
 // ✅ NEW: PNG download button — added alongside Copy / PDF / TXT.
 //         The actual capture logic lives in the parent (CVBuilder),
 //         which forwards the ref to <CVPreview /> via forwardRef.
 
 import React from 'react';
-import { Copy, Download, FileText, Trash2, Image as ImageIcon } from 'lucide-react';
+import { Copy, Download, FileText, Image as ImageIcon } from 'lucide-react';
 
 interface DownloadButtonsProps {
     onCopy: () => void;
     onDownloadPDF: () => void;
     onDownloadTXT: () => void;
     onDownloadPNG?: () => void;
-    onClear: () => void;
+    /** @deprecated Clear All button was removed from the UI. Kept optional so existing parents still compile. */
+    onClear?: () => void;
 }
 
 const DownloadButtons: React.FC<DownloadButtonsProps> = ({
@@ -19,10 +21,9 @@ const DownloadButtons: React.FC<DownloadButtonsProps> = ({
     onDownloadPDF,
     onDownloadTXT,
     onDownloadPNG,
-    onClear,
 }) => {
     return (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
             <button
                 onClick={onCopy}
                 aria-label="Copy CV"
@@ -74,19 +75,6 @@ const DownloadButtons: React.FC<DownloadButtonsProps> = ({
                 </div>
                 <span className="text-xs md:text-sm font-semibold text-slate-800 tracking-tight">
                     Plain Text
-                </span>
-            </button>
-
-            <button
-                onClick={onClear}
-                aria-label="Clear all data"
-                className="group flex flex-col items-center justify-center gap-2.5 py-5 md:py-6 rounded-2xl bg-white border border-slate-200 hover:border-red-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-red-500/10 focus:outline-none focus:ring-4 focus:ring-red-500/15 transition-all duration-200"
-            >
-                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-sm shadow-red-500/25 group-hover:scale-105 transition-transform duration-200">
-                    <Trash2 size={19} className="text-white" strokeWidth={2.4} />
-                </div>
-                <span className="text-xs md:text-sm font-semibold text-slate-800 tracking-tight">
-                    Clear All
                 </span>
             </button>
         </div>

@@ -17,6 +17,7 @@ import { countryCodes } from '../constants/cvDefaults';
 import { formatPhoneNumber, getCountryFormat } from '../utils/phoneValidation';
 import { validateAndSuggestEmail } from '../utils/aiGenerators';
 import ImageCropperModal from '../components/ImageCropperModal';
+import CountrySelect, { getDialCode } from '../components/CountrySelect';
 // ✅ NEW: Compression helper
 import { compressImage } from '../utils/imageUtils';
 
@@ -52,6 +53,16 @@ const PersonalSection: React.FC<PersonalSectionProps> = ({
     phoneError,
 }) => {
     const currentCountry = countryCodes.find(c => c.code === selectedCountryCode);
+    const dialCode = currentCountry ? getDialCode(currentCountry) : selectedCountryCode;
+    // ✅ FIX: formatters already put the dial code inside phoneNumber ("+92 312 ..."),
+    // so strip it for display — the input prepends dialCode itself (no duplicate).
+    const displayPhone = (() => {
+        const dialDigits = dialCode.replace(/\D/g, '');
+        const n = (phoneNumber || '').trim();
+        if (n.startsWith('+' + dialDigits)) return n.slice(dialDigits.length + 1).trim();
+        if (n.startsWith('+')) return n.replace(/^\+\d{1,4}\s+/, '').trim();
+        return n;
+    })();
     const [emailSuggestion, setEmailSuggestion] = useState<string | null>(null);
     const titleInputRef = useRef<HTMLInputElement>(null);
 
@@ -96,8 +107,16 @@ const PersonalSection: React.FC<PersonalSectionProps> = ({
     // =====================================================
     // Phone handlers — UNCHANGED
     // =====================================================
-    const handlePhoneInputChange = (value: string) => {
-        const formatted = formatPhoneNumber(value, selectedCountryCode);
+    // Input shows "+92 3123456789"; we strip the dial-code prefix before formatting
+    const handlePhoneInputChange = (raw: string) => {
+        let rest = raw;
+        if (raw.startsWith(dialCode)) {
+            rest = raw.slice(dialCode.length);
+        } else {
+            const i = raw.indexOf(' ');
+            rest = i >= 0 ? raw.slice(i) : '';
+        }
+        const formatted = formatPhoneNumber(rest.replace(/\D/g, ''), selectedCountryCode);
         handlePhoneChange(formatted);
     };
 
@@ -375,29 +394,11 @@ const PersonalSection: React.FC<PersonalSectionProps> = ({
                     Phone Number <span className="text-red-500">*</span>
                 </label>
                 <div className="space-y-2">
-                    <div className="relative">
-                        <select
-                            value={selectedCountryCode}
-                            onChange={e => handleCountryChange(e.target.value)}
-                            className="w-full appearance-none rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-900 text-sm font-medium text-center outline-none transition-all duration-200 px-4 py-3 cursor-pointer"
-                            style={{ textAlignLast: 'center' }}
-                        >
-                            {countryCodes.map(cc => (
-                                <option key={cc.code} value={cc.code} className="text-left">
-                                    {cc.flag} {cc.dialCode} ({cc.country})
-                                </option>
-                            ))}
-                        </select>
-                        <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
-                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                                <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                        </div>
-                    </div>
+                    <CountrySelect value={selectedCountryCode} onChange={handleCountryChange} />
                     <input
                         type="tel"
                         placeholder={getPhonePlaceholder()}
-                        value={phoneNumber}
+                        value={`${dialCode} ${displayPhone}`}
                         onChange={e => handlePhoneInputChange(e.target.value)}
                         className={`${baseInput} text-center tracking-wide ${
                             (errors.phone || phoneError) && phoneNumber ? errorInput : normalInput

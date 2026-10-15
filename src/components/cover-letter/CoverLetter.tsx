@@ -1,11 +1,13 @@
 // src/components/cover-letter/CoverLetter.tsx
 // ✅ UPDATED: FeedbackFullScreen (single-screen, Design C) replaces FeedbackModal + Widget
 // ✅ FIX: Removed widget visibility tracking
+// ✅ FIX: CV autofill now also sets the country code (and stores phone as digits only)
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import {
-  Trash2, Copy, Download, FileText, Eye, CheckCircle2, Sparkles, X, ChevronDown, MessageCircle, Maximize, Minimize, Image as ImageIcon, Pencil,
+  Trash2, Copy, Download, FileText, Eye, CheckCircle2, Sparkles, ChevronDown, MessageCircle, Maximize, Minimize, Image as ImageIcon, Pencil,
+  Check, RefreshCw, Zap, Ban, // ✅ NEW: icons for the permanent CV autofill panel
 } from 'lucide-react';
 
 import Step1Details from './steps/Step1Details';
@@ -45,12 +47,13 @@ import {
 
 import {
   CVExtractedData,
-  fetchMostRecentCVData,
   getCVCount,
   listUserCVs,
   extractDataFromCV,
 } from './utils/cvDataFetcher';
 import { CVDocumentMeta } from '../cv-builder/types/documentTypes';
+// ✅ NEW: same country list that Step1Details uses (for CV phone -> country code mapping)
+import { countryCodes } from './constants/cvDefaults';
 import { syncService } from '../../services/sync/syncService';
 import { SYNC_CONFIG } from '../../services/sync/config';
 
@@ -70,6 +73,52 @@ const TEMPLATE_STORAGE_KEY = 'adin-selected-cover-template';
 
 const isRealPhoto = (p: string | null | undefined): boolean => {
   return !!p && typeof p === 'string' && p.length > 500;
+};
+
+// ✅ NEW: default country code (same as the form's initial value)
+const DEFAULT_COUNTRY_CODE = '+92';
+
+const dialDigits = (c: { code: string; dialCode?: string }): string =>
+  (c.dialCode || c.code).replace(/\D/g, '');
+
+// ✅ NEW: CV ka raw phone ("+92 300 1234567", "0092-300-...", "0300 1234567")
+// ko form format me convert karta hai: { code, digits }.
+// code = countryCodes list ka `code` (wahi jo Step1Details me use hota hai)
+const parsePhoneForForm = (raw: string, currentCode: string): { code: string; digits: string } => {
+  const trimmed = (raw || '').trim();
+  let digits = trimmed.replace(/\D/g, '');
+  if (!digits) return { code: currentCode, digits: '' };
+
+  const isInternational = trimmed.startsWith('+') || trimmed.startsWith('00');
+
+  if (isInternational) {
+    if (trimmed.startsWith('00')) digits = digits.slice(2);
+
+    // Sabse lamba matching dial code (taake +1 aur +1242 confuse na hon)
+    let best = 0;
+    for (const c of countryCodes) {
+      const d = dialDigits(c);
+      if (d && digits.startsWith(d) && d.length > best) best = d.length;
+    }
+
+    if (best > 0) {
+      const national = digits.slice(best).replace(/^0+/, '');
+      const candidates = countryCodes.filter(
+        (c) => dialDigits(c).length === best && digits.startsWith(dialDigits(c))
+      );
+      // Same dial code wale countries me se wo lo jiski digit length match kare
+      const match = candidates.find((c) => c.length === national.length) || candidates[0];
+      return { code: match.code, digits: national };
+    }
+    return { code: currentCode, digits };
+  }
+
+  // Local number (bina +): current country rakho, sirf trunk "0" hatao (0300... -> 300...)
+  const cur = countryCodes.find((c) => c.code === currentCode);
+  if (cur && digits.startsWith('0') && digits.length === cur.length + 1) {
+    digits = digits.slice(1);
+  }
+  return { code: currentCode, digits };
 };
 
 const stripImageFromData = (data: any) => {
@@ -270,11 +319,67 @@ type TabType = 'edit' | 'preview';
 
 type SectionKey = 'personal' | 'job' | 'experience' | 'skills';
 
+// ✅ NEW: named constants for CV fetch (no magic values)
+const EMPTY_TEXT = '';
+const ALL_SECTIONS_OPEN: Record<SectionKey, boolean> = {
+  personal: true,
+  job: true,
+  experience: true,
+  skills: true,
+};
+
+// ✅ NEW: "Restore previous" — CV fetch se pehle ka poora form data + CV link state
+const RESTORE_TOAST_DURATION_MS = 10000;
+const RESTORE_TOAST_ID = 'cl-restore-previous';
+
+const FORM_TEXT_KEYS = [
+  'userName', 'email', 'phoneNumber', 'address', 'linkedin',
+  'jobTitle', 'company', 'jobDescription', 'hiringManagerName', 'currentPosition',
+  'currentTitle', 'currentCompany', 'yearsOfExperience', 'experience', 'education', 'projects',
+  'skills', 'additionalInfo',
+] as const;
+
+type FormTextKey = typeof FORM_TEXT_KEYS[number];
+
+type FormSnapshot = Record<FormTextKey, string> & {
+  selectedCountryCode: string; // ✅ NEW: so "Restore previous" also restores the country code
+  cvDataLoaded: boolean;
+  cvSourceId: string | null;
+  cvData: CVExtractedData | null;
+  selectedCVId: string | null;
+  lastAppliedCV: CVExtractedData | null;
+};
+
 const DEFAULT_OPEN_STATE: Record<SectionKey, boolean> = {
   personal: true,
   job: false,
   experience: false,
   skills: false,
+};
+
+// ✅ NEW: helpers for the permanent CV autofill panel
+const CV_NONE = '__none__'; // "None" option in the CV picker (default)
+
+const getCVEditedAt = (cv: CVDocumentMeta): unknown => {
+  const c = cv as any;
+  return c?.lastEdited ?? c?.updatedAt ?? c?.lastModified ?? null;
+};
+
+const formatCVEditedAgo = (value: unknown): string | null => {
+  if (value === null || value === undefined || value === '') return null;
+  let t = typeof value === 'number' ? value : new Date(value as any).getTime();
+  if (!t || isNaN(t)) return null;
+  if (t < 1e12) t *= 1000;
+  const mins = Math.floor((Date.now() - t) / 60000);
+  if (mins < 1) return 'Edited just now';
+  if (mins < 60) return `Edited ${mins} min ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `Edited ${hrs} hr${hrs === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `Edited ${days} day${days === 1 ? '' : 's'} ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `Edited ${months} mo ago`;
+  return `Edited ${Math.floor(months / 12)} yr ago`;
 };
 
 const CoverLetter = ({
@@ -409,7 +514,7 @@ const CoverLetter = ({
   const [userName, setUserName] = useState('');
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [selectedCountryCode, setSelectedCountryCode] = useState('+92');
+  const [selectedCountryCode, setSelectedCountryCode] = useState(DEFAULT_COUNTRY_CODE);
   const [address, setAddress] = useState('');
   const [linkedin, setLinkedin] = useState('');
   const [education, setEducation] = useState('');
@@ -437,8 +542,12 @@ const CoverLetter = ({
   const [cvData, setCvData] = useState<CVExtractedData | null>(null);
   const [cvList, setCvList] = useState<CVDocumentMeta[]>([]);
   const [selectedCVId, setSelectedCVId] = useState<string | null>(null);
+  // ✅ NEW: remembers what the previously selected CV auto-filled, so switching CVs can replace it (but never manual edits)
+  const lastAppliedCVRef = useRef<CVExtractedData | null>(null);
   const [isLoadingCV, setIsLoadingCV] = useState(false);
-  const [cvBannerDismissed, setCvBannerDismissed] = useState(false);
+  // ✅ NEW: the CV autofill panel is permanent now (no dismiss) — these two control its list/compact state
+  const [cvListReady, setCvListReady] = useState(false);
+  const [cvPanelCompact, setCvPanelCompact] = useState<boolean | null>(null);
 
   const [mobileActiveTab, setMobileActiveTab] = useState<TabType>('edit');
   const [isMobile, setIsMobile] = useState(false);
@@ -531,24 +640,97 @@ const CoverLetter = ({
     } catch (e) {}
   }, [selectedTemplate, isInitialLoad]);
 
-  const applyCVDataToForm = useCallback((data: CVExtractedData) => {
-    if (!userName.trim() && data.name) setUserName(data.name);
-    if (!email.trim() && data.email) setEmail(data.email);
-    if (!phoneNumber.trim() && data.phone) setPhoneNumber(data.phone);
-    if (!address.trim() && data.address) setAddress(data.address);
-    if (!linkedin.trim() && data.linkedin) setLinkedin(data.linkedin);
-    if (!currentTitle.trim() && data.currentTitle) setCurrentTitle(data.currentTitle);
-    if (!skills.trim() && data.skills) setSkills(data.skills);
+  // ✅ NEW: always holds the latest form values, so handleCVSelect can snapshot them without extra deps
+  const latestFormRef = useRef<FormSnapshot | null>(null);
+  latestFormRef.current = {
+    userName, email, phoneNumber, address, linkedin,
+    jobTitle, company, jobDescription, hiringManagerName, currentPosition,
+    currentTitle, currentCompany, yearsOfExperience, experience, education, projects,
+    skills, additionalInfo,
+    selectedCountryCode, // ✅ NEW
+    cvDataLoaded, cvSourceId, cvData, selectedCVId,
+    lastAppliedCV: lastAppliedCVRef.current,
+  };
 
+  const restorePreviousForm = useCallback((snap: FormSnapshot) => {
+    setUserName(snap.userName);
+    setEmail(snap.email);
+    setPhoneNumber(snap.phoneNumber);
+    setSelectedCountryCode(snap.selectedCountryCode); // ✅ NEW
+    setAddress(snap.address);
+    setLinkedin(snap.linkedin);
+    setJobTitle(snap.jobTitle);
+    setCompany(snap.company);
+    setJobDescription(snap.jobDescription);
+    setHiringManagerName(snap.hiringManagerName);
+    setCurrentPosition(snap.currentPosition);
+    setCurrentTitle(snap.currentTitle);
+    setCurrentCompany(snap.currentCompany);
+    setYearsOfExperience(snap.yearsOfExperience);
+    setExperience(snap.experience);
+    setEducation(snap.education);
+    setProjects(snap.projects);
+    setSkills(snap.skills);
+    setAdditionalInfo(snap.additionalInfo);
+
+    lastAppliedCVRef.current = snap.lastAppliedCV;
+    setCvDataLoaded(snap.cvDataLoaded);
+    setCvSourceId(snap.cvSourceId);
+    setCvData(snap.cvData);
+    setSelectedCVId(snap.selectedCVId);
+  }, []);
+
+  const applyCVDataToForm = useCallback((data: CVExtractedData) => {
+    // ✅ UPDATED: jab bhi CV fetch ho → saare sections ka purana data (manual bhi) remove,
+    // aur sirf selected CV ka data form mein aaye. CV mein jo field nahi hai wo empty rahegi.
+
+    // Personal section
+    setUserName(data.name || EMPTY_TEXT);
+    setEmail(data.email || EMPTY_TEXT);
+
+    // ✅ FIX: phone → digits only + country code CV ke hisab se
+    // (pehle sirf raw phone set hota tha aur country code purana hi rehta tha)
+    const parsedPhone = parsePhoneForForm(
+      data.phone,
+      latestFormRef.current?.selectedCountryCode || DEFAULT_COUNTRY_CODE
+    );
+    setPhoneNumber(parsedPhone.digits || EMPTY_TEXT);
+    setSelectedCountryCode(parsedPhone.code);
+
+    setAddress(data.address || EMPTY_TEXT);
+    setLinkedin(data.linkedin || EMPTY_TEXT);
+
+    // Job section (target job — CV se nahi aata, isliye clear)
+    setJobTitle(EMPTY_TEXT);
+    setCompany(EMPTY_TEXT);
+    setJobDescription(EMPTY_TEXT);
+    setHiringManagerName(EMPTY_TEXT);
+    setCurrentPosition(EMPTY_TEXT);
+
+    // Experience section
+    setCurrentTitle(data.currentTitle || EMPTY_TEXT);
+    setCurrentCompany(data.currentCompany || EMPTY_TEXT);
+    setYearsOfExperience(data.yearsOfExperience > 0 ? String(data.yearsOfExperience) : EMPTY_TEXT);
+    setExperience(EMPTY_TEXT);
+    setEducation(EMPTY_TEXT);
+    setProjects(EMPTY_TEXT);
+
+    // Skills section
+    setSkills(data.skills || EMPTY_TEXT);
+    setAdditionalInfo(EMPTY_TEXT);
+
+    lastAppliedCVRef.current = data;
     setCvDataLoaded(true);
     setCvSourceId(data.sourceId);
     setCvData(data);
-  }, [userName, email, phoneNumber, address, linkedin, currentTitle, skills]);
+    setOpenSections({ ...ALL_SECTIONS_OPEN });
+  }, []);
 
   useEffect(() => {
     if (!userId) return;
-    if (documentId) return;
 
+    // ✅ NEW: panel is permanent → the CV list is ALWAYS loaded (new docs, saved docs, after refresh).
+    // Nothing is auto-filled — the picker starts on "None" and the user chooses a CV.
     let cancelled = false;
 
     (async () => {
@@ -558,14 +740,8 @@ const CoverLetter = ({
         if (cancelled) return;
 
         if (count === 0) {
-          setIsLoadingCV(false);
-          return;
-        }
-
-        if (count === 1) {
-          const data = await fetchMostRecentCVData(userId);
-          if (cancelled) return;
-          if (data) applyCVDataToForm(data);
+          setCvList([]);
+          setCvListReady(true);
           setIsLoadingCV(false);
           return;
         }
@@ -573,10 +749,11 @@ const CoverLetter = ({
         const list = await listUserCVs(userId);
         if (cancelled) return;
         setCvList(list);
-        setSelectedCVId(list[0]?.id || null);
+        setCvListReady(true);
         setIsLoadingCV(false);
       } catch (e) {
         console.error('[CoverLetter] Failed to fetch CV data:', e);
+        setCvListReady(true);
         setIsLoadingCV(false);
       }
     })();
@@ -588,22 +765,102 @@ const CoverLetter = ({
     if (!cvId || !userId) return;
     try {
       setIsLoadingCV(true);
+
       const data = await extractDataFromCV(userId, cvId);
-      if (data) applyCVDataToForm(data);
+      if (data) {
+        // ✅ NEW: CV apply hone se pehle purana data save karo (restore ke liye)
+        const previous: FormSnapshot | null = latestFormRef.current
+          ? { ...latestFormRef.current, lastAppliedCV: lastAppliedCVRef.current }
+          : null;
+        const hadPreviousData = !!previous && FORM_TEXT_KEYS.some((key) => previous[key].trim());
+
+        applyCVDataToForm(data);
+        // ✅ NEW: keep panel in sync + give feedback
+        setSelectedCVId(cvId);
+        setCvPanelCompact(true);
+
+        if (previous && hadPreviousData) {
+          toast.custom(
+            (t) => (
+              <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-lg">
+                <span className="text-sm text-slate-800">
+                  Details fetched from "{data.sourceTitle}"
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    restorePreviousForm(previous);
+                    toast.dismiss(t.id);
+                    toast.success('Previous data restored');
+                  }}
+                  className="rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-purple-700"
+                >
+                  Restore previous
+                </button>
+              </div>
+            ),
+            { id: RESTORE_TOAST_ID, duration: RESTORE_TOAST_DURATION_MS }
+          );
+        } else {
+          toast.success(`Details fetched from "${data.sourceTitle}"`);
+        }
+      } else {
+        toast.error('Could not read this CV');
+      }
     } catch (e) {
       console.error('[CoverLetter] Failed to extract CV:', e);
       toast.error('Failed to load CV data');
     } finally {
       setIsLoadingCV(false);
     }
-  }, [userId, applyCVDataToForm]);
+  }, [userId, applyCVDataToForm, restorePreviousForm]);
 
-  const handleDismissCVBanner = useCallback(() => {
-    setCvBannerDismissed(true);
+  // ✅ NEW: "None" → disconnect from the CV AND remove the values that CV auto-filled
+  // (fields the user edited manually are kept)
+  const handleUnlinkCV = useCallback(async () => {
+    let filled: CVExtractedData | null = lastAppliedCVRef.current;
+
+    // After a refresh the ref is empty — rebuild what the linked CV had filled in
+    if (!filled && cvSourceId && userId) {
+      try {
+        filled = await extractDataFromCV(userId, cvSourceId);
+      } catch (e) {
+        console.warn('[CoverLetter] Could not read linked CV while disconnecting:', e);
+      }
+    }
+
+    if (filled) {
+      const same = (current: string, filledValue?: string) =>
+        !!filledValue && current.trim() === filledValue.trim();
+
+      if (same(userName, filled.name)) setUserName('');
+      if (same(email, filled.email)) setEmail('');
+
+      // ✅ FIX: state me phone digits-only hota hai, isliye parsed value se compare karo
+      const parsedPhone = parsePhoneForForm(filled.phone, selectedCountryCode);
+      if (parsedPhone.digits && phoneNumber.trim() === parsedPhone.digits) {
+        setPhoneNumber('');
+        setSelectedCountryCode(DEFAULT_COUNTRY_CODE); // CV ka country code bhi hata do
+      }
+
+      if (same(address, filled.address)) setAddress('');
+      if (same(linkedin, filled.linkedin)) setLinkedin('');
+      if (same(currentTitle, filled.currentTitle)) setCurrentTitle('');
+      if (same(skills, filled.skills)) setSkills('');
+      if (same(currentCompany, filled.currentCompany)) setCurrentCompany('');
+      if (filled.yearsOfExperience > 0 && yearsOfExperience.trim() === String(filled.yearsOfExperience)) {
+        setYearsOfExperience('');
+      }
+    }
+
     setCvData(null);
     setCvDataLoaded(false);
     setCvSourceId(null);
-  }, []);
+    setSelectedCVId(null);
+    setCvPanelCompact(true); // close the picker after disconnecting
+    lastAppliedCVRef.current = null;
+    toast.success('CV disconnected. Autofilled details were removed.');
+  }, [userId, cvSourceId, userName, email, phoneNumber, selectedCountryCode, address, linkedin, currentTitle, skills, currentCompany, yearsOfExperience]);
 
   useEffect(() => {
     if (documentId && documentId !== internalDocumentId) {
@@ -1262,104 +1519,286 @@ const CoverLetter = ({
     }));
   }, []);
 
+  // ✅ NEW: permanent "Smart CV Autofill" panel — always rendered at the very top of the form
   const renderCVBanner = () => {
-    if (cvBannerDismissed) return null;
     if (!userId) return null;
-    if (documentId) return null;
 
-    if (isLoadingCV) {
+    // Loading skeleton (first load only)
+    if (!cvListReady) {
       return (
-        <div className="mb-4 rounded-2xl p-4 bg-purple-50 border border-purple-200 flex items-center gap-3">
-          <div className="w-5 h-5 rounded-full border-2 border-purple-600 border-t-transparent animate-spin shrink-0" />
-          <p className="text-sm text-purple-700 font-medium">Loading your CV data...</p>
+        <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-slate-100 animate-pulse shrink-0" />
+          <div className="flex-1 space-y-2">
+            <div className="h-3 w-40 max-w-full rounded-full bg-slate-100 animate-pulse" />
+            <div className="h-2.5 w-56 max-w-full rounded-full bg-slate-100 animate-pulse" />
+          </div>
         </div>
       );
     }
 
-    if (cvList.length === 0 && !cvData) return null;
-
-    if (cvList.length > 1) {
+    // Empty state — no saved CVs
+    if (cvList.length === 0) {
       return (
-        <div className="mb-4 rounded-2xl p-4 bg-gradient-to-br from-purple-50 to-blue-50 border border-purple-200">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-purple-500 flex items-center justify-center shrink-0 shadow-sm">
-              <Sparkles size={18} className="text-white" />
+        <div className="mb-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
+              <FileText size={18} className="text-slate-500" />
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-sm font-semibold text-slate-900">Auto-fill from CV</h3>
-                  <p className="text-xs text-slate-600 mt-0.5">
-                    We found {cvList.length} CVs. Choose one to auto-fill your details.
-                  </p>
-                </div>
-                <button
-                  onClick={handleDismissCVBanner}
-                  className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white/60 transition-colors"
-                  aria-label="Dismiss"
-                >
-                  <X size={16} />
-                </button>
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-slate-900 tracking-tight">Smart CV Autofill</h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                No saved CV found yet. Create one in the CV Builder and your details will autofill here in one click.
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const linkedCV = cvSourceId ? cvList.find((cv) => cv.id === cvSourceId) || null : null;
+    const isSynced = cvDataLoaded && !!linkedCV;
+
+    // Selection: explicit choice → linked CV (if synced) → None (default)
+    const chosen =
+      selectedCVId === CV_NONE
+        ? CV_NONE
+        : selectedCVId && cvList.some((cv) => cv.id === selectedCVId)
+          ? selectedCVId
+          : isSynced && linkedCV
+            ? linkedCV.id
+            : CV_NONE;
+    const isNoneSelected = chosen === CV_NONE;
+    const activeCVId = isNoneSelected ? null : chosen;
+
+    const isSameAsLinked = isSynced && activeCVId === cvSourceId;
+    const linkedTitle = cvData?.sourceTitle || linkedCV?.title || 'Untitled CV';
+    const isCompact = cvPanelCompact === null ? true : cvPanelCompact; // ✅ NEW: closed by default — opens only when the user taps "Choose CV" / "Change CV"
+    const isDisconnectMode = isNoneSelected && isSynced;
+
+    // Quick summary chips of what was detected (only right after a fetch)
+    const detected: string[] = [];
+    if (isSynced && cvData && cvData.sourceId === cvSourceId) {
+      if (cvData.name) detected.push(cvData.name);
+      if (cvData.currentTitle) {
+        detected.push(cvData.currentCompany ? `${cvData.currentTitle} @ ${cvData.currentCompany}` : cvData.currentTitle);
+      }
+      if (cvData.yearsOfExperience > 0) {
+        detected.push(`${cvData.yearsOfExperience} ${cvData.yearsOfExperience === 1 ? 'yr' : 'yrs'} experience`);
+      }
+      const skillCount = cvData.skills ? cvData.skills.split(',').filter((x) => x.trim()).length : 0;
+      if (skillCount > 0) detected.push(`${skillCount} skills`);
+    }
+
+    const radioDot = (selected: boolean) => (
+      <span
+        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+          selected ? 'border-purple-600 bg-purple-600' : 'border-slate-300 bg-white'
+        }`}
+      >
+        {selected && <Check size={11} className="text-white" strokeWidth={3.5} />}
+      </span>
+    );
+
+    const optionClass = (selected: boolean) =>
+      `group w-full flex items-center gap-3 rounded-xl border p-2.5 text-left transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-purple-500/20 ${
+        selected
+          ? 'border-purple-500 bg-purple-50/60'
+          : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+      }`;
+
+    return (
+      <div className="mb-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="p-4">
+          {/* Header */}
+          <div className="flex items-start gap-3">
+            <div className="relative shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-purple-600 flex items-center justify-center">
+                <Sparkles size={18} className="text-white" strokeWidth={2.2} />
               </div>
-
-              <select
-                value={selectedCVId || ''}
-                onChange={(e) => {
-                  setSelectedCVId(e.target.value);
-                  if (e.target.value) handleCVSelect(e.target.value);
-                }}
-                className="mt-3 w-full rounded-lg bg-white border border-purple-200 text-slate-900 text-sm font-medium outline-none transition-all px-3 py-2.5 cursor-pointer focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10"
-              >
-                <option value="">Select a CV...</option>
-                {cvList.map((cv) => (
-                  <option key={cv.id} value={cv.id}>
-                    {cv.title || 'Untitled CV'}
-                  </option>
-                ))}
-              </select>
-
-              {cvDataLoaded && cvData && (
-                <p className="mt-2 text-xs text-emerald-700 flex items-center gap-1.5">
-                  <CheckCircle2 size={13} />
-                  Data loaded from "{cvData.sourceTitle}"
-                </p>
+              {isSynced && (
+                <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center">
+                  <Check size={9} className="text-white" strokeWidth={3.5} />
+                </span>
               )}
             </div>
-          </div>
-        </div>
-      );
-    }
 
-    if (cvDataLoaded && cvData) {
-      return (
-        <div className="mb-4 rounded-2xl p-4 bg-gradient-to-br from-purple-50 to-blue-50 border border-purple-200">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-purple-500 flex items-center justify-center shrink-0 shadow-sm">
-              <Sparkles size={18} className="text-white" />
-            </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-sm font-semibold text-slate-900">Auto-filled from your CV</h3>
-                  <p className="text-xs text-slate-600 mt-0.5">
-                    We used "{cvData.sourceTitle}" to pre-fill your personal details. You can edit any field.
-                  </p>
-                </div>
-                <button
-                  onClick={handleDismissCVBanner}
-                  className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white/60 transition-colors"
-                  aria-label="Dismiss"
-                >
-                  <X size={16} />
-                </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm font-semibold text-slate-900 tracking-tight">Smart CV Autofill</h3>
+                {isSynced ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    Synced
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                    {cvList.length} {cvList.length === 1 ? 'CV' : 'CVs'} found
+                  </span>
+                )}
               </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {isSynced ? (
+                  <>
+                    Connected to <span className="font-medium text-slate-700">"{linkedTitle}"</span>
+                  </>
+                ) : (
+                  'Pick a CV to fill your details in one click.'
+                )}
+              </p>
             </div>
-          </div>
-        </div>
-      );
-    }
 
-    return null;
+            <button
+              type="button"
+              onClick={() => setCvPanelCompact(isCompact ? false : true)}
+              className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:border-slate-300 hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+            >
+              {isCompact ? (isSynced ? 'Change CV' : 'Choose CV') : isSynced ? 'Done' : 'Close'}
+              <ChevronDown size={13} className={`transition-transform duration-200 ${isCompact ? '' : 'rotate-180'}`} />
+            </button>
+          </div>
+
+          {/* Detected summary chips */}
+          {detected.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {detected.map((d) => (
+                <span
+                  key={d}
+                  className="inline-flex items-center gap-1 rounded-lg bg-slate-50 border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-700"
+                >
+                  <Check size={10} strokeWidth={3} className="text-emerald-600" />
+                  {d}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* CV picker + Auto-fetch button */}
+          {!isCompact && (
+            <div className="mt-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Choose a CV</span>
+                <span className="text-[11px] text-slate-400">{cvList.length} saved</span>
+              </div>
+
+              {/* ✅ NEW: purple themed scrollbar for the CV list */}
+              <style>{`
+                .cv-picker-scroll { scrollbar-width: thin; scrollbar-color: #c084fc transparent; }
+                .cv-picker-scroll::-webkit-scrollbar { width: 6px; }
+                .cv-picker-scroll::-webkit-scrollbar-track { background: transparent; }
+                .cv-picker-scroll::-webkit-scrollbar-thumb { background: #d8b4fe; border-radius: 9999px; }
+                .cv-picker-scroll::-webkit-scrollbar-thumb:hover { background: #a855f7; }
+              `}</style>
+              <div className="cv-picker-scroll max-h-60 overflow-y-auto space-y-2 pr-1" role="radiogroup" aria-label="Choose a CV to autofill from">
+                {/* ✅ NEW: "None" option (default) */}
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={isNoneSelected}
+                  onClick={() => setSelectedCVId(CV_NONE)}
+                  className={optionClass(isNoneSelected)}
+                >
+                  <div
+                    className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 border transition-colors ${
+                      isNoneSelected
+                        ? 'bg-purple-600 border-purple-600 text-white'
+                        : 'bg-white border-dashed border-slate-300 text-slate-400 group-hover:border-slate-400 group-hover:text-slate-500'
+                    }`}
+                  >
+                    <Ban size={17} strokeWidth={1.75} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">None</p>
+                    <p className="text-[11px] text-slate-500 truncate">Don't autofill from a CV</p>
+                  </div>
+                  {radioDot(isNoneSelected)}
+                </button>
+
+                {cvList.map((cv) => {
+                  const isSelected = cv.id === activeCVId;
+                  const isLinked = cvDataLoaded && cv.id === cvSourceId;
+                  const edited = formatCVEditedAgo(getCVEditedAt(cv));
+                  const label = cv.title || 'Untitled CV';
+                  return (
+                    <button
+                      key={cv.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={isSelected}
+                      onClick={() => setSelectedCVId(cv.id)}
+                      className={optionClass(isSelected)}
+                    >
+                      <div
+                        className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 text-sm font-bold transition-colors ${
+                          isSelected ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'
+                        }`}
+                      >
+                        {label.trim().charAt(0).toUpperCase() || 'C'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-slate-900 truncate">{label}</p>
+                        <p className="text-[11px] text-slate-500 truncate">
+                          {isLinked ? `Currently synced${edited ? ` · ${edited}` : ''}` : edited || 'Saved CV'}
+                        </p>
+                      </div>
+                      {radioDot(isSelected)}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (isNoneSelected) {
+                    if (isSynced) handleUnlinkCV();
+                    return;
+                  }
+                  if (activeCVId) handleCVSelect(activeCVId);
+                }}
+                disabled={isLoadingCV || (isNoneSelected && !isSynced)}
+                className={`mt-3 w-full inline-flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-purple-500/30 disabled:cursor-not-allowed ${
+                  isDisconnectMode
+                    ? 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:text-slate-400'
+                    : 'bg-purple-600 text-white hover:bg-purple-700 disabled:bg-slate-100 disabled:text-slate-400'
+                }`}
+              >
+                {isLoadingCV ? (
+                  <>
+                    <span className="w-4 h-4 rounded-full border-2 border-slate-300 border-t-slate-500 animate-spin" />
+                    Fetching details...
+                  </>
+                ) : isDisconnectMode ? (
+                  <>
+                    <Ban size={15} strokeWidth={2} />
+                    Disconnect CV
+                  </>
+                ) : isNoneSelected ? (
+                  <>
+                    <Zap size={15} strokeWidth={2.4} />
+                    Select a CV to autofill
+                  </>
+                ) : isSameAsLinked ? (
+                  <>
+                    <RefreshCw size={15} strokeWidth={2.4} />
+                    Re-fetch from this CV
+                  </>
+                ) : (
+                  <>
+                    <Zap size={15} strokeWidth={2.4} />
+                    Auto-fetch details
+                  </>
+                )}
+              </button>
+              <p className="mt-2 text-center text-[11px] text-slate-400">
+                {isNoneSelected && !isSynced
+                  ? 'Nothing is filled until you pick a CV.'
+                  : 'Your manual edits are never overwritten.'}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
   const renderActionButtons = () => (
