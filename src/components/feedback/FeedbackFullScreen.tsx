@@ -9,6 +9,10 @@
 // ✅ Pure CSS spinner — always smooth, never breaks
 // ✅ FIXED: Scrollbar hidden (content still scrolls, no visual scrollbar)
 // ✅ FIXED: Feedback UI stays centered on all screen sizes, no clipping
+// ✅ FIXED: Scroll works even when opened from workspace pages (body scroll lock)
+// ✅ FIXED: Removed the OLD non-working page scrollbar while modal is open
+// ✅ FIXED: Closing the modal (X / backdrop / ESC) no longer auto-submits.
+//           Feedback is ONLY sent when the user explicitly clicks Send.
 
 import { useState, useEffect, useRef } from 'react';
 import { X, Star, Lock, Check, Plus } from 'lucide-react';
@@ -107,12 +111,81 @@ export default function FeedbackFullScreen({
     return () => window.removeEventListener('keydown', handleEsc);
   }, [isOpen, rating]);
 
-  // Body scroll lock
+  // ✅ Body scroll lock — safely preserves any existing overflow value
+  // and forces html+body lock so the fixed overlay's own scroll works
+  // regardless of which workspace page is underneath.
+  //
+  // 🆕 KILLS the OLD non-working page scrollbar (WorkspacePage injects
+  //    `overflow-y: auto !important` on html/body/* via a <style> tag).
+  //    We counteract it with an equally-important override while the modal
+  //    is open, and cleanly remove it on close.
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-      return () => { document.body.style.overflow = ''; };
-    }
+    if (!isOpen) return;
+
+    const html = document.documentElement;
+    const body = document.body;
+
+    // Snapshot previous inline styles so we can restore them exactly
+    const prev = {
+      htmlOverflow: html.style.overflow,
+      bodyOverflow: body.style.overflow,
+      htmlOverscroll: html.style.overscrollBehavior,
+      bodyOverscroll: body.style.overscrollBehavior,
+      htmlOverflowY: (html.style as any).overflowY,
+      bodyOverflowY: (body.style as any).overflowY,
+    };
+
+    // ✅ Inline styles with !important via setProperty — these beat
+    //    WorkspacePage's <style> tag `overflow-y: auto !important` rules.
+    html.style.setProperty('overflow', 'hidden', 'important');
+    html.style.setProperty('overflow-y', 'hidden', 'important');
+    body.style.setProperty('overflow', 'hidden', 'important');
+    body.style.setProperty('overflow-y', 'hidden', 'important');
+    html.style.setProperty('overscroll-behavior', 'contain', 'important');
+    body.style.setProperty('overscroll-behavior', 'contain', 'important');
+
+    // ✅ Also neutralize the nested workspace elements that WorkspacePage
+    //    forces to `overflow-y: visible !important` — this kills the old
+    //    dead scrollbar that appears at the page level.
+    const oldStyleId = 'feedback-scroll-killswitch';
+    const killStyle = document.createElement('style');
+    killStyle.id = oldStyleId;
+    killStyle.textContent = `
+      html, body {
+        overflow: hidden !important;
+        overflow-y: hidden !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        overscroll-behavior: contain !important;
+      }
+      html::-webkit-scrollbar,
+      body::-webkit-scrollbar {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+      }
+      html, body {
+        scrollbar-width: none !important;
+        -ms-overflow-style: none !important;
+      }
+    `;
+    document.head.appendChild(killStyle);
+
+    return () => {
+      // Restore inline styles
+      html.style.overflow = prev.htmlOverflow;
+      body.style.overflow = prev.bodyOverflow;
+      html.style.overscrollBehavior = prev.htmlOverscroll;
+      body.style.overscrollBehavior = prev.bodyOverscroll;
+      (html.style as any).overflowY = prev.htmlOverflowY || '';
+      (body.style as any).overflowY = prev.bodyOverflowY || '';
+
+      // Remove the override <style> so WorkspacePage's own rules re-take effect
+      const existing = document.getElementById(oldStyleId);
+      if (existing && existing.parentNode) {
+        existing.parentNode.removeChild(existing);
+      }
+    };
   }, [isOpen]);
 
   // ═══════════════════════════════════════════════════════════════
@@ -122,29 +195,14 @@ export default function FeedbackFullScreen({
     setRating(value);
   };
 
+  // ✅ FIXED: Closing the modal NEVER submits feedback anymore.
+  //           Only `handleSend` submits — matches the intended UX.
   const handleClose = () => {
-    if (rating > 0 && !isSubmitting) {
-      submitSilently();
-    }
     setIsClosing(true);
     setTimeout(() => {
       setIsClosing(false);
       onClose();
     }, 250);
-  };
-
-  const submitSilently = async () => {
-    try {
-      await submitFeedback({
-        rating,
-        message: message.trim() || undefined,
-        email: wantsReply ? email.trim() : undefined,
-        wantsReply,
-        source,
-        timestamp: new Date().toISOString(),
-      });
-      recordFeedbackTier(source, !!message.trim(), wantsReply);
-    } catch { /* silent */ }
   };
 
   const handleBackdropClick = (e: React.MouseEvent) => {
@@ -239,8 +297,17 @@ export default function FeedbackFullScreen({
           <X size={18} strokeWidth={2} />
         </button>
 
-        {/* Scrollable content wrapper — scrollbar hidden, content stays centered */}
-        <div className="feedback-scroll absolute inset-0 overflow-y-auto overflow-x-hidden">
+        {/* ✅ The ONLY scrollable element while the modal is open.
+            Uses touch-action + overscroll-behavior for reliable mobile scrolling. */}
+        <div
+          className="feedback-scroll absolute inset-0 overflow-y-auto overflow-x-hidden"
+          style={{
+            WebkitOverflowScrolling: 'touch',
+            overscrollBehavior: 'contain',
+            touchAction: 'pan-y',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
           <div
             className={`min-h-full flex flex-col items-center justify-center px-5 sm:px-8 py-16 sm:py-20 transition-all duration-300 ${
               isClosing ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
@@ -446,6 +513,7 @@ export default function FeedbackFullScreen({
         .feedback-scroll {
           scrollbar-width: none;          /* Firefox */
           -ms-overflow-style: none;       /* IE / Edge legacy */
+          -webkit-overflow-scrolling: touch;
         }
         .feedback-scroll::-webkit-scrollbar {
           display: none;                  /* Chrome / Safari / Edge */

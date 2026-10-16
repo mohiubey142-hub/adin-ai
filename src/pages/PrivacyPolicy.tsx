@@ -5,6 +5,10 @@
 // ✅ Full detailed content
 // ✅ Auto-sync disclosure clarified
 // ✅ User ID + PIN flow
+// ✅ UPDATED: Removed "No Ads" / "No ads, no watermarks" claims (both in
+//             the "Your Benefits & Guest Account" list and the "Pricing &
+//             Charges" section). Kept "No watermarks" — a core product
+//             promise — and stayed consistent with the landing page.
 
 import { SEOHead } from "../components/SEO/SEOHead";
 import { getSEOConfig } from "../utils/seoPages";
@@ -102,7 +106,7 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
                 At Adin AI, we take your privacy seriously. This Privacy Policy explains what information we collect, how we use it, where we store it, and what rights you have over your data.
               </p>
               <p>
-                Adin AI is a <strong className="text-slate-800">100% free</strong> career platform that helps you build CVs, write cover letters, and prepare for job applications using AI. There are no hidden charges, no premium tiers, and no paid upgrades. To provide these features reliably, we need to store and sync your data securely. This policy tells you exactly how.
+                Adin AI is a <strong className="text-slate-800">100% free</strong> career platform that helps you build CVs, write cover letters, and prepare for job applications using AI. There are no hidden charges and no premium tiers. To provide these features reliably, we need to store and sync your data securely. This policy tells you exactly how.
               </p>
             </Section>
 
@@ -127,8 +131,8 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
               </SubSection>
 
               <div className="space-y-3 mt-5">
-                <InfoRow label="✅ Free forever">
-                  No credit card. No premium tiers. No ads. Ever.
+                <InfoRow label="✅ Free to use">
+                  No credit card. No premium tiers.
                 </InfoRow>
                 <InfoRow label="✅ Private by default">
                   Your documents are yours. We never sell or share your data.
@@ -142,8 +146,8 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
                 <InfoRow label="✅ Full control">
                   Download your documents, delete your account, anytime.
                 </InfoRow>
-                <InfoRow label="✅ No ads, no watermarks">
-                  A clean, distraction-free experience from start to finish.
+                <InfoRow label="✅ Clean experience">
+                  A distraction-free experience from start to finish.
                 </InfoRow>
               </div>
             </Section>
@@ -543,11 +547,11 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
 
               <SubSection title="No Hidden Charges">
                 <p>
-                  Every feature you see is included. There are no "premium" templates, no "unlock" buttons, no watermarks, and no ads.
+                  Every feature you see is included. There are no "premium" templates, no "unlock" buttons, and no watermarks.
                 </p>
               </SubSection>
 
-              <SubSection title="Free Forever (Until Further Notice)">
+              <SubSection title="Free to Use (Until Further Notice)">
                 <p>
                   Adin AI is free today and we intend to keep the core features free. If we ever introduce optional paid features in the future, we will clearly announce them in advance — and existing free features will remain free.
                 </p>

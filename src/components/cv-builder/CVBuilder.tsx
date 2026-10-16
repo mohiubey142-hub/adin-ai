@@ -13,6 +13,8 @@
 //         - complete* arrays (AND logic) → for scoring/validation (unchanged behavior)
 // ✅ FIX: Button clicks no longer trigger auto-scroll (Gen buttons stay in place)
 // ✅ FIX: Mobile par section click/open karne par editor auto-scroll (desktop jaisa)
+// ✅ REMOVED: Backup reminder popup trigger from Skills section open
+//             (backup is account-level, not content-level — no more context mismatch)
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import toast from 'react-hot-toast';
@@ -508,12 +510,9 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
     const handleToggleSection = useCallback((key: SectionKey, willBeOpen: boolean) => {
         setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
 
-        if (key === 'skills' && willBeOpen) {
-            const shown = localStorage.getItem(BACKUP_REMINDER_FLAG);
-            if (shown !== 'true') {
-                setTimeout(() => setShowBackupReminder(true), 500);
-            }
-        }
+        // ✅ REMOVED: Backup reminder popup on first Skills section open.
+        //    Backup is account-level (header "Backup Help" + Profile page already cover it).
+        //    Triggering it from a content section caused a context switch and felt spammy.
 
         if (!willBeOpen) return;
 

@@ -331,6 +331,18 @@ const ALL_SECTIONS_OPEN: Record<SectionKey, boolean> = {
 // ✅ NEW: "Restore previous" — CV fetch se pehle ka poora form data + CV link state
 const RESTORE_TOAST_DURATION_MS = 10000;
 const RESTORE_TOAST_ID = 'cl-restore-previous';
+const FETCH_TOAST_DURATION_MS = 3000;
+
+// ✅ NEW: premium CV panel styling — ek hi green signal ("Synced" pill), baaki sab neutral/subtle
+const CV_PANEL_BASE_CLASS = 'mb-4 rounded-2xl border bg-white transition-all duration-300';
+const CV_PANEL_IDLE_CLASS = 'border-slate-200 shadow-sm';
+const CV_PANEL_SYNCED_CLASS = 'border-emerald-200/70 shadow-md shadow-emerald-500/5 ring-1 ring-emerald-100';
+const CV_DETECTED_PILL_CLASS = 'inline-flex items-center rounded-full bg-slate-50 border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700';
+const CV_DETECTED_FADE_STAGGER_MS = 60;
+const CV_DETECTED_FADE_CLASS = 'cv-detected-fade';
+const CV_DETECTED_FADE_KEYFRAMES = 'cv-detected-fade-in';
+const CV_DETECTED_FADE_DURATION_MS = 400;
+const CV_DETECTED_FADE_OFFSET_PX = 4;
 
 const FORM_TEXT_KEYS = [
   'userName', 'email', 'phoneNumber', 'address', 'linkedin',
@@ -779,30 +791,38 @@ const CoverLetter = ({
         setSelectedCVId(cvId);
         setCvPanelCompact(true);
 
+        // ✅ NEW: neutral toast (no green tick) — status already panel mein "Synced" se dikhta hai
+        const renderFetchToast = (toastId: string, onRestore?: () => void) => (
+          <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-lg">
+            <span className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center shrink-0">
+              <Sparkles size={15} className="text-purple-600" strokeWidth={2.2} />
+            </span>
+            <span className="text-sm text-slate-800">
+              Details fetched from "{data.sourceTitle}"
+            </span>
+            {onRestore && (
+              <button
+                type="button"
+                onClick={() => {
+                  onRestore();
+                  toast.dismiss(toastId);
+                  toast.success('Previous data restored');
+                }}
+                className="rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-purple-700"
+              >
+                Restore previous
+              </button>
+            )}
+          </div>
+        );
+
         if (previous && hadPreviousData) {
           toast.custom(
-            (t) => (
-              <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-lg">
-                <span className="text-sm text-slate-800">
-                  Details fetched from "{data.sourceTitle}"
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    restorePreviousForm(previous);
-                    toast.dismiss(t.id);
-                    toast.success('Previous data restored');
-                  }}
-                  className="rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-purple-700"
-                >
-                  Restore previous
-                </button>
-              </div>
-            ),
+            (t) => renderFetchToast(t.id, () => restorePreviousForm(previous)),
             { id: RESTORE_TOAST_ID, duration: RESTORE_TOAST_DURATION_MS }
           );
         } else {
-          toast.success(`Details fetched from "${data.sourceTitle}"`);
+          toast.custom((t) => renderFetchToast(t.id), { duration: FETCH_TOAST_DURATION_MS });
         }
       } else {
         toast.error('Could not read this CV');
@@ -1607,7 +1627,7 @@ const CoverLetter = ({
       }`;
 
     return (
-      <div className="mb-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className={`${CV_PANEL_BASE_CLASS} ${isSynced ? CV_PANEL_SYNCED_CLASS : CV_PANEL_IDLE_CLASS}`}>
         <div className="p-4">
           {/* Header */}
           <div className="flex items-start gap-3">
@@ -1615,11 +1635,6 @@ const CoverLetter = ({
               <div className="w-10 h-10 rounded-xl bg-purple-600 flex items-center justify-center">
                 <Sparkles size={18} className="text-white" strokeWidth={2.2} />
               </div>
-              {isSynced && (
-                <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center">
-                  <Check size={9} className="text-white" strokeWidth={3.5} />
-                </span>
-              )}
             </div>
 
             <div className="flex-1 min-w-0">
@@ -1657,19 +1672,25 @@ const CoverLetter = ({
             </button>
           </div>
 
-          {/* Detected summary chips */}
+          {/* Detected summary — clean pills (no ticks, no commas) */}
           {detected.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {detected.map((d) => (
-                <span
-                  key={d}
-                  className="inline-flex items-center gap-1 rounded-lg bg-slate-50 border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-700"
-                >
-                  <Check size={10} strokeWidth={3} className="text-emerald-600" />
-                  {d}
-                </span>
-              ))}
-            </div>
+            <>
+              <style>{`
+                @keyframes ${CV_DETECTED_FADE_KEYFRAMES} { from { opacity: 0; transform: translateY(${CV_DETECTED_FADE_OFFSET_PX}px); } to { opacity: 1; transform: translateY(0); } }
+                .${CV_DETECTED_FADE_CLASS} { animation: ${CV_DETECTED_FADE_KEYFRAMES} ${CV_DETECTED_FADE_DURATION_MS}ms ease-out both; }
+              `}</style>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {detected.map((d, i) => (
+                  <span
+                    key={d}
+                    className={`${CV_DETECTED_FADE_CLASS} ${CV_DETECTED_PILL_CLASS}`}
+                    style={{ animationDelay: `${i * CV_DETECTED_FADE_STAGGER_MS}ms` }}
+                  >
+                    {d}
+                  </span>
+                ))}
+              </div>
+            </>
           )}
 
           {/* CV picker + Auto-fetch button */}

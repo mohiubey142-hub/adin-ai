@@ -6,6 +6,16 @@
 // ✅ Preview modal: NO card wrapper
 // ✅ Neutral gray scrollbar (App.tsx handles globally)
 // ✅ Filter tabs: swipe/scroll works, scrollbar hidden, names never compress
+// ✅ FIXED (mobile only): last orphan card in a 2-column row is now
+//    centered via flex-wrap + justify-center. Desktop grid (3 cols)
+//    is untouched. No templates added/removed.
+//
+//    HOW IT WORKS:
+//    - Mobile  (<lg): cards use `flex flex-wrap justify-center` with fixed
+//      widths (≈50% minus gap). When the final row has only 1 card, it
+//      automatically centers — feels intentional, not broken.
+//    - Desktop (≥lg): layout reverts to the original 3-column grid exactly
+//      as before.
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
@@ -400,7 +410,9 @@ const CVTemplatesPage = ({
                 <p className="text-sm text-slate-500 mt-1">Try a different category.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6 items-start">
+              /* ✅ MOBILE (<lg): flex-wrap + justify-center → last orphan card auto-centers.
+                 DESKTOP (≥lg): reverts to the original 3-column grid, untouched. */
+              <div className="flex flex-wrap justify-center gap-3 sm:gap-4 lg:grid lg:grid-cols-3 lg:justify-normal lg:gap-6 items-start">
                 {filteredTemplates.map((template) => {
                   const isActive = template.status === "active";
                   const hasImageError = imageErrors[template.id];
@@ -412,7 +424,12 @@ const CVTemplatesPage = ({
                   return (
                     <article
                       key={template.id}
-                      className={`group relative flex flex-col bg-white rounded-xl sm:rounded-2xl border transition-all duration-200 overflow-hidden ${
+                      /* Width locked per breakpoint so 2 per row on mobile, 3 on desktop.
+                         Full width of a slot, minus half the gap, so the row math is exact. */
+                      className={`group relative flex flex-col bg-white rounded-xl sm:rounded-2xl border transition-all duration-200 overflow-hidden
+                        w-[calc(50%-6px)] sm:w-[calc(50%-8px)]
+                        lg:w-full
+                        ${
                         isSelected
                           ? "border-purple-500 ring-2 ring-purple-500/20 shadow-md"
                           : "border-slate-200 hover:border-slate-300 hover:shadow-lg hover:-translate-y-0.5"

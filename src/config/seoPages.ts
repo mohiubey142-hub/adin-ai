@@ -1,8 +1,14 @@
+// src/config/seoPages.ts
 // ============================================================
 // seoPages.ts — PER-PAGE SEO CONFIG
 // ============================================================
 // Har page ka unique title, description, keywords, canonical.
 // Sab kuch site.ts se derive hota hai — domain change = 1 file.
+//
+// ✅ UPDATED: `templates` title + description no longer claim a fixed
+//             template count. Replaced with a "growing library" framing
+//             so the copy stays honest, evergreen, and SEO-safe as the
+//             catalogue grows. No other page touched.
 // ============================================================
 
 import { SITE_CONFIG, SITE_URL, canonicalFor, OG_IMAGE } from './site';
@@ -64,11 +70,13 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
 
   // ══════════════════════════════════════════════
   // TEMPLATES — CV
+  // ✅ No fixed count in copy. "Growing library" framing keeps the
+  //    metadata evergreen and SEO-safe as the catalogue expands.
   // ══════════════════════════════════════════════
   templates: {
-    title: 'Free CV Templates — 50+ Professional & ATS-Friendly Designs',
+    title: 'Free CV Templates — Professional & ATS-Friendly Designs',
     description:
-      'Browse 50+ free professional CV templates. Choose from modern, classic, minimal, executive, and ATS-friendly designs. Download instantly as PDF, PNG, or TXT — 100% free.',
+      'Browse our growing library of free professional CV templates. Choose from modern, classic, minimal, executive, and ATS-friendly designs. Download instantly as PDF, PNG, or TXT — 100% free.',
     keywords: [
       'free cv templates',
       'professional cv templates',
@@ -80,6 +88,8 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
       'cv template pdf free download',
       'creative cv template free',
       'simple cv template free',
+      'growing cv template library',
+      'new cv templates 2026',
     ].join(', '),
     canonicalUrl: canonicalFor('/templates'),
     ...DEFAULTS,
@@ -91,7 +101,7 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
   'cover-templates': {
     title: 'Free Cover Letter Templates — Professional Designs',
     description:
-      'Choose from 6 free professional cover letter templates — classic, modern, minimal, executive, professional, and creative. Generate and download instantly. No signup required.',
+      'Choose from our growing collection of free professional cover letter templates — classic, modern, minimal, executive, professional, and creative. Generate and download instantly. No signup required.',
     keywords: [
       'free cover letter templates',
       'professional cover letter template',
@@ -101,6 +111,7 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
       'cover letter template pdf free',
       'modern cover letter template',
       'job application letter template free',
+      'new cover letter templates 2026',
     ].join(', '),
     canonicalUrl: canonicalFor('/cover-templates'),
     ...DEFAULTS,

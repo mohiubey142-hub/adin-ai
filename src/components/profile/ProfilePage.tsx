@@ -6,13 +6,18 @@
 // ✅ Body scroll lock via CSS class (overrides App.tsx !important)
 // ✅ Sectioned layout with hairline separators
 // ✅ Removed: "NEW" badge, gradient hero, decorative circles
-// ✅ NEW: "Guest Account" info button — opens a clean modal explaining
+// ✅ "Guest Account" info button — opens a clean modal explaining
 //         what a Guest Account is and why we give it.
+// ✅ UPDATED: Guest Account trigger is now a modern, discoverable pill
+//              with a Gift icon (🎁) + ArrowRight (→) — replaces the
+//              muted "Info (ⓘ)" link. Clear affordance = "click me".
+// ✅ NEW: Modal body now includes a warm welcome line: "You've been
+//         given a Guest Account" at the top, above the explanation.
 
 import React, { useEffect, useState } from 'react';
 import {
   X, Copy, CloudDownload, Download, Lock, HardDrive, Trash2, LogOut,
-  ChevronRight, Info, Gift,
+  ChevronRight, Gift, ArrowRight, Sparkles,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -199,18 +204,25 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                 {userName || 'User'}
               </h2>
 
-              {/* ✅ Guest Account — clickable info button (Option A) */}
+              {/* ✅ Guest Account — modern, discoverable pill (Gift + Arrow) */}
               <button
                 type="button"
                 onClick={() => setShowGuestInfo(true)}
                 aria-label="What is a Guest Account?"
-                className="group inline-flex items-center gap-1.5 mt-0.5 text-sm text-slate-500 hover:text-purple-600 transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/30 rounded"
+                className="group inline-flex items-center gap-1.5 mt-1.5 pl-2.5 pr-2 py-1 rounded-full bg-purple-50 border border-purple-200 text-purple-700 hover:bg-purple-100 hover:border-purple-300 hover:shadow-sm active:scale-[0.97] transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40"
               >
-                <span>Guest Account</span>
-                <Info
+                <Gift
                   size={13}
-                  strokeWidth={2.2}
-                  className="text-slate-400 group-hover:text-purple-600 transition-colors duration-150"
+                  strokeWidth={2.4}
+                  className="text-purple-600 group-hover:text-purple-700 transition-colors duration-150 shrink-0"
+                />
+                <span className="text-xs font-semibold tracking-tight whitespace-nowrap">
+                  Guest Account
+                </span>
+                <ArrowRight
+                  size={12}
+                  strokeWidth={2.6}
+                  className="text-purple-500 group-hover:text-purple-700 group-hover:translate-x-0.5 transition-all duration-200 shrink-0"
                 />
               </button>
             </div>
@@ -356,6 +368,19 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
 
             {/* Modal body */}
             <div className="guest-info-scroll flex-1 min-h-0 overflow-y-auto px-5 py-5 space-y-5">
+
+              {/* ✅ NEW: warm welcome line — explains the Guest Account was given */}
+              <div className="flex items-start gap-3 rounded-xl bg-gradient-to-br from-purple-50 via-white to-blue-50 border border-purple-100 px-4 py-3.5">
+                <div className="shrink-0 w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center mt-0.5">
+                  <Sparkles size={15} strokeWidth={2.2} />
+                </div>
+                <p className="text-sm text-slate-800 leading-relaxed">
+                  <strong className="font-semibold text-slate-900">
+                    You've been given a Guest Account
+                  </strong>{' '}
+                  — a private space to try Adin AI freely, no signup needed.
+                </p>
+              </div>
 
               {/* What is it */}
               <div>

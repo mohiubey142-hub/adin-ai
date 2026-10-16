@@ -4,6 +4,10 @@
 // ✅ FIX: Contact link → path-based, new tab
 // ✅ Full detailed content
 // ✅ Governing Law, Dispute Resolution, Age, Warranty, Indemnification
+// ✅ UPDATED: Removed "No Ads" claims (Section 3 "What You Get", Section 19
+//             "Pricing & Charges") to stay consistent with the landing page
+//             and keep the policy future-proof if ads are ever introduced.
+//             "No Watermarks" is kept — it's a core product promise.
 
 import { SEOHead } from "../components/SEO/SEOHead";
 import { getSEOConfig } from "../utils/seoPages";
@@ -108,7 +112,7 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
                 Adin AI is an AI-powered career platform that helps you build CVs, generate cover letters, and improve your job application materials.
               </p>
               <p>
-                All core features — template gallery, editor, AI writing, cloud sync, and PDF/PNG/TXT export — are provided <strong className="text-slate-800">completely free</strong>, with no hidden charges, no premium tiers, and no ads.
+                All core features — template gallery, editor, AI writing, cloud sync, and PDF/PNG/TXT export — are provided <strong className="text-slate-800">completely free</strong>, with no hidden charges and no premium tiers.
               </p>
             </Section>
 
@@ -131,7 +135,7 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
 
               <div className="space-y-3 mt-5">
                 <InfoRow label="100% Free">
-                  No credit card, no hidden charges, no premium tiers, no ads.
+                  No credit card, no hidden charges, no premium tiers.
                 </InfoRow>
                 <InfoRow label="Private by Default">
                   Your CVs and cover letters are yours. We never sell or share your data.
@@ -145,7 +149,7 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
                 <InfoRow label="Full Control">
                   Download your documents (PDF, PNG, TXT) and delete your account whenever you want.
                 </InfoRow>
-                <InfoRow label="No Ads, No Watermarks">
+                <InfoRow label="No Watermarks">
                   A clean, distraction-free experience from start to finish.
                 </InfoRow>
                 <InfoRow label="AI-Powered Help">
@@ -191,7 +195,7 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
                 You retain full ownership of all content you create with Adin AI — your CVs, cover letters, profile photos, and any other documents.
               </p>
               <p>
-                By using our services, you grant us a limited license to store, sync, and process your content solely for the purpose of providing the service to you. This includes displaying your documents back to you, generating exports, and (with your consent) generating AI text based on what you provide. We never sell your content or use it for advertising.
+                By using our services, you grant us a limited license to store, sync, and process your content solely for the purpose of providing the service to you. This includes displaying your documents back to you, generating exports, and (with your consent) generating AI text based on what you provide. We never sell your content.
               </p>
             </Section>
 
@@ -362,7 +366,7 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
                 Adin AI is <strong className="text-slate-800">100% free</strong> to use, with no hidden charges, no premium tiers, and no paid upgrades.
               </p>
               <p className="mb-3">
-                You will never be asked for a credit card, bank details, or any form of payment to use any feature. There are no ads, no watermarks, and no "unlock" buttons.
+                You will never be asked for a credit card, bank details, or any form of payment to use any feature. There are no watermarks and no "unlock" buttons.
               </p>
               <p>
                 Adin AI is free today and we intend to keep the core features free. If we ever introduce optional paid features in the future, we will clearly announce them in advance — and existing free features will remain free.

@@ -2,6 +2,16 @@
 // ✅ NEW: Legal links in footer (Privacy Policy, Terms, Contact)
 // ✅ HONEST STATEMENTS — Cloud sync disclosed
 // ✅ Everything else unchanged
+// ✅ UPDATED: Removed hardcoded template counts from marketing copy
+//             (hero trust row, trust bar, features card, how-it-works step,
+//              stats section). Copy now uses a "growing library" framing
+//             so it stays honest, evergreen, and consistent with SEO meta.
+//             Tab counters `(N)` are intentionally kept — they are DYNAMIC
+//             (CV_SHOWCASE.length / COVER_SHOWCASE.length) so they always
+//             reflect the real catalogue and never go stale.
+// ✅ UPDATED: Stat label "Free Forever" → "100% Free" (honest, timeless).
+//             Removed "No Ads" claim from hero trust row — future-proof
+//             so we never contradict ourselves if ads are introduced later.
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import {
@@ -485,9 +495,9 @@ export default function LandingPage({
             >
               <TrustItem icon={<Cpu size={14} />} label="Powered by GPT-OSS 120B" />
               <TrustItem icon={<CheckCircle size={14} />} label="ATS Optimized" />
-              <TrustItem icon={<Layout size={14} />} label="15+ Templates" />
+              <TrustItem icon={<Layout size={14} />} label="Professional Templates" />
               <TrustItem icon={<Shield size={14} />} label="No Watermark" />
-              <TrustItem icon={<Lock size={14} />} label="Encrypted · No Ads · No Tracking" />
+              <TrustItem icon={<Lock size={14} />} label="Encrypted · No Tracking" />
             </div>
           </div>
 
@@ -583,7 +593,7 @@ export default function LandingPage({
             {[
               { icon: <Cpu size={14} className="text-purple-600" />, label: 'GPT-OSS 120B' },
               { icon: <CheckCircle size={14} className="text-emerald-600" />, label: '100% Free' },
-              { icon: <Layout size={14} className="text-blue-600" />, label: '15+ Templates' },
+              { icon: <Layout size={14} className="text-blue-600" />, label: 'Professional Templates' },
               { icon: <Shield size={14} className="text-purple-600" />, label: 'ATS Optimized' },
               { icon: <FileDown size={14} className="text-blue-600" />, label: 'PDF · PNG · TXT' },
               { icon: <Lock size={14} className="text-emerald-600" />, label: 'Encrypted Cloud Sync' },
@@ -687,7 +697,7 @@ export default function LandingPage({
             {[
               { icon: <Cpu size={20} />, title: 'GPT-OSS 120B AI', desc: 'Powered by one of the most capable open models for natural, human-sounding writing.', accent: 'purple' },
               { icon: <CheckCircle size={20} />, title: 'ATS Optimized', desc: 'Every template is engineered to pass applicant tracking systems.', accent: 'emerald' },
-              { icon: <Layout size={20} />, title: '15+ Templates', desc: '9 CV templates + 6 cover letter templates — pick your style.', accent: 'blue' },
+              { icon: <Layout size={20} />, title: 'Professional Templates', desc: 'A growing library of CV and cover letter designs — pick your style.', accent: 'blue' },
               { icon: <Download size={20} />, title: 'PDF · PNG · TXT', desc: 'Export in multiple formats with a single click. No watermark.', accent: 'purple' },
               { icon: <Eye size={20} />, title: 'Live Preview', desc: 'See your changes in real-time as you type.', accent: 'blue' },
               { icon: <Lock size={20} />, title: 'Private & Secure', desc: 'End-to-end encrypted. Your data is safely synced to your private cloud — accessible on any device.', accent: 'emerald' },
@@ -712,7 +722,7 @@ export default function LandingPage({
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-7 relative">
           {[
-            { step: '01', title: 'Pick a Template', desc: 'Choose from 9 CV or 6 cover letter designs — all ATS-optimized.', icon: <Layout size={20} /> },
+            { step: '01', title: 'Pick a Template', desc: 'Choose from our growing library of CV and cover letter designs — all ATS-optimized.', icon: <Layout size={20} /> },
             { step: '02', title: 'Fill Your Details', desc: 'Type your info or let AI write it for you. Import from an existing CV.', icon: <Wand2 size={20} /> },
             { step: '03', title: 'Download', desc: 'Export as PDF, PNG, or TXT. Ready to send in seconds.', icon: <Download size={20} /> },
           ].map((s, i) => (
@@ -738,10 +748,10 @@ export default function LandingPage({
       <section className="relative z-10 bg-white/60 backdrop-blur-sm border-y border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 text-center">
-            <StatItem value="9" label="CV Templates" />
-            <StatItem value="6" label="Cover Letter Templates" />
-            <StatItem value="GPT-OSS" label="120B Model" />
             <StatItem value="$0" label="100% Free" />
+            <StatItem value="ATS" label="Optimized Templates" />
+            <StatItem value="AI" label="Powered Writing" />
+            <StatItem value="PDF" label="PNG · TXT Export" />
           </div>
         </div>
       </section>
