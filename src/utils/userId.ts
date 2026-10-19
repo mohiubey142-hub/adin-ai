@@ -19,12 +19,15 @@
 //   - Only the current 16-char format is valid (old 8 / 4-4 test formats removed).
 //   - Validation is strict: only characters from ALPHABET are accepted.
 //   - setUserId() / getUserId() validate — junk or tampered values are rejected.
+//   - clearUserId() also removes that ID's cloud auth token (logout / delete).
 //   - If localStorage is unavailable, the SAME ID is reused for the whole
 //     session (in-memory) instead of generating a new one on every call.
 //   - Rejection-sampling loop can no longer read past the end of its buffer.
 //
 // ⚠️ NOTE: this ID is an identifier, not a password. Real protection of the
 //    cloud data must be enforced server-side (database security rules).
+
+import { clearAuthToken } from '../services/sync/authToken';
 
 const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // 31 chars (no 0,O,1,I,L)
 const PREFIX = 'ADN';
@@ -149,6 +152,8 @@ export function setUserId(id: string): boolean {
 // Remove User ID (logout)
 // ============================================
 export function clearUserId(): void {
+  const current = getUserId();
+  if (current) clearAuthToken(current);
   memoryUserId = null;
   try {
     localStorage.removeItem(STORAGE_KEY);

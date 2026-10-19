@@ -11,6 +11,18 @@
 import { SYNC_CONFIG } from './config';
 import type { QueueItem, QueueItemType } from './types';
 
+// A newer snapshot of the same CV / cover letter makes older queued snapshots useless,
+// so only the latest one is kept (prevents dozens of big duplicate payloads).
+const SUPERSEDABLE_TYPES: QueueItemType[] = ['cv', 'cl'];
+
+function isSameDocument(item: QueueItem, type: QueueItemType, payload: any): boolean {
+  if (item.type !== type) return false;
+  if (item.payload?.userId !== payload?.userId) return false;
+  return type === 'cv'
+    ? item.payload?.cvId === payload?.cvId
+    : item.payload?.clId === payload?.clId;
+}
+
 // ============================================
 // Queue storage (localStorage)
 // ============================================
@@ -57,7 +69,10 @@ export const syncQueue = {
       createdAt: Date.now(),
       lastError: error,
     };
-    const q = loadQueue();
+    let q = loadQueue();
+    if (SUPERSEDABLE_TYPES.includes(type)) {
+      q = q.filter((existing) => !isSameDocument(existing, type, payload));
+    }
     q.push(item);
     saveQueue(q);
     if (SYNC_CONFIG.debug) {

@@ -4,7 +4,7 @@
 // ✅ FIX: Back button — close tab FIRST, then history.back()
 // ✅ FIX: Privacy + Terms links → path-based, new tab
 // ✅ Purple + blue accents
-// ✅ Contact form → existing Apps Script endpoint (action: submit_contact)
+// ✅ Contact form → backend proxy /api/sync (action: submit_contact)
 
 import { useState } from "react";
 import { SEOHead } from "../components/SEO/SEOHead";
@@ -14,7 +14,7 @@ import {
   Shield, FileText, ExternalLink,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { SYNC_CONFIG } from "../services/sync/config";
+import { postToSyncProxy } from "../services/sync/proxyClient";
 
 interface ContactProps {
   onBack?: () => void;
@@ -65,32 +65,17 @@ export default function Contact({ onBack }: ContactProps) {
       return;
     }
 
-    if (!SYNC_CONFIG.endpoint || !SYNC_CONFIG.secret) {
-      toast.error("Contact service unavailable. Please try again later.");
-      return;
-    }
-
     setSending(true);
 
     try {
-      const res = await fetch(SYNC_CONFIG.endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({
-          secret: SYNC_CONFIG.secret,
-          action: "submit_contact",
-          payload: {
-            name: name.trim(),
-            email: email.trim(),
-            message: message.trim(),
-            source: "contact-page",
-            timestamp: new Date().toISOString(),
-          },
-          clientTimestamp: Date.now(),
-        }),
+      const { json } = await postToSyncProxy("submit_contact", {
+        name: name.trim(),
+        email: email.trim(),
+        message: message.trim(),
+        source: "contact-page",
+        timestamp: new Date().toISOString(),
       });
-
-      const data = await res.json().catch(() => ({ ok: false }));
+      const data = json && typeof json === "object" ? json : { ok: false };
 
       if (data.ok) {
         toast.success("Message sent! We'll get back to you soon.");
@@ -164,7 +149,7 @@ export default function Contact({ onBack }: ContactProps) {
               </span>
             </h1>
             <p className="text-sm sm:text-base text-slate-500 mt-3 max-w-2xl mx-auto">
-              Have questions or feedback? We'd love to hear from you. Reach out anytime — we typically respond within 24-48 hours.
+              Have questions or feedback? We'd love to hear from you. Reach out anytime — we aim to respond within 24-48 hours.
             </p>
           </div>
 
@@ -271,7 +256,7 @@ export default function Contact({ onBack }: ContactProps) {
                       Location
                     </p>
                     <p className="text-sm text-slate-900 font-medium">
-                      Mananwala, Sheikhupura, Pakistan
+                      Punjab, Pakistan
                     </p>
                   </div>
                 </div>
@@ -287,7 +272,7 @@ export default function Contact({ onBack }: ContactProps) {
                   </h2>
                 </div>
                 <p className="text-sm text-slate-600 leading-relaxed">
-                  We typically respond within <strong className="text-slate-800">24-48 hours</strong>. Use the form on the left to reach us — we read every message personally.
+                  We aim to respond within <strong className="text-slate-800">24-48 hours</strong>. Use the form on the left to reach us — we read every message personally.
                 </p>
               </section>
 

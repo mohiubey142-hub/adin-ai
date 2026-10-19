@@ -8,9 +8,12 @@
 // ============================================
 // Env vars (Vercel me set honge)
 // ============================================
-// VITE_SYNC_ENABLED        → 'true' / 'false'  (feature flag)
-// VITE_SHEET_ENDPOINT      → Apps Script Web App URL
-// VITE_SHEET_SECRET        → Shared secret (Script Properties me bhi wahi)
+// VITE_SYNC_ENABLED        → 'true' / 'false'  (feature flag — the only sync var the browser needs)
+//
+// ✅ SECURE: the Apps Script URL and the shared secret are SERVER-SIDE env vars now
+//    (Vercel: SHEET_ENDPOINT, SHEET_SECRET — no VITE_ prefix, see api/sync.ts).
+//    VITE_SHEET_ENDPOINT / VITE_SHEET_SECRET are deprecated: remove them from Vercel/.env
+//    once contact + feedback forms also use postToSyncProxy() (proxyClient.ts).
 
 const ENV_ENABLED = import.meta.env.VITE_SYNC_ENABLED;
 const ENV_ENDPOINT = import.meta.env.VITE_SHEET_ENDPOINT;
@@ -24,10 +27,13 @@ export const SYNC_CONFIG = {
   // LocalStorage phir bhi kaam karega (existing behaviour).
   enabled: ENV_ENABLED === 'true',
 
-  // Apps Script Web App URL (bina secret ke, URL public nahi karna)
+  // Our backend proxy — the browser only ever calls this path
+  proxyPath: '/api/sync',
+
+  /** @deprecated kept only so older imports still compile (contact / feedback). Not used by sync. */
   endpoint: (ENV_ENDPOINT as string) || '',
 
-  // Shared secret (Script Properties me same hona chahiye)
+  /** @deprecated kept only so older imports still compile (contact / feedback). Not used by sync. */
   secret: (ENV_SECRET as string) || '',
 
   // ============================================
@@ -62,12 +68,9 @@ export const SYNC_CONFIG = {
 };
 
 // ============================================
-// Helper: is Sync enabled + configured?
+// Helper: is Sync enabled?
+// (The server proxy answers 'not_configured' itself if its env vars are missing.)
 // ============================================
 export function isSyncReady(): boolean {
-  return (
-    SYNC_CONFIG.enabled &&
-    SYNC_CONFIG.endpoint.length > 0 &&
-    SYNC_CONFIG.secret.length > 0
-  );
+  return SYNC_CONFIG.enabled;
 }

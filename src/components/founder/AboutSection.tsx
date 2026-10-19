@@ -19,18 +19,18 @@ export default function AboutSection() {
             {/* Introduction */}
             <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200">
               <p className="text-slate-700 leading-relaxed text-sm">
-                <span className="text-purple-700 font-semibold">Kian Mercer</span> (born Ghulam MohiyuDin) is a{' '}
-                <span className="text-blue-700 font-semibold">16-year-old AI product founder</span> from
-                Mananwala, Sheikhupura, Pakistan. He is the Founder and CEO of{' '}
+                <span className="text-purple-700 font-semibold">Kian Mercer</span> is a{' '}
+                <span className="text-blue-700 font-semibold">17-year-old AI product founder</span> from
+                Pakistan. He is the Founder and CEO of{' '}
                 <span className="text-purple-700 font-semibold">Adin AI</span>, an AI-powered career platform
-                helping students and freelancers build professional resumes, cover letters, and grow their careers.
+                helping students and job seekers build professional resumes, cover letters, and grow their careers.
               </p>
             </div>
 
             {/* Stats */}
             <div className="grid grid-cols-2 gap-3">
               <div className="p-3.5 rounded-xl bg-purple-50 border border-purple-100 text-center">
-                <div className="text-xl font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">16</div>
+                <div className="text-xl font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">17</div>
                 <div className="text-[11px] text-slate-500 font-medium mt-0.5">Age</div>
               </div>
               <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-100 text-center">
@@ -47,12 +47,6 @@ export default function AboutSection() {
               </div>
             </div>
 
-            {/* Previous Name */}
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-              <p className="text-xs text-slate-500">
-                <span className="text-slate-600 font-medium">Previously known as:</span> Ghulam MohiyuDin
-              </p>
-            </div>
           </div>
 
           {/* ✅ Right: Founder Image */}
@@ -79,13 +73,9 @@ export default function AboutSection() {
               <span className="text-slate-500">Matriculation</span>
               <span className="text-slate-900 font-medium">92% (Bio)</span>
             </div>
-            <div className="flex justify-between items-center border-b border-slate-200 pb-2">
+            <div className="flex justify-between items-center">
               <span className="text-slate-500">Intermediate</span>
               <span className="text-slate-900 font-medium">ICS (Computer Science)</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-slate-500">College</span>
-              <span className="text-slate-900 font-medium">Superior College</span>
             </div>
           </div>
         </div>

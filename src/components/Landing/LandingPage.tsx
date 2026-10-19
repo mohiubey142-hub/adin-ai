@@ -2,6 +2,7 @@
 // ✅ NEW: Legal links in footer (Privacy Policy, Terms, Contact)
 // ✅ HONEST STATEMENTS — Cloud sync disclosed
 // ✅ Everything else unchanged
+// ✅ UPDATED: Founder + Contact moved from Legal to new "Company" footer column; Founder added to desktop nav
 // ✅ UPDATED: Removed hardcoded template counts from marketing copy
 //             (hero trust row, trust bar, features card, how-it-works step,
 //              stats section). Copy now uses a "growing library" framing
@@ -12,6 +13,10 @@
 // ✅ UPDATED: Stat label "Free Forever" → "100% Free" (honest, timeless).
 //             Removed "No Ads" claim from hero trust row — future-proof
 //             so we never contradict ourselves if ads are introduced later.
+// ✅ UPDATED (Oct 2026): Removed claims that did not match the real system —
+//             "End-to-end encrypted", "Encrypted · No Tracking" (Google Analytics
+//             is used), "Encrypted Cloud Sync", "All Premium Features" (no tiers),
+//             "engineered to pass ATS" (no guarantee).
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import {
@@ -313,6 +318,7 @@ export default function LandingPage({
             <NavLink onClick={handleNavCVTemplates}>CV Templates</NavLink>
             <NavLink onClick={handleNavCoverTemplates}>Cover Templates</NavLink>
             <NavLink onClick={() => scrollToSection('features')}>Features</NavLink>
+            <NavLink onClick={handleNavFounder}>Founder</NavLink>
           </nav>
 
           <div className="flex items-center gap-2 shrink-0">
@@ -399,7 +405,7 @@ export default function LandingPage({
                     <span className="relative inline-flex w-2 h-2 rounded-full bg-emerald-500" />
                   </span>
                   <span className="whitespace-nowrap text-[11px] font-semibold text-slate-800 tracking-tight">
-                    100% Free All Premium Features
+                    100% Free · All Features Included
                   </span>
                 </div>
                 <div className="flex items-center justify-center gap-1.5">
@@ -425,7 +431,7 @@ export default function LandingPage({
                 <span className="w-px h-3.5 bg-slate-300" />
                 <span className="text-xs font-medium text-slate-600">No Hidden Charges</span>
                 <span className="w-px h-3.5 bg-slate-300" />
-                <span className="text-xs font-semibold text-slate-800 tracking-tight">All Premium Features Free</span>
+                <span className="text-xs font-semibold text-slate-800 tracking-tight">All Features Free</span>
               </div>
             </div>
 
@@ -497,7 +503,7 @@ export default function LandingPage({
               <TrustItem icon={<CheckCircle size={14} />} label="ATS Optimized" />
               <TrustItem icon={<Layout size={14} />} label="Professional Templates" />
               <TrustItem icon={<Shield size={14} />} label="No Watermark" />
-              <TrustItem icon={<Lock size={14} />} label="Encrypted · No Tracking" />
+              <TrustItem icon={<Lock size={14} />} label="Secure & Private" />
             </div>
           </div>
 
@@ -596,7 +602,7 @@ export default function LandingPage({
               { icon: <Layout size={14} className="text-blue-600" />, label: 'Professional Templates' },
               { icon: <Shield size={14} className="text-purple-600" />, label: 'ATS Optimized' },
               { icon: <FileDown size={14} className="text-blue-600" />, label: 'PDF · PNG · TXT' },
-              { icon: <Lock size={14} className="text-emerald-600" />, label: 'Encrypted Cloud Sync' },
+              { icon: <Lock size={14} className="text-emerald-600" />, label: 'Secure Cloud Sync' },
             ].map((item, i) => (
               <div key={i} className="flex items-center gap-1.5 font-medium">
                 {item.icon}
@@ -696,11 +702,11 @@ export default function LandingPage({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
             {[
               { icon: <Cpu size={20} />, title: 'GPT-OSS 120B AI', desc: 'Powered by one of the most capable open models for natural, human-sounding writing.', accent: 'purple' },
-              { icon: <CheckCircle size={20} />, title: 'ATS Optimized', desc: 'Every template is engineered to pass applicant tracking systems.', accent: 'emerald' },
+              { icon: <CheckCircle size={20} />, title: 'ATS Optimized', desc: 'Every template is built with a clean, ATS-friendly structure.', accent: 'emerald' },
               { icon: <Layout size={20} />, title: 'Professional Templates', desc: 'A growing library of CV and cover letter designs — pick your style.', accent: 'blue' },
               { icon: <Download size={20} />, title: 'PDF · PNG · TXT', desc: 'Export in multiple formats with a single click. No watermark.', accent: 'purple' },
               { icon: <Eye size={20} />, title: 'Live Preview', desc: 'See your changes in real-time as you type.', accent: 'blue' },
-              { icon: <Lock size={20} />, title: 'Private & Secure', desc: 'End-to-end encrypted. Your data is safely synced to your private cloud — accessible on any device.', accent: 'emerald' },
+              { icon: <Lock size={20} />, title: 'Private & Secure', desc: 'Your data is sent over secure HTTPS and synced to your private cloud — restore it on any device with your User ID and PIN.', accent: 'emerald' },
             ].map((f, i) => (
               <FeatureCard key={i} {...f} delay={i * 60} />
             ))}
@@ -810,7 +816,7 @@ export default function LandingPage({
       {/* FOOTER */}
       <footer className="relative z-10 border-t border-slate-200 bg-white/70 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-12">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-8">
             <div className="col-span-2 md:col-span-2">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-white shadow-md shadow-purple-900/10 border border-slate-200 flex items-center justify-center overflow-hidden">
@@ -839,11 +845,14 @@ export default function LandingPage({
               <FooterLink onClick={onGetStarted}>Get Started</FooterLink>
             </FooterColumn>
 
+            <FooterColumn title="Company">
+              <FooterLink onClick={handleNavFounder}>Founder</FooterLink>
+              <FooterLink onClick={handleNavContact}>Contact Us</FooterLink>
+            </FooterColumn>
+
             <FooterColumn title="Legal">
               <FooterLink onClick={handleNavPrivacy}>Privacy Policy</FooterLink>
               <FooterLink onClick={handleNavTerms}>Terms of Service</FooterLink>
-              <FooterLink onClick={handleNavContact}>Contact Us</FooterLink>
-              <FooterLink onClick={handleNavFounder}>Founder</FooterLink>
             </FooterColumn>
           </div>
 

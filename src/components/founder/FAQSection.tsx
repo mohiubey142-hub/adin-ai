@@ -8,19 +8,19 @@ export default function FAQSection() {
   const faqs = [
     {
       question: "What inspired you to start Adin AI?",
-      answer: "I was inspired by the rapid growth of AI and wanted to use it for something practical that creates real value. Instead of building just another chatbot, I built an AI platform that helps people improve their careers and unlock new opportunities. I saw how students and freelancers struggled with creating professional resumes and cover letters, and I knew AI could solve this problem."
+      answer: "I was inspired by the rapid growth of AI and wanted to use it for something practical that creates real value. Instead of building just another chatbot, I built an AI platform that helps people improve their careers and unlock new opportunities. I saw how students and job seekers struggled with creating professional resumes and cover letters, and I knew AI could solve this problem."
     },
     {
       question: "How old are you and how did you start building AI products?",
-      answer: "I'm 16 years old (17 in progress) from Mananwala, Sheikhupura, Pakistan. I started exploring AI tools and realized I could combine them with product strategy to build real solutions. I use AI-assisted development to design, plan, and build websites, digital products, and business solutions. Adin AI is my first major product."
+      answer: "I'm 17 years old from Pakistan. I started exploring AI tools and realized I could combine them with product strategy to build real solutions. I use AI-assisted development to design, plan, and build websites, digital products, and business solutions. Adin AI is my first major product."
     },
     {
       question: "What is Adin AI and who is it for?",
-      answer: "Adin AI is an AI-powered career platform that helps students and freelancers build professional resumes, generate cover letters, prepare for interviews, learn new skills, and connect with freelance opportunities. It's designed for anyone who wants to grow their career, especially students and freelancers who need affordable, professional tools."
+      answer: "Adin AI is an AI-powered career platform that helps students and job seekers build professional resumes and generate cover letters, with an AI career assistant to support them. I'm also working toward career guidance and interview preparation for students. It's designed for anyone who wants to grow their career, especially students and job seekers who need affordable, professional tools."
     },
     {
       question: "What are your future plans for Adin AI?",
-      answer: "My long-term vision is to transform Adin AI into a complete AI Career & Freelancer Platform. A single intelligent ecosystem that helps users build resumes, create cover letters, prepare for interviews, learn skills, discover jobs and scholarships, and eventually connect with clients worldwide."
+      answer: "My long-term vision is to grow Adin AI into an AI Career Companion for Students. Starting with resumes and cover letters, I want it to help students figure out what to study, prepare for interviews, and take their first career steps, especially those who have no one to guide them."
     },
     {
       question: "How do you build products without being a traditional software engineer?",

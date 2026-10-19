@@ -19,7 +19,8 @@ import LandingPage from './components/Landing/LandingPage';
 
 import { NavigationProvider, AppRoute } from './contexts/NavigationContext';
 
-import { getOrCreateUserId } from './utils/userId';
+import { getOrCreateUserId, getUserId } from './utils/userId';
+import { clearAuthToken, AUTH_TOKEN_STORAGE_KEY } from './services/sync/authToken';
 import { syncService } from './services/sync/syncService';
 
 import RestoreData from './components/RestoreData';
@@ -515,14 +516,10 @@ function AppInner() {
     return true;
   });
 
+  // ✅ SECURE: ID always goes through utils/userId.ts validation.
+  //    Old / tampered / test-format IDs are replaced with a fresh valid one.
   const userId = useMemo(() => {
-    const newUserId = safeGetItem('adin-user-id');
-    if (newUserId) return newUserId;
-
-    const legacyId = safeGetItem('adin-guest-user-id');
-    if (legacyId) return legacyId;
-
-    return getOrCreateUserId();
+    return getUserId() || getOrCreateUserId();
   }, [isOnboardingComplete]);
 
   useEffect(() => {
@@ -546,8 +543,9 @@ function AppInner() {
     if (!userId) return;
     if (!isOnboardingComplete) return;
 
-    syncService.fetchUser(userId).then(user => {
-      setHasPinSet(!!user?.pinHash);
+    // ✅ Public status check — works even before this device has an auth token
+    syncService.getPinStatus(userId).then(res => {
+      setHasPinSet(res.status === 'has_pin');
     }).catch(() => {});
   }, [userId, isOnboardingComplete]);
 
@@ -741,6 +739,7 @@ function AppInner() {
 
     const PRESERVE_KEYS = [
       'adin-user-id',
+      AUTH_TOKEN_STORAGE_KEY,
       'adin_user_name',
       'adin-onboarding-completed',
       'adin-guest-session',
@@ -796,6 +795,7 @@ function AppInner() {
     safeRemoveItem("adin_user_name");
     safeRemoveItem("adin-onboarding-completed");
     safeRemoveItem("adin-guest-user-id");
+    clearAuthToken();
     safeRemoveItem("adin-user-id");
     safeRemoveItem('adin-has-seen-landing');
     safeRemoveItem('adin-pin-education-shown');
@@ -847,8 +847,33 @@ function AppInner() {
     setShowLanding(false);
   };
 
-  const handleDownloadMyId = useCallback(() => {
+  const handleDownloadMyId = useCallback(async () => {
     if (!userId) return;
+
+    // ✅ Restore needs BOTH ID + PIN → the ID file is only given once a PIN is set.
+    //    (If the local flag is not loaded yet, double-check with the server first.)
+    if (!hasPinSet) {
+      let pinIsSet = false;
+      try {
+        const pinStatus = await syncService.getPinStatus(userId);
+        if (pinStatus.status === 'error') {
+          toast.error('Could not check your PIN status. Please try again.');
+          return;
+        }
+        pinIsSet = pinStatus.status === 'has_pin';
+      } catch {
+        toast.error('Could not check your PIN status. Please try again.');
+        return;
+      }
+
+      if (!pinIsSet) {
+        toast.error('Set your PIN first — restore needs both your ID and your PIN.', { duration: 4000 });
+        setShowSetPin(true);
+        return;
+      }
+      setHasPinSet(true);
+    }
+
     try {
       const content = `ADIN AI — YOUR ACCOUNT ID
 ==========================
@@ -887,7 +912,7 @@ Adin AI
     } catch (e) {
       toast.error('Download failed');
     }
-  }, [userId]);
+  }, [userId, hasPinSet]);
 
   useEffect(() => {
     const pagePath = window.location.pathname + window.location.hash;
@@ -1807,6 +1832,10 @@ Adin AI
           isOpen={showLogoutWarning}
           userId={userId}
           hasPinSet={hasPinSet}
+          onSetPin={() => {
+            setShowLogoutWarning(false);
+            setShowSetPin(true);
+          }}
           onCancel={() => setShowLogoutWarning(false)}
           onConfirmLogout={handleGuestLogout}
         />
@@ -1836,6 +1865,7 @@ Adin AI
         {showPinEducation && userId && (
           <PinEducationPopup
             userId={userId}
+            hasPinSet={hasPinSet}
             onSetPin={handlePinEducationSetPin}
             onDismiss={handlePinEducationDismiss}
           />

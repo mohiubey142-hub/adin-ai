@@ -1,11 +1,11 @@
 // src/services/feedbackService.ts
-// ✅ Apps Script integration (replaces Web3Forms)
+// ✅ Apps Script integration via our backend proxy (/api/sync) — no secret in the browser
 // ✅ Truly unlimited — no monthly quota
 // ✅ Data saved to Google Sheet "Feedback"
 // ✅ Smart cooldown based on user commitment
 // ✅ Email notification only for low ratings or reply requests
 
-import { SYNC_CONFIG } from './sync/config';
+import { postToSyncProxy } from './sync/proxyClient';
 
 // ============================================
 // STORAGE KEYS (per source)
@@ -83,43 +83,28 @@ const getKeys = (source: FeedbackSource) => {
 export const submitFeedback = async (
   data: FeedbackPayload,
 ): Promise<{ success: boolean; message: string }> => {
-  // Check config
-  if (!SYNC_CONFIG.endpoint || !SYNC_CONFIG.secret) {
-    console.error('[feedback] Sync endpoint not configured');
-    return { success: false, message: 'Feedback service unavailable' };
-  }
-
   try {
-    const response = await fetch(SYNC_CONFIG.endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({
-        secret: SYNC_CONFIG.secret,
-        action: 'submit_feedback',
-        payload: {
-          rating: data.rating,
-          message: data.message || '',
-          email: data.email || '',
-          wants_reply: data.wantsReply === true,
-          source: data.source,
-          timestamp: data.timestamp,
-        },
-        clientTimestamp: Date.now(),
-      }),
+    const { httpOk, status, json } = await postToSyncProxy('submit_feedback', {
+      rating: data.rating,
+      message: data.message || '',
+      email: data.email || '',
+      wants_reply: data.wantsReply === true,
+      source: data.source,
+      timestamp: data.timestamp,
     });
 
-    if (!response.ok) {
-      return { success: false, message: `HTTP ${response.status}` };
-    }
-
-    const result = await response.json();
-
-    if (result.ok) {
+    if (json?.ok) {
       return { success: true, message: 'Thank you for your feedback!' };
     }
-    return { success: false, message: result.message || 'Failed to submit feedback' };
+    if (json?.error === 'not_configured') {
+      return { success: false, message: 'Feedback service unavailable' };
+    }
+    if (!json && !httpOk) {
+      return { success: false, message: `HTTP ${status}` };
+    }
+    return { success: false, message: json?.message || 'Failed to submit feedback' };
   } catch (error) {
-    console.error('[feedback] submission error:', error);
+    console.error('[feedback] submission error');
     return { success: false, message: 'Network error. Please try again.' };
   }
 };

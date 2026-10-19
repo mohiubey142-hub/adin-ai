@@ -10,12 +10,16 @@
 // ✅ NEW: /api/ai/generate — backend proxy for all Groq feature calls
 // ============================================================
 
+// ✅ FIRST import: loads .env before any handler module reads process.env
+import "dotenv/config";
 import express from "express";
+import type { Request, Response, NextFunction } from "express";
 import path from "path";
 import { GoogleGenAI } from "@google/genai";
-import dotenv from "dotenv";
-
-dotenv.config();
+// ✅ Same hardened handlers that Vercel runs from /api — one implementation for local + production
+import syncHandler from "./api/sync";
+import generateHandler from "./api/ai/generate";
+import groqKeysHandler from "./api/ai/groq-keys";
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -54,161 +58,69 @@ function getAiClient(): GoogleGenAI {
 }
 
 // ============================================================
-// ✅ Groq Keys Endpoint
+// ✅ API routes served by the shared handlers (same code as Vercel's /api folder)
 // ============================================================
-app.get("/api/ai/groq-keys", (_req, res) => {
-  try {
-    const keys = {
-      EXPERIENCE: process.env.GROQ_API_KEY_EXPERIENCE || "",
-      PROJECT: process.env.GROQ_API_KEY_PROJECT || "",
-      ACHIEVEMENT: process.env.GROQ_API_KEY_ACHIEVEMENT || "",
-      COVER_LETTER: process.env.GROQ_API_KEY_COVER_LETTER || "",
-      SUMMARY: process.env.GROQ_API_KEY_SUMMARY || "",
-    };
-
-    const configured = Object.entries(keys)
-      .filter(([, v]) => v && v.trim().length > 0)
-      .map(([k]) => k);
-
-    console.log(
-      `🔑 [GET /api/ai/groq-keys] Serving ${configured.length}/5 keys: [${configured.join(", ")}]`
-    );
-
-    res.json(keys);
-  } catch (err: any) {
-    console.error("❌ /api/ai/groq-keys error:", err);
-    res.status(500).json({ error: err.message || "Failed to load Groq keys" });
-  }
-});
-
-// ============================================================
-// ✅ NEW: Groq Generate Endpoint — backend proxy
-// ============================================================
-// POST /api/ai/generate
-// Body: { feature, prompt, systemPrompt?, options? }
-// Response: { ok: true, text, source, model } | { ok: false, error, details }
-//
-// Feature priority + cross-feature fallback:
-//   EXPERIENCE → PROJECT → ACHIEVEMENT → COVER_LETTER → SUMMARY
-//
-// Model fallback: openai/gpt-oss-120b → openai/gpt-oss-20b
-// ============================================================
-app.post("/api/ai/generate", async (req, res) => {
-  try {
-    const { feature, prompt, systemPrompt, options } = req.body || {};
-
-    if (!feature || typeof feature !== "string") {
-      return res.status(400).json({ error: "feature is required" });
-    }
-    if (!prompt || typeof prompt !== "string") {
-      return res.status(400).json({ error: "prompt is required" });
-    }
-
-    // Feature → env key mapping
-    const KEY_MAP: Record<string, string | undefined> = {
-      EXPERIENCE:   process.env.GROQ_API_KEY_EXPERIENCE,
-      PROJECT:      process.env.GROQ_API_KEY_PROJECT,
-      ACHIEVEMENT:  process.env.GROQ_API_KEY_ACHIEVEMENT,
-      COVER_LETTER: process.env.GROQ_API_KEY_COVER_LETTER,
-      SUMMARY:      process.env.GROQ_API_KEY_SUMMARY,
-    };
-
-    const FALLBACK_ORDER: Record<string, string[]> = {
-      EXPERIENCE:   ["EXPERIENCE", "PROJECT", "ACHIEVEMENT", "COVER_LETTER", "SUMMARY"],
-      PROJECT:      ["PROJECT", "EXPERIENCE", "ACHIEVEMENT", "COVER_LETTER", "SUMMARY"],
-      ACHIEVEMENT:  ["ACHIEVEMENT", "EXPERIENCE", "PROJECT", "COVER_LETTER", "SUMMARY"],
-      COVER_LETTER: ["COVER_LETTER", "EXPERIENCE", "PROJECT", "ACHIEVEMENT", "SUMMARY"],
-      SUMMARY:      ["SUMMARY", "EXPERIENCE", "PROJECT", "ACHIEVEMENT", "COVER_LETTER"],
-    };
-
-    const order = FALLBACK_ORDER[feature] || [feature];
-    const MODELS = ["openai/gpt-oss-120b", "openai/gpt-oss-20b"];
-    const errors: string[] = [];
-
-    for (const source of order) {
-      const apiKey = KEY_MAP[source];
-      if (!apiKey || !apiKey.trim()) {
-        errors.push(`No key for ${source}`);
-        continue;
-      }
-
-      for (const model of MODELS) {
-        try {
-          const body: any = {
-            model,
-            messages: [
-              ...(systemPrompt ? [{ role: "system", content: systemPrompt }] : []),
-              { role: "user", content: prompt },
-            ],
-            temperature: options?.temperature ?? 0.7,
-            max_tokens: options?.maxTokens ?? 4000,
-            top_p: options?.top_p ?? 0.9,
-            include_reasoning: false,
-          };
-
-          const groqRes = await fetch(
-            "https://api.groq.com/openai/v1/chat/completions",
-            {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${apiKey.trim()}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify(body),
-            }
-          );
-
-          if (groqRes.ok) {
-            const data = await groqRes.json();
-            const content = data?.choices?.[0]?.message?.content?.trim() || "";
-            const finishReason = data?.choices?.[0]?.finish_reason;
-
-            if (!content || content.length < 10) {
-              errors.push(`${source}/${model}: empty content (finish=${finishReason})`);
-              continue;
-            }
-            if (finishReason === "length") {
-              errors.push(`${source}/${model}: hit token limit`);
-              continue;
-            }
-
-            const words = content.split(/\s+/).filter(Boolean).length;
-            console.log(
-              `✅ [POST /api/ai/generate] ${feature} → ${source}/${model} — ${words} words`
-            );
-
-            return res.status(200).json({
-              ok: true,
-              text: content,
-              source,
-              model,
-            });
-          }
-
-          const txt = await groqRes.text();
-          errors.push(
-            `${source}/${model}: HTTP ${groqRes.status} ${txt.slice(0, 100)}`
-          );
-        } catch (err: any) {
-          errors.push(`${source}/${model}: ${err?.message || "fetch failed"}`);
-        }
-      }
-    }
-
-    console.error("❌ [POST /api/ai/generate] All keys failed:", errors);
-    return res.status(502).json({
-      ok: false,
-      error: "All Groq keys and models failed",
-      details: errors,
+//  /api/sync           → sync proxy (adds the Apps Script secret on the SERVER)
+//  /api/ai/generate    → Groq proxy (origin check, rate limit, input caps)
+//  /api/ai/groq-keys   → only "configured" flags — real keys are NEVER sent to the browser
+const mountHandler =
+  (handler: (req: any, res: any) => unknown) => (req: Request, res: Response) => {
+    Promise.resolve(handler(req, res)).catch((err) => {
+      console.error("🚨 API handler crashed:", err?.name || "error");
+      if (!res.headersSent) res.status(500).json({ ok: false, error: "server_error" });
     });
-  } catch (err: any) {
-    console.error("❌ [POST /api/ai/generate] Unexpected error:", err);
-    return res.status(500).json({
-      ok: false,
-      error: err?.message || "Internal server error",
-    });
+  };
+
+app.all("/api/sync", mountHandler(syncHandler));
+app.all("/api/ai/generate", mountHandler(generateHandler));
+app.all("/api/ai/groq-keys", mountHandler(groqKeysHandler));
+
+// ============================================================
+// Light guard for the Gemini endpoints (/api/chat, /api/tts):
+// same-origin only + per-IP rate limit, so nobody else can spend your Gemini quota
+// ============================================================
+const GUARD_WINDOW_MS = 60_000;
+const CHAT_MAX_REQUESTS_PER_WINDOW = 30;
+const TTS_MAX_REQUESTS_PER_WINDOW = 30;
+const GUARD_MAX_TRACKED_IPS = 5000;
+const LOCAL_HOSTNAMES = ["localhost", "127.0.0.1"];
+const EXTRA_ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+function isAllowedOrigin(origin: string | undefined, host: string | undefined): boolean {
+  if (!origin) return true;
+  try {
+    const parsed = new URL(origin);
+    if (host && parsed.host === host) return true;
+    if (EXTRA_ALLOWED_ORIGINS.includes(origin)) return true;
+    if (!IS_PRODUCTION && LOCAL_HOSTNAMES.includes(parsed.hostname)) return true;
+  } catch {
+    return false;
   }
-});
+  return false;
+}
+
+function createApiGuard(maxRequests: number) {
+  const requestLog = new Map<string, number[]>();
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!isAllowedOrigin(req.headers.origin as string | undefined, req.headers.host)) {
+      return res.status(403).json({ error: "Origin not allowed" });
+    }
+    const now = Date.now();
+    if (requestLog.size > GUARD_MAX_TRACKED_IPS) requestLog.clear();
+    const ip = req.ip || req.socket?.remoteAddress || "unknown";
+    const recent = (requestLog.get(ip) || []).filter((t) => now - t < GUARD_WINDOW_MS);
+    if (recent.length >= maxRequests) {
+      requestLog.set(ip, recent);
+      return res.status(429).json({ error: "Too many requests. Please wait a moment and try again." });
+    }
+    recent.push(now);
+    requestLog.set(ip, recent);
+    next();
+  };
+}
 
 // ============================================================
 // Health check
@@ -224,7 +136,7 @@ app.get("/api/health", (_req, res) => {
 // ============================================================
 // Main conversation completion endpoint
 // ============================================================
-app.post("/api/chat", async (req, res) => {
+app.post("/api/chat", createApiGuard(CHAT_MAX_REQUESTS_PER_WINDOW), async (req, res) => {
   try {
     const { messages, mode, temperature } = req.body;
 
@@ -296,9 +208,9 @@ app.post("/api/chat", async (req, res) => {
   } catch (err: any) {
     console.error("Gemini API Chat Error:", err);
     res.status(500).json({
-      error:
-        err.message ||
-        "An unexpected error occurred during Adin's reasoning process.",
+      error: IS_PRODUCTION
+        ? "An unexpected error occurred during Adin's reasoning process."
+        : err.message || "An unexpected error occurred during Adin's reasoning process.",
     });
   }
 });
@@ -306,7 +218,7 @@ app.post("/api/chat", async (req, res) => {
 // ============================================================
 // Text to Speech (TTS) endpoint
 // ============================================================
-app.post("/api/tts", async (req, res) => {
+app.post("/api/tts", createApiGuard(TTS_MAX_REQUESTS_PER_WINDOW), async (req, res) => {
   try {
     const { text, voice } = req.body;
     if (!text || typeof text !== "string") {
@@ -344,7 +256,9 @@ app.post("/api/tts", async (req, res) => {
   } catch (err: any) {
     console.error("Gemini API TTS Error:", err);
     res.status(500).json({
-      error: err.message || "Narrator failed to synthesize text speech.",
+      error: IS_PRODUCTION
+        ? "Narrator failed to synthesize text speech."
+        : err.message || "Narrator failed to synthesize text speech.",
     });
   }
 });
@@ -436,7 +350,7 @@ async function setupApp() {
       _next: express.NextFunction
     ) => {
       console.error("🚨 Server error:", err);
-      res.status(500).json({ error: err.message || "Internal server error" });
+      res.status(500).json({ error: IS_PRODUCTION ? "Internal server error" : err.message || "Internal server error" });
     }
   );
 
@@ -447,6 +361,7 @@ async function setupApp() {
     console.log(`🚀 Adin Server listening at http://localhost:${PORT}`);
     console.log(`   Mode: ${IS_PRODUCTION ? "PRODUCTION" : "DEVELOPMENT"}`);
     console.log(`🔑 Groq keys endpoint: http://localhost:${PORT}/api/ai/groq-keys`);
+    console.log(`🔄 Sync proxy endpoint: http://localhost:${PORT}/api/sync`);
     console.log(`⚡ Groq generate endpoint: http://localhost:${PORT}/api/ai/generate`);
     console.log(`💚 Health check: http://localhost:${PORT}/api/health`);
   });

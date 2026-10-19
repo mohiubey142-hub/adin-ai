@@ -9,6 +9,12 @@
 //             the "Your Benefits & Guest Account" list and the "Pricing &
 //             Charges" section). Kept "No watermarks" — a core product
 //             promise — and stayed consistent with the landing page.
+// ✅ UPDATED (Oct 2026): Policy re-aligned with the actual system —
+//             PIN required to restore, server-side PIN hashing + lockout,
+//             per-device tokens, onboarding collects name only, Google
+//             Analytics only after consent (cookies disclosed), contact /
+//             feedback forms, Vercel + Gmail listed, honest storage and
+//             deletion wording (Google Sheets version history).
 
 import { SEOHead } from "../components/SEO/SEOHead";
 import { getSEOConfig } from "../utils/seoPages";
@@ -106,7 +112,7 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
                 At Adin AI, we take your privacy seriously. This Privacy Policy explains what information we collect, how we use it, where we store it, and what rights you have over your data.
               </p>
               <p>
-                Adin AI is a <strong className="text-slate-800">100% free</strong> career platform that helps you build CVs, write cover letters, and prepare for job applications using AI. There are no hidden charges and no premium tiers. To provide these features reliably, we need to store and sync your data securely. This policy tells you exactly how.
+                Adin AI is a <strong className="text-slate-800">100% free</strong> career platform that helps you build CVs, write cover letters, and prepare for job applications using AI. There are no hidden charges and no premium tiers today. To provide these features reliably, we need to store and sync your data securely. This policy tells you exactly how.
               </p>
             </Section>
 
@@ -117,7 +123,7 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
 
               <SubSection title="What is a Guest Account?">
                 <p>
-                  A <strong className="text-slate-800">Guest Account</strong> is a private space we automatically create for you when you start using Adin AI — <strong className="text-slate-800">no email, no password, no signup required</strong>. It comes with a unique <strong className="text-slate-800">User ID</strong>, and you can optionally add a <strong className="text-slate-800">4-digit PIN</strong> for extra security.
+                  A <strong className="text-slate-800">Guest Account</strong> is a private space we automatically create for you when you start using Adin AI — <strong className="text-slate-800">no email, no password, no signup required</strong>. It comes with a unique <strong className="text-slate-800">User ID</strong>, and you can add a <strong className="text-slate-800">4-digit PIN</strong> — the PIN is what lets you restore your documents on another device.
                 </p>
               </SubSection>
 
@@ -126,7 +132,7 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
                   We believe you should be able to <strong className="text-slate-800">try the product first</strong> and see its value — before deciding to save anything permanently. So instead of asking for your email upfront, we give you a private Guest Account and let you start building right away.
                 </p>
                 <p>
-                  If you ever want to bring your documents to another device, just keep your User ID and PIN safe — that's your backup key. Your Guest Account works like a private vault that only you can access.
+                  If you ever want to bring your documents to another device, set a PIN and keep it, together with your User ID, safe — that's your backup key. Your Guest Account works like a private vault that only you can access.
                 </p>
               </SubSection>
 
@@ -141,7 +147,7 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
                   Everything saves automatically — no button needed.
                 </InfoRow>
                 <InfoRow label="✅ Restore on any device">
-                  Use your Backup ID + PIN to bring all your documents anywhere.
+                  Use your User ID + PIN to bring all your documents anywhere.
                 </InfoRow>
                 <InfoRow label="✅ Full control">
                   Download your documents, delete your account, anytime.
@@ -159,7 +165,7 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
 
               <SubSection title="Personal Information">
                 <p>
-                  Your name, email address, phone number, and any other contact details you enter into your CV or cover letter. This is used to generate your documents and is stored as part of your account data.
+                  When you start, we ask only for your name. Any other details — such as an email address, phone number, or home address — are collected only if you choose to type them into your CV or cover letter. They are used to generate your documents and are stored as part of your document data.
                 </p>
               </SubSection>
 
@@ -171,13 +177,19 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
 
               <SubSection title="Profile Photos">
                 <p>
-                  If you upload a profile photo for your CV, it is stored locally in your browser's IndexedDB and (if cloud sync is active) synced to your private cloud storage. Photos are never shared with third parties.
+                  If you upload a profile photo for your CV, it is stored locally in your browser's IndexedDB. If a photo is saved together with a CV that gets synced, it is stored with that CV in your private cloud storage. Photos are never shared with third parties.
                 </p>
               </SubSection>
 
-              <SubSection title="Anonymous Usage Data">
+              <SubSection title="Contact & Feedback Messages">
                 <p>
-                  We use Google Analytics to understand how users interact with our app — which pages are visited, how long sessions last, and which features are used. This data is anonymized and never linked to your personal information.
+                  If you write to us through the Contact or Feedback form, we collect the name, message, and email address you enter (and, for feedback, your star rating; your email is kept only if you ask for a reply). These are stored in a private sheet and forwarded to our team by email so we can reply and improve the app. They are not linked to your User ID.
+                </p>
+              </SubSection>
+
+              <SubSection title="Usage Analytics (Google Analytics)">
+                <p>
+                  Once you have accepted this policy, we use Google Analytics to understand how people use the app — which pages are visited, how long sessions last, and which features are used. This data is aggregated and pseudonymized (it relies on a random browser identifier, not your name). We never send your name, email address, User ID, or document content to Google Analytics, and Google Analytics is not loaded before you accept. We keep analytics data for up to 14 months.
                 </p>
               </SubSection>
             </Section>
@@ -234,7 +246,7 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
 
               <SubSection title="How the Sync Works">
                 <p>
-                  Your data is transmitted over HTTPS and stored in a private Google Sheet, linked to your unique User ID. Only requests that present the correct shared-secret authentication can access this sheet. We never share it publicly, and no other user can read your data.
+                  Your data is transmitted over HTTPS and stored in a private Google Sheet, linked to your unique User ID. Every request must carry a server-side secret and a personal access token that is issued to your device when you create or restore your account, so knowing a User ID alone is not enough to read anything. We never share the sheet publicly, and no other user can read your data.
                 </p>
               </SubSection>
             </Section>
@@ -252,7 +264,19 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
 
               <SubSection title="Access Control">
                 <p>
-                  Your data is keyed by your unique User ID (a randomly generated string). Only you know this ID, and only requests with this ID can read your data.
+                  Your data is keyed by your unique User ID (a long, randomly generated string). To read or change it, a request needs both your User ID and a secret access token that is issued only to your own devices. We store that token only as a one-way hash.
+                </p>
+              </SubSection>
+
+              <SubSection title="PIN Protection">
+                <p>
+                  Your PIN is checked on our server and stored only as a keyed one-way hash — never in readable form. Very common PINs (such as 0000 or 1234) are rejected. After 5 wrong attempts the account is locked for one hour. Deleting an account that has a PIN requires re-entering the PIN.
+                </p>
+              </SubSection>
+
+              <SubSection title="How Your Documents Are Stored">
+                <p>
+                  Your documents are stored as readable text in our private Google Sheet. We do not add our own end-to-end encryption, because the app needs to read your content to show your CV, generate PDFs, power AI suggestions, and restore your data on another device. The sheet is protected by Google's encryption at rest and can be opened only by authorized Adin AI administrators. We do not browse user documents; we open them only when necessary to keep the service running, investigate abuse, or fix a problem you have reported.
                 </p>
               </SubSection>
 
@@ -282,7 +306,7 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
 
               <SubSection title="Your PIN">
                 <p>
-                  You can set a 4-digit PIN from your profile menu at any time. Once set, the PIN adds an extra layer of security when restoring your data on a new device: both your User ID and your PIN are required.
+                  You can set a 4-digit PIN from your profile menu at any time. The PIN is required to restore your data on a new device: both your User ID and your PIN must be entered. If you never set a PIN, your documents stay available on the device where you created them, but they cannot be restored on another device.
                 </p>
               </SubSection>
 
@@ -307,7 +331,13 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
                   <li>Enter your User ID and the 4-digit PIN you set.</li>
                 </ol>
                 <p className="mt-3">
-                  That's it — all your CVs, cover letters, and photos are pulled from your private cloud storage and loaded onto the new device.
+                  That's it — all your CVs and cover letters (and any photos saved with them) are pulled from your private cloud storage and loaded onto the new device.
+                </p>
+              </SubSection>
+
+              <SubSection title="Forgot Your PIN?">
+                <p>
+                  If you forget your PIN, you can set a new one from the profile menu on a device where you are already using your account. We cannot reset a PIN for you from the outside, because Guest Accounts have no email on file and we have no way to verify who you are — so please keep your PIN somewhere safe.
                 </p>
               </SubSection>
 
@@ -337,7 +367,7 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
 
               <SubSection title="No Forced Actions">
                 <p>
-                  You are never required to set a PIN, download your ID, or export your documents to use Adin AI. These are simply tools to help you protect and back up your data — but the choice is entirely yours.
+                  You are never required to set a PIN, download your ID, or export your documents to use Adin AI. These are simply tools to help you protect and back up your data — the choice is entirely yours. (A PIN is only needed if you want to restore your documents on another device.)
                 </p>
               </SubSection>
             </Section>
@@ -355,13 +385,13 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
 
               <SubSection title="Legitimate Interest">
                 <p>
-                  To ensure security, prevent fraud, and improve the app based on anonymous usage patterns.
+                  To ensure security, keep the service running, and prevent fraud and abuse.
                 </p>
               </SubSection>
 
               <SubSection title="Consent">
                 <p>
-                  For optional features such as submitting feedback or enabling cloud sync of photos.
+                  When you accept this policy at the start (including automatic cloud sync of your documents and Google Analytics usage statistics), and for optional features such as submitting feedback.
                 </p>
               </SubSection>
 
@@ -385,7 +415,7 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
 
               <SubSection title="Immediate Deletion">
                 <p>
-                  Your name, email, User ID, and all your CVs, cover letters, and photos are permanently removed from our active cloud database within seconds.
+                  Your name, User ID, and all your CVs and cover letters (including any email, phone number, or photo inside them) are removed from our active cloud database within seconds, and your devices' access tokens stop working.
                 </p>
               </SubSection>
 
@@ -395,27 +425,27 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
                 </p>
               </SubSection>
 
-              <SubSection title="Anonymized Backup Retention">
+              <SubSection title="Version History & Technical Records">
                 <p>
-                  For up to 90 days, we retain <strong className="text-slate-800">only anonymized statistics</strong> — for example, "one user deleted their account on 15 Oct 2026" — with no personal data, no document content, and no way to link it back to you. This is used for fraud prevention, legal compliance, and to understand usage trends.
+                  Our cloud database is a Google Sheet, and Google Sheets keeps an internal version history of the file. Deleted data may therefore remain in older versions of the sheet, visible only to authorized administrators, until those versions are purged. We do not use this history to restore deleted accounts. Short-lived technical records, such as the counters we use to rate-limit abuse, may also remain for a brief period.
                 </p>
               </SubSection>
 
-              <SubSection title="Permanent Removal">
+              <SubSection title="Contact & Feedback Messages">
                 <p>
-                  After 90 days, even these anonymized backups are permanently deleted. There is no further retention.
+                  Messages you send through the Contact or Feedback forms are not linked to your User ID, so deleting your account does not remove them automatically. To have them deleted, ask us through the contact form and we will remove them.
                 </p>
               </SubSection>
             </Section>
 
             <Section icon={<HardDrive size={16} />} title="Local Storage & Browser Data">
               <p className="mb-4">
-                Adin AI does <strong className="text-slate-800">not use cookies</strong>. Instead, we use modern browser storage technologies:
+                Adin AI itself does <strong className="text-slate-800">not set its own cookies</strong>. Instead, it keeps your preferences and documents using modern browser storage technologies (Google Analytics may set its own cookies once you accept — see below):
               </p>
 
               <SubSection title="localStorage">
                 <p>
-                  Stores your app preferences, session state, and document metadata. Persists across browser sessions.
+                  Stores your app preferences, session state, document metadata, the access token that keeps this device signed in to your account, and your analytics choice. Persists across browser sessions.
                 </p>
               </SubSection>
 
@@ -431,9 +461,9 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
                 </p>
               </SubSection>
 
-              <SubSection title="No Tracking Cookies">
+              <SubSection title="Analytics Cookies">
                 <p>
-                  We do not use advertising cookies or third-party tracking pixels. Google Analytics uses anonymized data only and does not identify you personally.
+                  We do not use advertising cookies or third-party tracking pixels. Once you have accepted this policy, Google Analytics may set its own cookies (for example, ones named <code className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-800 text-xs font-mono">_ga</code>) to tell visits apart and produce aggregated statistics. Analytics is not loaded before you accept, we do not send your name, email, User ID, or document content to it, and we switch off Google's advertising features for our analytics.
                 </p>
               </SubSection>
             </Section>
@@ -445,19 +475,31 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
 
               <SubSection title="Google Sheets (Cloud Storage)">
                 <p>
-                  Stores your synced documents in a private, encrypted sheet linked to your User ID.
+                  Stores your synced documents in a private Google Sheet linked to your User ID, protected by Google's encryption at rest and by access controls on our side.
                 </p>
               </SubSection>
 
               <SubSection title="Groq / OpenRouter (AI Providers)">
                 <p>
-                  Powers AI text generation for summaries, experience descriptions, skills, and cover letters. Only the content you provide for generation is sent; your full document history is never shared.
+                  Powers AI text generation for summaries, experience descriptions, skills, and cover letters. Only the content needed for a generation request is sent (this can include details you typed, such as your name or work history, in the part of the CV being improved); your full document history is never shared. These providers handle that content under their own privacy policies.
                 </p>
               </SubSection>
 
-              <SubSection title="Google Analytics (Anonymized)">
+              <SubSection title="Vercel (Hosting)">
                 <p>
-                  Provides anonymous statistics on how the app is used, so we can improve the experience.
+                  Hosts the website and the server functions that handle requests. Like any host, it processes technical data such as IP addresses and request logs.
+                </p>
+              </SubSection>
+
+              <SubSection title="Google Mail (Contact & Feedback Notifications)">
+                <p>
+                  When you send a message through the Contact or Feedback form, a notification is emailed to our team through Google's mail service.
+                </p>
+              </SubSection>
+
+              <SubSection title="Google Analytics (Aggregated)">
+                <p>
+                  Provides aggregated, pseudonymized statistics on how the app is used (pages visited, features used), so we can improve the experience. Loaded only after you accept this policy; data is kept for up to 14 months.
                 </p>
               </SubSection>
             </Section>
@@ -485,10 +527,10 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
                 In the unlikely event of a data breach that affects your personal information, we will:
               </p>
               <p className="mt-3">
-                Notify affected users <strong className="text-slate-800">within 72 hours</strong> of becoming aware of the breach, in accordance with GDPR requirements. Notification will describe what happened, what data was affected, what we're doing about it, and what steps you can take.
+                Notify the relevant data protection authorities <strong className="text-slate-800">within 72 hours</strong> of becoming aware of the breach, where required by law, and notify affected users without undue delay. Because Guest Accounts have no email on file, we will do this through a prominent notice in the app and on our website. The notice will describe what happened, what data was affected, what we're doing about it, and what steps you can take.
               </p>
               <p className="mt-3">
-                We will also notify relevant data protection authorities where required by law.
+                If you have written to us through the contact form, we may also email you at the address you gave.
               </p>
             </Section>
 
@@ -511,7 +553,7 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
 
               <SubSection title="Right to Deletion">
                 <p>
-                  You can delete your account and all data from the profile menu, using your User ID and PIN to confirm.
+                  You can delete your account and all data from the profile menu, using your User ID (and your PIN, if you set one) to confirm.
                 </p>
               </SubSection>
 

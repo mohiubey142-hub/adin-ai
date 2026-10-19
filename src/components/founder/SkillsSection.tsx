@@ -23,7 +23,7 @@ export default function SkillsSection() {
     <section className="py-16 sm:py-24 px-4 sm:px-6 border-t border-slate-200">
       <div className="max-w-4xl mx-auto">
         <span className="inline-flex items-center text-[11px] font-semibold tracking-[0.2em] uppercase text-purple-600">
-          03 — Skills &amp; Expertise
+          Skills &amp; Expertise
         </span>
         <h2 className="mt-3 text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">
           How the work gets done

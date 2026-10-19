@@ -2,12 +2,11 @@
 // ============================================
 // Adin AI — Account Education Popup
 // ============================================
-// ✅ Modern, clean, premium UI
-// ✅ Same content as before — nothing removed
-// ✅ Emphasizes: BOTH ID + PIN are important
-// ✅ Logout context: after logout, both needed for backup restore
-// ✅ PIN must stay private
-// ✅ Download ID + Copy ID buttons
+// Plain, clean guide to the User ID and PIN.
+// Both the User ID and the PIN are needed to restore on another device
+// or after logging out. The PIN must stay private.
+// The User ID can be copied / downloaded only after a PIN is set.
+// Props and default export are unchanged.
 
 import { useEffect, useState } from 'react';
 import {
@@ -22,17 +21,26 @@ import {
   Download,
   Ban,
   Save,
-  Sparkles,
+  Clock,
 } from 'lucide-react';
+
+// Restore needs BOTH the ID and the PIN → the ID can be copied / downloaded only after a PIN is set.
+const LOCKED_ID_TITLE = 'Set your PIN first.';
+const LOCKED_ID_BODY =
+  'Your User ID can be copied or downloaded after you set a PIN, because restoring your data needs both your User ID and your PIN.';
+const SET_PIN_LABEL = 'Set PIN Now';
+const CHANGE_PIN_LABEL = 'Change PIN';
 
 interface PinEducationPopupProps {
   userId: string;
+  hasPinSet?: boolean;
   onSetPin: () => void;
   onDismiss: () => void;
 }
 
 export default function PinEducationPopup({
   userId,
+  hasPinSet = false,
   onSetPin,
   onDismiss,
 }: PinEducationPopupProps) {
@@ -46,6 +54,7 @@ export default function PinEducationPopup({
   }, []);
 
   const handleCopyId = async () => {
+    if (!hasPinSet) return;
     try {
       if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
         await navigator.clipboard.writeText(userId);
@@ -67,26 +76,28 @@ export default function PinEducationPopup({
   };
 
   const handleDownloadId = () => {
+    if (!hasPinSet) return;
     try {
-      const content = `ADIN AI — YOUR ACCOUNT ID
+      const content = `ADIN AI - YOUR USER ID
 ==========================
 
-Your ID: ${userId}
+Your User ID: ${userId}
 
 Keep this safe.
 
-You'll need BOTH this ID and your 4-digit PIN to restore your
+You will need BOTH this User ID and your 4-digit PIN to restore your
 CVs and Cover Letters on any browser or device.
 
 How to restore:
 1. Open Adin AI on any device
 2. Profile → "Restore from another device"
-3. Enter your ID + PIN
+3. Enter your User ID + PIN
 
 Never share your PIN with anyone.
+We cannot recover a lost PIN or User ID.
 
 Generated on: ${new Date().toLocaleString()}
-Adin AI — https://adin-ai.vercel.app
+Adin AI - ${window.location.origin}
 `;
       const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
       const url = URL.createObjectURL(blob);
@@ -145,7 +156,7 @@ Adin AI — https://adin-ai.vercel.app
               </div>
               <div className="min-w-0 flex-1 pt-1">
                 <h2 className="text-[19px] sm:text-[21px] font-bold text-slate-900 tracking-tight leading-tight">
-                  Your ID, PIN & Backup
+                  Your User ID, PIN and Backup
                 </h2>
                 <p className="text-[13px] text-slate-500 mt-1 leading-relaxed">
                   A simple guide to keeping your documents safe.
@@ -160,10 +171,10 @@ Adin AI — https://adin-ai.vercel.app
             {/* Intro */}
             <div className="mb-6">
               <p className="text-[13px] text-slate-600 leading-relaxed">
-                Your CVs and cover letters are saved <strong className="text-slate-800 font-semibold">privately in the cloud</strong> — nobody else can see them.
+                Your CVs and cover letters are saved <strong className="text-slate-800 font-semibold">privately in the cloud</strong>, and only your User ID and PIN can bring them back.
               </p>
               <p className="text-[13px] text-slate-600 leading-relaxed mt-2">
-                If you log out and want to restore your data later, you'll need <strong className="text-slate-800 font-semibold">both</strong> your ID and your PIN. So it's a good idea to have both ready — just in case.
+                To restore your data on another device or after logging out, you will need <strong className="text-slate-800 font-semibold">both</strong> your User ID and your PIN. We cannot recover them if they are lost, so keep both safe.
               </p>
             </div>
 
@@ -174,42 +185,52 @@ Adin AI — https://adin-ai.vercel.app
                   <Key size={14} className="text-slate-700" strokeWidth={2.4} />
                 </div>
                 <h3 className="text-[14px] font-bold text-slate-900 tracking-tight">
-                  Your ID
+                  Your User ID
                 </h3>
               </div>
 
               <p className="text-[12.5px] text-slate-600 leading-relaxed mb-3">
-                This is your unique account key. It never changes. Use it together with your PIN to restore your documents on any device.
+                This is your unique account key. It never changes. Use it together with your PIN to restore your documents on another device.
               </p>
 
-              {/* ID box */}
-              <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-3 mb-2.5">
-                <div className="flex items-center justify-between gap-3 mb-2">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
-                    Account ID
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleCopyId}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50 text-slate-700 hover:text-purple-700 text-[11px] font-semibold transition-all duration-150 active:scale-95"
-                  >
-                    {copied ? <Check size={11} strokeWidth={2.6} /> : <Copy size={11} strokeWidth={2.4} />}
-                    <span>{copied ? 'Copied' : 'Copy'}</span>
-                  </button>
+              {hasPinSet ? (
+                <>
+                {/* ID box */}
+                <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-3 mb-2.5">
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                      User ID
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCopyId}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50 text-slate-700 hover:text-purple-700 text-[11px] font-semibold transition-all duration-150 active:scale-95"
+                    >
+                      {copied ? <Check size={11} strokeWidth={2.6} /> : <Copy size={11} strokeWidth={2.4} />}
+                      <span>{copied ? 'Copied' : 'Copy'}</span>
+                    </button>
+                  </div>
+                  <div className="text-[14px] font-bold text-slate-900 font-mono tracking-wide select-all break-all text-center">
+                    {userId}
+                  </div>
                 </div>
-                <div className="text-[14px] font-bold text-slate-900 font-mono tracking-wide select-all break-all text-center">
-                  {userId}
-                </div>
-              </div>
 
-              <button
-                type="button"
-                onClick={handleDownloadId}
-                className="w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 text-[12.5px] font-semibold transition-all duration-150 active:scale-[0.98]"
-              >
-                <Download size={14} strokeWidth={2.2} />
-                <span>Download ID as .txt file</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadId}
+                  className="w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 text-[12.5px] font-semibold transition-all duration-150 active:scale-[0.98]"
+                >
+                  <Download size={14} strokeWidth={2.2} />
+                  <span>Download User ID as .txt file</span>
+                </button>
+                </>
+              ) : (
+                <div className="rounded-xl bg-amber-50/70 border border-amber-200/70 px-3.5 py-3">
+                  <p className="text-[12.5px] text-amber-900 leading-relaxed">
+                    <strong className="font-semibold">{LOCKED_ID_TITLE}</strong> {LOCKED_ID_BODY}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* ═══════ SECTION 2: YOUR PIN ═══════ */}
@@ -264,7 +285,7 @@ Adin AI — https://adin-ai.vercel.app
                 </h3>
               </div>
               <p className="text-[12.5px] text-slate-600 leading-relaxed">
-                As long as you don't log out, your documents stay right here. You can download them anytime from My Documents.
+                As long as you stay logged in and do not clear your browser data, your documents stay right here. You can download them anytime from My Documents.
               </p>
             </div>
 
@@ -295,10 +316,10 @@ Adin AI — https://adin-ai.vercel.app
 
                 <div className="flex items-start gap-3">
                   <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
-                    <Sparkles size={14} className="text-amber-600" strokeWidth={2.4} />
+                    <Clock size={14} className="text-amber-600" strokeWidth={2.4} />
                   </div>
                   <p className="text-[12.5px] text-slate-700 leading-relaxed pt-1">
-                    <strong className="text-slate-900 font-semibold">Don't worry</strong> — this is all optional. Take your time.
+                    <strong className="text-slate-900 font-semibold">No rush.</strong> You can set your PIN whenever you are ready, but without a PIN your work cannot be restored on another device.
                   </p>
                 </div>
               </div>
@@ -321,7 +342,7 @@ Adin AI — https://adin-ai.vercel.app
                 className="flex-1 order-1 sm:order-2 inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-white text-[13px] font-semibold bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 shadow-md shadow-purple-600/25 hover:shadow-lg hover:shadow-purple-600/30 transition-all duration-200 active:scale-[0.98]"
               >
                 <Lock size={14} strokeWidth={2.4} />
-                <span>Set PIN Now</span>
+                <span>{hasPinSet ? CHANGE_PIN_LABEL : SET_PIN_LABEL}</span>
                 <ArrowRight size={14} strokeWidth={2.4} />
               </button>
             </div>

@@ -1,5 +1,6 @@
 // src/components/SetPinModal.tsx
-// ✅ FIXED: userId guard + localStorage fallback + debug logs
+// ✅ SECURE: no console logging of User ID / PIN details
+// ✅ FIXED: userId guard + validated fallback (utils/userId.ts)
 // ✅ Session error handling when userId is undefined
 // ✅ NEW: shows real error (message → error code → generic) + logs full result
 // ✅ MODERN UI: cleaner layout, better visuals, matches app theme
@@ -9,6 +10,7 @@ import { useState, useRef, useEffect } from 'react';
 import { X, Lock, Loader2, ShieldCheck } from 'lucide-react';
 import { syncService } from '../services/sync/syncService';
 import { validatePin } from '../utils/pinHash';
+import { getUserId } from '../utils/userId';
 import toast from 'react-hot-toast';
 
 interface SetPinModalProps {
@@ -41,23 +43,13 @@ export default function SetPinModal({ isOpen, userId, onClose, onSuccess }: SetP
   const handleSave = async () => {
     setError('');
 
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('[SetPinModal] handleSave called');
-    console.log('[SetPinModal] userId prop:', userId);
-    console.log('[SetPinModal] pin length:', pin.length);
-    console.log('[SetPinModal] confirmPin length:', confirmPin.length);
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-
-    // ✅ FIX: Fallback to localStorage if userId prop is undefined
+    // ✅ Fallback to the validated stored ID if the userId prop is missing
     const effectiveUserId =
       (userId && typeof userId === 'string' && userId.trim().length > 0)
         ? userId.trim()
-        : (localStorage.getItem('adin-user-id') || localStorage.getItem('adin-guest-user-id') || '');
-
-    console.log('[SetPinModal] effectiveUserId:', effectiveUserId);
+        : (getUserId() || '');
 
     if (!effectiveUserId) {
-      console.error('[SetPinModal] ❌ No userId found (prop or localStorage)');
       setError('Session error. Please refresh the page and try again.');
       toast.error('Session error. Please refresh.');
       return;
@@ -76,9 +68,7 @@ export default function SetPinModal({ isOpen, userId, onClose, onSuccess }: SetP
 
     setIsSaving(true);
     try {
-      console.log('[SetPinModal] Calling syncService.setPin with userId:', effectiveUserId);
       const result = await syncService.setPin(effectiveUserId, pin);
-      console.log('[SetPinModal] setPin result:', JSON.stringify(result));
 
       if (result.ok) {
         toast.success('PIN set successfully!');
@@ -89,11 +79,9 @@ export default function SetPinModal({ isOpen, userId, onClose, onSuccess }: SetP
       } else {
         // ✅ Real error dikhao: message → error code → generic
         const errMsg = result.message || result.error || 'Failed to set PIN';
-        console.error('[SetPinModal] ❌ setPin failed:', errMsg, '| code:', result.error);
         setError(errMsg);
       }
     } catch (e: any) {
-      console.error('[SetPinModal] ❌ setPin exception:', e);
       setError(e?.message || 'Network error. Try again.');
     } finally {
       setIsSaving(false);

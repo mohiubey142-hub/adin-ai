@@ -21,8 +21,8 @@ export default function VisionSection() {
             </div>
             <p className="text-sm text-slate-600 leading-relaxed">
               To solve career challenges faced by students and freelancers by building an AI-powered platform
-              where anyone can create professional resumes, generate cover letters, prepare for interviews,
-              learn new skills, and connect with real freelance opportunities—all in one place.
+              where anyone can create professional resumes and cover letters today, and over time prepare for
+              interviews, learn new skills, and connect with real freelance opportunities—all in one place.
             </p>
           </div>
 

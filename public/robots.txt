@@ -14,7 +14,7 @@ Disallow: /settings
 Disallow: /profile
 
 # SITEMAP
-Sitemap: https://adin-ai-gray.vercel.app/sitemap.xml
+Sitemap: https://getadinai.com/sitemap.xml
 
 # ============================================
 # SPECIFIC BOTS

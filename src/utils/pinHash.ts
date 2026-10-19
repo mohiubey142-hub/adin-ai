@@ -1,58 +1,31 @@
 // src/utils/pinHash.ts
 // ============================================
-// PIN Hashing Utility (Per-User Salt)
+// PIN validation (client-side UX only)
 // ============================================
-// ✅ Uses userId as additional salt
-// ✅ Same PIN → different hash for different users
-// ✅ Protects against rainbow table attacks
+// ✅ SECURE: PIN hashing was REMOVED from the browser.
+//    The raw PIN is sent over HTTPS and the SERVER hashes it with a secret
+//    pepper (HMAC) — so a leaked Sheet can't be brute-forced offline.
+// ✅ The server re-validates every PIN, this file only gives instant feedback.
 // ============================================
 
-const BASE_SALT = 'adin-ai-pin-salt-2026';
+export const PIN_LENGTH = 4;
 
-/**
- * Hash a 4-digit PIN with user-specific salt.
- * @param pin - The 4-digit PIN
- * @param userId - The user's unique ID (used as additional salt)
- */
-export async function hashPin(pin: string, userId: string): Promise<string> {
-  try {
-    const encoder = new TextEncoder();
-    // ✅ Combine: pin + userId + base salt
-    const data = encoder.encode(pin + ':' + userId + ':' + BASE_SALT);
-    const hash = await crypto.subtle.digest('SHA-256', data);
-    return Array.from(new Uint8Array(hash))
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
-  } catch (e) {
-    console.error('[pinHash] crypto.subtle failed:', e);
-    return fallbackHash(pin + ':' + userId);
-  }
-}
+const PIN_PATTERN = new RegExp(`^\\d{${PIN_LENGTH}}$`);
 
-function fallbackHash(str: string): string {
-  let hash = 0;
-  const salted = str + ':' + BASE_SALT;
-  for (let i = 0; i < salted.length; i++) {
-    const char = salted.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return Math.abs(hash).toString(16).padStart(16, '0');
-}
+const WEAK_PINS = [
+  '0000', '1111', '2222', '3333', '4444',
+  '5555', '6666', '7777', '8888', '9999',
+  '1234', '4321', '1212', '2121', '0123',
+];
 
 export function validatePin(pin: string): { valid: boolean; message: string } {
   if (!pin) {
     return { valid: false, message: 'PIN is required' };
   }
-  if (!/^\d{4}$/.test(pin)) {
-    return { valid: false, message: 'PIN must be exactly 4 digits' };
+  if (!PIN_PATTERN.test(pin)) {
+    return { valid: false, message: `PIN must be exactly ${PIN_LENGTH} digits` };
   }
-  const weakPins = [
-    '0000', '1111', '2222', '3333', '4444',
-    '5555', '6666', '7777', '8888', '9999',
-    '1234', '4321', '1212', '2121', '0123'
-  ];
-  if (weakPins.includes(pin)) {
+  if (WEAK_PINS.includes(pin)) {
     return { valid: false, message: 'This PIN is too common. Choose a stronger one.' };
   }
   return { valid: true, message: '' };

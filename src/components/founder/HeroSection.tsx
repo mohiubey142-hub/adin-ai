@@ -90,14 +90,14 @@ export default function HeroSection() {
               </p>
 
               <p className="text-sm md:text-base text-slate-600 mt-3 max-w-xl mx-auto md:mx-0">
-                Building AI-powered career tools for students and freelancers.
-                Pakistan's youngest AI product founder.
+                A 17-year-old from Pakistan building AI-powered career tools
+                for students and job seekers.
               </p>
 
               {/* Premium Badges */}
               <div className="flex flex-wrap gap-2.5 mt-5 justify-center md:justify-start">
                 <span className="px-3.5 py-1.5 rounded-full bg-purple-50 border border-purple-100 text-purple-700 text-xs font-semibold">
-                  16 Years Old
+                  17 Years Old
                 </span>
                 <span className="px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-xs font-semibold">
                   Pakistan
@@ -114,11 +114,11 @@ export default function HeroSection() {
               <div className="flex flex-wrap gap-4 mt-5 text-xs text-slate-500 justify-center md:justify-start">
                 <span className="flex items-center gap-1.5">
                   <MapPin size={14} className="text-purple-600" />
-                  Mananwala, Sheikhupura, Pakistan
+                  Punjab, Pakistan
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Calendar size={14} className="text-purple-600" />
-                  16 (17 in progress)
+                  Building Adin AI since May 2026
                 </span>
               </div>
             </div>

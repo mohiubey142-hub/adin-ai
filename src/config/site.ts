@@ -9,7 +9,7 @@ export const SITE_CONFIG = {
   // ─────────────────────────────────────────────
   // 👇 DOMAIN — YAHAN CHANGE KARO FUTURE MEIN
   // ─────────────────────────────────────────────
-  url: 'https://adin-ai-gray.vercel.app',
+  url: 'https://getadinai.com',
 
   // ─────────────────────────────────────────────
   // BRAND

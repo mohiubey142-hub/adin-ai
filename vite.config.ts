@@ -9,7 +9,6 @@ export default defineConfig(() => {
     plugins: [
       react(), 
       tailwindcss(),
-      // ✅ PWA COMPLETELY REMOVED
     ],
     resolve: {
       alias: {
@@ -27,7 +26,6 @@ export default defineConfig(() => {
         output: {
           manualChunks: {
             'react-vendor': ['react', 'react-dom'],
-            'clerk-vendor': ['@clerk/clerk-react'],
             'lucide-vendor': ['lucide-react'],
             'pdf-vendor': ['html2pdf.js', 'jspdf'],
             'image-vendor': ['react-easy-crop'],

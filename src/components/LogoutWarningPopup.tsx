@@ -12,10 +12,18 @@ import React, { useState } from 'react';
 import { AlertTriangle, Copy, Check, Download, X, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+// Restore needs BOTH the ID and the PIN → without a PIN the ID is useless, so it is not offered.
+const NO_PIN_LOSS_WARNING =
+  "Without a PIN, your data can't be restored after you log out — your ID alone is not enough.";
+const SET_PIN_BUTTON_LABEL = 'Set PIN now';
+const LOGOUT_LABEL = 'Logout anyway';
+const LOGOUT_NO_PIN_LABEL = 'Logout without backup';
+
 interface LogoutWarningPopupProps {
   isOpen: boolean;
   userId: string;
   hasPinSet?: boolean;
+  onSetPin?: () => void;
   onConfirmLogout: () => void;
   onCancel: () => void;
 }
@@ -24,6 +32,7 @@ const LogoutWarningPopup: React.FC<LogoutWarningPopupProps> = ({
   isOpen,
   userId,
   hasPinSet = false,
+  onSetPin,
   onConfirmLogout,
   onCancel,
 }) => {
@@ -32,6 +41,7 @@ const LogoutWarningPopup: React.FC<LogoutWarningPopupProps> = ({
   if (!isOpen) return null;
 
   const handleCopy = () => {
+    if (!hasPinSet) return;
     try {
       if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
         navigator.clipboard.writeText(userId);
@@ -54,6 +64,7 @@ const LogoutWarningPopup: React.FC<LogoutWarningPopupProps> = ({
   };
 
   const handleDownload = () => {
+    if (!hasPinSet) return;
     try {
       const content = `ADIN AI — YOUR ACCOUNT ID
 ==========================
@@ -122,26 +133,30 @@ Generated: ${new Date().toLocaleString()}
           </p>
         </div>
 
-        {/* ═══════ ID BOX ═══════ */}
-        <div className="px-6 pb-4">
-          <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-3.5">
-            <div className="flex items-center justify-between gap-3 mb-2">
-              <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
-                Your ID
-              </span>
-              <button
-                onClick={handleCopy}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50 text-slate-700 hover:text-purple-700 text-[11px] font-semibold transition-all duration-150 active:scale-95"
-              >
-                {copied ? <Check size={11} strokeWidth={2.6} /> : <Copy size={11} strokeWidth={2.4} />}
-                <span>{copied ? 'Copied' : 'Copy'}</span>
-              </button>
+        {/* ═══════ ID BOX (only after a PIN is set — restore needs ID + PIN) ═══════ */}
+        {hasPinSet && (
+          <>
+            <div className="px-6 pb-4">
+              <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-3.5">
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                    Your ID
+                  </span>
+                  <button
+                    onClick={handleCopy}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50 text-slate-700 hover:text-purple-700 text-[11px] font-semibold transition-all duration-150 active:scale-95"
+                  >
+                    {copied ? <Check size={11} strokeWidth={2.6} /> : <Copy size={11} strokeWidth={2.4} />}
+                    <span>{copied ? 'Copied' : 'Copy'}</span>
+                  </button>
+                </div>
+                <div className="text-[15px] font-bold text-slate-900 font-mono tracking-wide select-all break-all">
+                  {userId}
+                </div>
+              </div>
             </div>
-            <div className="text-[15px] font-bold text-slate-900 font-mono tracking-wide select-all break-all">
-              {userId}
-            </div>
-          </div>
-        </div>
+          </>
+        )}
 
         {/* ═══════ PIN WARNING (only if not set) ═══════ */}
         {!hasPinSet && (
@@ -158,8 +173,18 @@ Generated: ${new Date().toLocaleString()}
                   Set one before logging out → <strong className="font-bold">Profile → Set PIN</strong>
                 </p>
                 <p className="text-[10.5px] text-amber-700/70 mt-1 leading-relaxed">
-                  Without a PIN, you won't be able to restore your data on another device.
+                  {NO_PIN_LOSS_WARNING}
                 </p>
+                {onSetPin && (
+                  <button
+                    type="button"
+                    onClick={onSetPin}
+                    className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[11.5px] font-semibold transition-all duration-150 active:scale-95"
+                  >
+                    <Lock size={11} strokeWidth={2.4} />
+                    <span>{SET_PIN_BUTTON_LABEL}</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -176,16 +201,20 @@ Generated: ${new Date().toLocaleString()}
           </p>
         </div>
 
-        {/* ═══════ DOWNLOAD BUTTON ═══════ */}
-        <div className="px-6 pb-5">
-          <button
-            onClick={handleDownload}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 text-[12.5px] font-semibold transition-all duration-150 active:scale-[0.98]"
-          >
-            <Download size={14} strokeWidth={2.2} />
-            <span>Download ID as .txt file</span>
-          </button>
-        </div>
+        {/* ═══════ DOWNLOAD BUTTON (only after a PIN is set) ═══════ */}
+        {hasPinSet && (
+          <>
+            <div className="px-6 pb-5">
+              <button
+                onClick={handleDownload}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 text-[12.5px] font-semibold transition-all duration-150 active:scale-[0.98]"
+              >
+                <Download size={14} strokeWidth={2.2} />
+                <span>Download ID as .txt file</span>
+              </button>
+            </div>
+          </>
+        )}
 
         {/* ═══════ DIVIDER ═══════ */}
         <div className="h-px bg-slate-100 mx-6" />
@@ -202,7 +231,7 @@ Generated: ${new Date().toLocaleString()}
             onClick={onConfirmLogout}
             className="w-full py-2.5 rounded-xl text-red-600 hover:bg-red-50 text-[13px] font-semibold transition-all duration-150 active:scale-[0.98]"
           >
-            Logout anyway
+            {hasPinSet ? LOGOUT_LABEL : LOGOUT_NO_PIN_LABEL}
           </button>
         </div>
       </div>

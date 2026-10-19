@@ -11,6 +11,7 @@ import { useState, useEffect, useRef } from "react";
 import { ArrowRight, User, AlertCircle } from "lucide-react";
 import { getOrCreateUserId } from '../utils/userId';
 import { syncService } from '../services/sync/syncService';
+import { enableAnalytics } from '../utils/analytics';
 
 interface OnboardingProps {
   onComplete: (profile: {
@@ -122,6 +123,8 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
 
     setNameError("");
     setConsentError("");
+    // ✅ Analytics starts only now — after the user ticked the Privacy Policy checkbox
+    enableAnalytics();
     setIsLoading(true);
     startEnterAnimation(buildProfile());
   };

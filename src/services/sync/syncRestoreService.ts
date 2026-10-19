@@ -2,14 +2,14 @@
 // ============================================
 // Adin AI — Restore Service (Sheet → localStorage)
 // ============================================
-// ✅ NEW: Accepts all 3 ID formats (8-char, 8-char-hyphen, 16-char)
+// ✅ SECURE: only the current 16-char ID format is valid (single source: utils/userId.ts)
+// ✅ SECURE: restore needs a server-issued auth token (obtained by login with PIN first)
 
 import { syncService } from './syncService';
+import { getAuthToken } from './authToken';
+import { isValidUserId, setUserId } from '../../utils/userId';
 import { saveImageToIDB, getPhotoKey } from '../../components/cv-builder/utils/imageUtils';
 import type { UserProfile, CVRecord, CoverLetterRecord } from './types';
-
-// ✅ Single source of truth for ID validation
-const ID_REGEX = /^ADN-[A-Z0-9]{8}$|^ADN-[A-Z0-9]{4}-[A-Z0-9]{4}$|^ADN-[A-Z0-9]{16}$/;
 
 export interface RestoreResult {
   ok: boolean;
@@ -54,7 +54,7 @@ export const syncRestoreService = {
       if (!raw) return null;
       return raw;
     } catch (e) {
-      console.error('[restore] fetchUser failed:', e);
+      console.error('[restore] fetchUser failed');
       return null;
     }
   },
@@ -66,7 +66,7 @@ export const syncRestoreService = {
       const list = Array.isArray(raw) ? raw : [];
       return list;
     } catch (e) {
-      console.error('[restore] fetchUserCVs failed:', e);
+      console.error('[restore] fetchUserCVs failed');
       return [];
     }
   },
@@ -78,7 +78,7 @@ export const syncRestoreService = {
       const list = Array.isArray(raw) ? raw : [];
       return list;
     } catch (e) {
-      console.error('[restore] fetchUserCoverLetters failed:', e);
+      console.error('[restore] fetchUserCoverLetters failed');
       return [];
     }
   },
@@ -86,8 +86,7 @@ export const syncRestoreService = {
   async restoreAll(userId: string): Promise<RestoreResult> {
     const cleanId = userId.trim().toUpperCase();
 
-    // ✅ Accepts all 3 formats
-    if (!ID_REGEX.test(cleanId)) {
+    if (!isValidUserId(cleanId)) {
       return {
         ok: false,
         error: 'invalid_format',
@@ -96,6 +95,19 @@ export const syncRestoreService = {
         coverLettersRestored: 0,
         photosRestored: 0,
         message: 'Invalid User ID format',
+      };
+    }
+
+    // No token = the user has not signed in (PIN) on this device → server would refuse anyway
+    if (!getAuthToken(cleanId)) {
+      return {
+        ok: false,
+        error: 'auth_required',
+        user: null,
+        cvsRestored: 0,
+        coverLettersRestored: 0,
+        photosRestored: 0,
+        message: 'Please verify your PIN to restore this account.',
       };
     }
 
@@ -150,7 +162,7 @@ export const syncRestoreService = {
   ): Promise<{ cvsRestored: number; coverLettersRestored: number; photosRestored: number }> {
     // 1. Store User ID
     try {
-      localStorage.setItem('adin-user-id', userId);
+      setUserId(userId);
       if (user?.name) {
         localStorage.setItem('adin_user_name', String(user.name));
       }
@@ -357,8 +369,7 @@ export const syncRestoreService = {
     };
   },
 
-  // ✅ Updated for all 3 formats
   isValidIdFormat(userId: string): boolean {
-    return ID_REGEX.test(userId.trim().toUpperCase());
+    return isValidUserId(userId);
   },
 };

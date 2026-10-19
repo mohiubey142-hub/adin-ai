@@ -2,7 +2,8 @@
 // ============================================
 // Adin AI — Restore Data Modal
 // ============================================
-// ✅ Supports all 3 ID formats (8-char, 8-char-hyphen, 16-char)
+// ✅ SECURE: only the 16-char ID format (validated by utils/userId.ts)
+// ✅ SECURE: PIN is checked on the server via syncService.login() — server returns a token
 // ✅ PIN verification required (with no_pin_set warning case)
 // ✅ NEW: If user has no PIN set → warning + allow restore
 // ✅ NEW: real errors shown (rate limit / network / wrong PIN) — no more fake "No account found"
@@ -12,6 +13,7 @@ import { CloudDownload, X, CheckCircle2, AlertCircle, Loader2, Lock, ShieldAlert
 import toast from 'react-hot-toast';
 import { syncRestoreService, RestoreResult } from '../services/sync/syncRestoreService';
 import { syncService } from '../services/sync/syncService';
+import { isValidUserId } from '../utils/userId';
 
 interface RestoreDataProps {
   isOpen: boolean;
@@ -21,11 +23,11 @@ interface RestoreDataProps {
 
 type RestoreStatus = 'idle' | 'loading' | 'success' | 'error' | 'no_pin_warning';
 
-// ✅ Accepts all 3 formats:
-//   1. ADN-XXXXXXXX           (old: 8 chars, no hyphen)
-//   2. ADN-XXXX-XXXX          (old: 8 chars, with hyphen)
-//   3. ADN-XXXXXXXXXXXXXXXX   (new: 16 chars continuous)
-const ID_REGEX = /^ADN-[A-Z0-9]{8}$|^ADN-[A-Z0-9]{4}-[A-Z0-9]{4}$|^ADN-[A-Z0-9]{16}$/;
+// Restore needs BOTH the ID and a PIN. Accounts without a PIN cannot be restored on a new device.
+const NO_PIN_RESTORE_MESSAGE =
+  'This account has no PIN, so it cannot be restored here. Open Adin AI on your original device, set a PIN, then try again.';
+// Login value used by the (now unreachable) "continue without PIN" path
+const NO_PIN_LOGIN_VALUE = '';
 
 const RestoreData: React.FC<RestoreDataProps> = ({ isOpen, onClose, onRestored }) => {
   const [userId, setUserId] = useState('');
@@ -61,7 +63,7 @@ const RestoreData: React.FC<RestoreDataProps> = ({ isOpen, onClose, onRestored }
   };
 
   const isValidForm = (): boolean => {
-    if (!ID_REGEX.test(userId.trim().toUpperCase())) return false;
+    if (!isValidUserId(userId)) return false;
     if (pin.length !== 4) return false;
     return true;
   };
@@ -97,7 +99,7 @@ const RestoreData: React.FC<RestoreDataProps> = ({ isOpen, onClose, onRestored }
   const handleRestore = async () => {
     const cleanId = userId.trim().toUpperCase();
 
-    if (!ID_REGEX.test(cleanId)) {
+    if (!isValidUserId(cleanId)) {
       toast.error('Invalid ID format');
       return;
     }
@@ -145,18 +147,19 @@ const RestoreData: React.FC<RestoreDataProps> = ({ isOpen, onClose, onRestored }
         return;
       }
 
-      // ✅ If user has no PIN set → show warning, allow restore
+      // ✅ No PIN set → restore is not allowed (ID + PIN are both required)
       if (acc.status === 'no_pin') {
-        setPendingNoPinUserId(cleanId);
-        setStatus('no_pin_warning');
+        setStatus('idle');
+        setPinError(NO_PIN_RESTORE_MESSAGE);
+        toast.error(NO_PIN_RESTORE_MESSAGE, { duration: 6000 });
         return;
       }
 
-      // ✅ User has PIN → verify it (detailed: wrong PIN / rate limit / network)
-      const pinCheck = await syncService.verifyPinDetailed(cleanId, pin);
+      // ✅ User has PIN → server verifies it and issues an access token
+      const loginResult = await syncService.login(cleanId, pin);
 
-      if (!pinCheck.verified) {
-        const msg = pinCheck.message || 'Invalid User ID or PIN';
+      if (!loginResult.ok) {
+        const msg = loginResult.message || 'Invalid User ID or PIN';
         setStatus('idle');
         setPinError(msg);
         toast.error(msg);
@@ -183,6 +186,25 @@ const RestoreData: React.FC<RestoreDataProps> = ({ isOpen, onClose, onRestored }
   const handleContinueWithoutPin = async () => {
     if (!pendingNoPinUserId) return;
     setStatus('loading');
+
+    // Account has no PIN → server still has to issue an access token
+    const loginResult = await syncService.login(pendingNoPinUserId, NO_PIN_LOGIN_VALUE);
+    if (!loginResult.ok) {
+      const msg = loginResult.message || 'Could not restore this account.';
+      setStatus('error');
+      setResult({
+        ok: false,
+        error: loginResult.error || 'login_failed',
+        user: null,
+        cvsRestored: 0,
+        coverLettersRestored: 0,
+        photosRestored: 0,
+        message: msg,
+      });
+      toast.error(msg);
+      return;
+    }
+
     await executeRestore(pendingNoPinUserId);
   };
 

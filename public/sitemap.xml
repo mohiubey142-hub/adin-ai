@@ -6,7 +6,7 @@
 
   <!-- HOME — highest priority -->
   <url>
-    <loc>https://adin-ai-gray.vercel.app/</loc>
+    <loc>https://getadinai.com/</loc>
     <lastmod>2026-10-10</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
@@ -14,7 +14,7 @@
 
   <!-- CV TEMPLATES -->
   <url>
-    <loc>https://adin-ai-gray.vercel.app/templates</loc>
+    <loc>https://getadinai.com/templates</loc>
     <lastmod>2026-10-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.95</priority>
@@ -22,7 +22,7 @@
 
   <!-- COVER LETTER TEMPLATES -->
   <url>
-    <loc>https://adin-ai-gray.vercel.app/cover-templates</loc>
+    <loc>https://getadinai.com/cover-templates</loc>
     <lastmod>2026-10-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.95</priority>
@@ -30,7 +30,7 @@
 
   <!-- FOUNDER -->
   <url>
-    <loc>https://adin-ai-gray.vercel.app/founder</loc>
+    <loc>https://getadinai.com/founder</loc>
     <lastmod>2026-10-10</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.70</priority>
@@ -38,7 +38,7 @@
 
   <!-- CONTACT -->
   <url>
-    <loc>https://adin-ai-gray.vercel.app/contact</loc>
+    <loc>https://getadinai.com/contact</loc>
     <lastmod>2026-10-10</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.60</priority>
@@ -46,7 +46,7 @@
 
   <!-- PRIVACY -->
   <url>
-    <loc>https://adin-ai-gray.vercel.app/privacy-policy</loc>
+    <loc>https://getadinai.com/privacy-policy</loc>
     <lastmod>2026-10-10</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.40</priority>
@@ -54,7 +54,7 @@
 
   <!-- TERMS -->
   <url>
-    <loc>https://adin-ai-gray.vercel.app/terms-of-service</loc>
+    <loc>https://getadinai.com/terms-of-service</loc>
     <lastmod>2026-10-10</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.40</priority>

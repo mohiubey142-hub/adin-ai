@@ -88,6 +88,19 @@ ALL_FEATURES.forEach((k) => {
 const COOLDOWN_DURATION = 60 * 1000; // 60s
 
 // ============================================
+// If the status call fails (dev proxy, cold start, network hiccup) AI must NOT be switched off:
+// the server (/api/ai/generate) is the real judge, it holds the keys and answers with an error
+// only if none is usable. So we assume "configured" and let the first real call decide.
+// ============================================
+const assumeServerConfigured = (): void => {
+  ALL_FEATURES.forEach((feature) => {
+    backendFeatures[feature] = true;
+  });
+  backendConfiguredCount = ALL_FEATURES.length;
+  backendLoadSucceeded = true;
+};
+
+// ============================================
 // 🆕 BACKEND STATUS LOADER — call ONCE at app startup
 // ============================================
 /**
@@ -107,6 +120,7 @@ export const loadKeysFromBackend = async (): Promise<void> => {
 
     if (!res.ok) {
       console.warn(`⚠️ [groqKeyManager] Backend status fetch failed: ${res.status}`);
+      assumeServerConfigured();
       return;
     }
 
@@ -118,6 +132,7 @@ export const loadKeysFromBackend = async (): Promise<void> => {
 
     if (!data?.ok) {
       console.warn('⚠️ [groqKeyManager] Backend returned ok=false');
+      assumeServerConfigured();
       return;
     }
 
@@ -139,6 +154,7 @@ export const loadKeysFromBackend = async (): Promise<void> => {
       '⚠️ [groqKeyManager] Backend status fetch error:',
       err
     );
+    assumeServerConfigured();
   }
 };
 

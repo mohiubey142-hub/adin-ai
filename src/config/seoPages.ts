@@ -9,6 +9,11 @@
 //             template count. Replaced with a "growing library" framing
 //             so the copy stays honest, evergreen, and SEO-safe as the
 //             catalogue grows. No other page touched.
+// ✅ UPDATED (Oct 2026): removed "no ads" (kept out on purpose) and the
+//             "millions of job seekers" claim, removed the "gdpr" keyword
+//             (tool is Pakistan-focused), and added noIndex entries for
+//             onboarding / profile / settings so they never fall back to
+//             the indexable home config.
 // ============================================================
 
 import { SITE_CONFIG, SITE_URL, canonicalFor, OG_IMAGE } from './site';
@@ -50,7 +55,7 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
   home: {
     title: 'Free CV Builder, Cover Letter & Career Assistant',
     description:
-      'Adin AI is a 100% free AI-powered CV builder, cover letter generator, and career assistant. Build professional, ATS-friendly CVs in minutes — no signup, no credit card, no ads.',
+      'Adin AI is a 100% free AI CV builder, cover letter generator and career assistant. Build professional, ATS-friendly CVs in minutes — no signup, no credit card.',
     keywords: [
       'free cv builder',
       'free cover letter generator',
@@ -118,7 +123,7 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
   },
 
   // ══════════════════════════════════════════════
-  // CV BUILDER (marketing page — public)
+  // CV BUILDER (editor — not indexed)
   // ══════════════════════════════════════════════
   'cv-builder': {
     title: 'Free AI CV Builder — Create a Professional CV in Minutes',
@@ -179,7 +184,7 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
   founder: {
     title: 'Founder — Kian Mercer | Adin AI',
     description:
-      'Meet Kian Mercer, founder of Adin AI — a free AI-powered career platform helping millions of job seekers build professional CVs and cover letters.',
+      'Meet Kian Mercer, founder of Adin AI — a free AI-powered career platform helping job seekers build professional CVs and cover letters.',
     keywords: [
       'adin ai founder',
       'kian mercer',
@@ -193,6 +198,37 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
   },
 
   // ══════════════════════════════════════════════
+  // APP-ONLY PAGES (never indexed)
+  // ══════════════════════════════════════════════
+  onboarding: {
+    title: 'Welcome to Adin AI',
+    description: 'Set up your Adin AI workspace.',
+    keywords: 'adin ai',
+    canonicalUrl: canonicalFor('/'),
+    ...DEFAULTS,
+    noIndex: true,
+    noFollow: true,
+  },
+  profile: {
+    title: 'Profile',
+    description: 'Your Adin AI profile.',
+    keywords: 'adin ai profile',
+    canonicalUrl: canonicalFor('/profile'),
+    ...DEFAULTS,
+    noIndex: true,
+    noFollow: true,
+  },
+  settings: {
+    title: 'Settings',
+    description: 'Your Adin AI settings.',
+    keywords: 'adin ai settings',
+    canonicalUrl: canonicalFor('/settings'),
+    ...DEFAULTS,
+    noIndex: true,
+    noFollow: true,
+  },
+
+  // ══════════════════════════════════════════════
   // PRIVACY POLICY
   // ══════════════════════════════════════════════
   'privacy-policy': {
@@ -203,7 +239,6 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
       'adin ai privacy policy',
       'privacy policy',
       'data protection',
-      'gdpr',
     ].join(', '),
     canonicalUrl: canonicalFor('/privacy-policy'),
     ...DEFAULTS,

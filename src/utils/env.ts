@@ -1,7 +1,7 @@
 // src/utils/env.ts
 export const validateEnv = () => {
-  const requiredEnvVars = [
-    'VITE_CLERK_PUBLISHABLE_KEY',
+  const requiredEnvVars: string[] = [
+    // Add required env vars here if needed in future
   ];
 
   const missing: string[] = [];

@@ -21,6 +21,12 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+// Restore needs BOTH the ID and the PIN → the ID is only copyable once a PIN is set.
+const COPY_NEEDS_PIN_MESSAGE = 'Set your PIN first — restore needs both your ID and your PIN.';
+const COPY_NEEDS_PIN_TOAST_MS = 3500;
+const ID_HINT_WITH_PIN = 'Use this together with your PIN to restore your data on any device.';
+const ID_HINT_NO_PIN = 'Your ID alone cannot restore your data — set a PIN below first.';
+
 interface ProfilePageProps {
   isOpen: boolean;
   onClose: () => void;
@@ -88,6 +94,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
 
   const handleCopyId = () => {
     if (!userId) return;
+    if (!hasPinSet) {
+      toast.error(COPY_NEEDS_PIN_MESSAGE, { duration: COPY_NEEDS_PIN_TOAST_MS });
+      return;
+    }
     try {
       if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
         navigator.clipboard.writeText(userId);
@@ -250,7 +260,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                 </div>
               </div>
               <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                Use this to restore your data on any device.
+                {hasPinSet ? ID_HINT_WITH_PIN : ID_HINT_NO_PIN}
               </p>
             </section>
           )}
