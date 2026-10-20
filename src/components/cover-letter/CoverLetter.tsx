@@ -67,9 +67,20 @@ import {
 import { useSidebar } from '../../hooks/useSidebar';
 import { usePNGDownload } from '../cv-builder/hooks/usePNGDownload';
 import GlobalSidebar from '../../components/global/GlobalSidebar';
+import {
+  canAutoShowFeedback,
+  bumpPdfDownloadCount,
+  FEEDBACK_AUTO_DELAY_MS,
+} from '../../services/feedbackAutoPrompt';
+import PinPromptModal, { canShowPinPrompt, recordPinPromptShown } from '../../components/PinPromptModal';
 
 const STORAGE_KEY = 'cover_letter_data';
+// ✅ FIX: draft ab user-scoped hai, taake accounts ka data mix na ho
+const getStorageKey = (userId: string) => `${STORAGE_KEY}_${userId}`;
 const TEMPLATE_STORAGE_KEY = 'adin-selected-cover-template';
+
+// ✅ PIN prompt — letter generate hone ke baad, sirf jab PIN set na ho (sirf 1 baar)
+const PIN_PROMPT_DELAY_MS = 500;
 
 const isRealPhoto = (p: string | null | undefined): boolean => {
   return !!p && typeof p === 'string' && p.length > 500;
@@ -131,10 +142,10 @@ const stripImageFromData = (data: any) => {
   return copy;
 };
 
-const saveToLocalStorage = (data: any) => {
+const saveToLocalStorage = (data: any, userId: string) => {
   try {
     const stripped = stripImageFromData(data);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(stripped));
+    localStorage.setItem(getStorageKey(userId), JSON.stringify(stripped));
     return { ok: true };
   } catch (e: any) {
     if (e?.name === 'QuotaExceededError' || e?.code === 22) {
@@ -152,9 +163,9 @@ const saveToLocalStorage = (data: any) => {
   }
 };
 
-const loadFromLocalStorage = () => {
+const loadFromLocalStorage = (userId: string) => {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = localStorage.getItem(getStorageKey(userId));
     if (saved) return JSON.parse(saved);
   } catch (e) { console.error('Error loading:', e); }
   return null;
@@ -313,6 +324,8 @@ interface CoverLetterProps {
   onBackToDocuments?: () => void;
   onDocumentCreated?: (documentId: string) => void;
   onTemplateChange?: (template: CoverLetterTemplateId) => void;
+  onSetPin?: () => void;
+  hasPinSet?: boolean;
 }
 
 type TabType = 'edit' | 'preview';
@@ -402,6 +415,8 @@ const CoverLetter = ({
   onBackToDocuments,
   onDocumentCreated,
   onTemplateChange,
+  onSetPin,
+  hasPinSet = false,
 }: CoverLetterProps) => {
   const { isOpen: isSidebarOpen, open: openSidebar, close: closeSidebar } = useSidebar();
 
@@ -572,14 +587,38 @@ const CoverLetter = ({
   // ✅ Single feedback modal state (no widget)
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedbackSourceKey, setFeedbackSourceKey] = useState('cover-letter');
+  const [showPinPrompt, setShowPinPrompt] = useState(false);
+  // ✅ Refs: setTimeout ke andar latest values chahiye
+  const hasPinSetRef = useRef(hasPinSet);
+  hasPinSetRef.current = hasPinSet;
+  const feedbackOpenRef = useRef(false);
+  feedbackOpenRef.current = showFeedbackModal;
+  const pinPromptOpenRef = useRef(false);
+  pinPromptOpenRef.current = showPinPrompt;
+
+  // ✅ Auto feedback: 24h mein 1 baar; PIN popup ya feedback khula ho to skip
+  const maybeOpenFeedback = useCallback(() => {
+    if (!canAutoShowFeedback()) return;
+    setTimeout(() => {
+      if (!canAutoShowFeedback() || feedbackOpenRef.current || pinPromptOpenRef.current) return;
+      setShowFeedbackModal(true);
+    }, FEEDBACK_AUTO_DELAY_MS);
+  }, []);
 
   const [hasSaved, setHasSaved] = useState(true);
 
-  const { downloadPNG } = usePNGDownload({
+  const { downloadPNG: rawDownloadPNG } = usePNGDownload({
     elementRef: pngPreviewRef,
     fileName: userName || jobTitle || 'My_Cover_Letter',
     toastId: 'cl-png',
   });
+
+  // ✅ PNG ke baad feedback (24h rule)
+  const downloadPNG = useCallback(async () => {
+    const result = await rawDownloadPNG();
+    maybeOpenFeedback();
+    return result;
+  }, [rawDownloadPNG, maybeOpenFeedback]);
 
   // ✅ Mobile: preview is only mounted when the Preview tab is open.
   //    If the user hits "Download PNG" from the export buttons while it is
@@ -893,7 +932,7 @@ const CoverLetter = ({
   useEffect(() => {
     if (!documentId) {
       try {
-        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(getStorageKey(userId));
       } catch (e) {}
       setInternalDocumentId(null);
       internalDocumentIdRef.current = null;
@@ -901,7 +940,7 @@ const CoverLetter = ({
       setGeneratedLetter('');
       setOriginalLetter('');
     }
-  }, [documentId]);
+  }, [documentId, userId]);
 
   useEffect(() => {
     internalDocumentIdRef.current = internalDocumentId;
@@ -1003,7 +1042,7 @@ const CoverLetter = ({
       return;
     }
 
-    const savedData = loadFromLocalStorage();
+    const savedData = loadFromLocalStorage(userId);
     if (savedData) {
       setUserName(savedData.userName || '');
       setEmail(savedData.email || '');
@@ -1129,7 +1168,7 @@ const CoverLetter = ({
       }
     }
 
-    saveToLocalStorage(data);
+    saveToLocalStorage(data, userId);
 
     return () => {
       clearTimeout(t);
@@ -1352,7 +1391,7 @@ const CoverLetter = ({
       setIsEnhanced(false); setCurrentPosition('');
       setHiringManagerName(''); setCurrentTitle(''); setCurrentCompany('');
       setYearsOfExperience(''); setCvDataLoaded(false); setCvSourceId(null);
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(getStorageKey(userId));
       localStorage.removeItem(TEMPLATE_STORAGE_KEY);
       toast.success('All data cleared!');
     }
@@ -1373,6 +1412,7 @@ const CoverLetter = ({
     if (!generatedLetter) { toast.error('Generate a letter first'); return; }
     navigator.clipboard.writeText(generatedLetter);
     toast.success('Copied!');
+    maybeOpenFeedback();
   };
 
   const downloadTXT = () => {
@@ -1385,6 +1425,7 @@ const CoverLetter = ({
     a.click();
     URL.revokeObjectURL(url);
     toast.success('TXT downloaded!');
+    maybeOpenFeedback();
   };
 
   const downloadPDF = async () => {
@@ -1406,6 +1447,8 @@ const CoverLetter = ({
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       toast.success('PDF downloaded!', { id: 'pdf' });
+      // ✅ 2nd (ya zyada) PDF pe feedback
+      if (bumpPdfDownloadCount('cover-letter') >= 2) maybeOpenFeedback();
     } catch (error) {
       console.error('PDF error:', error);
       toast.error('Failed to generate PDF', { id: 'pdf' });
@@ -1521,10 +1564,12 @@ const CoverLetter = ({
 
   useEffect(() => {
     if (generatedLetter && !generating) {
-      const shouldShow = shouldShowFeedback('cover-letter');
-      if (shouldShow) {
-        setFeedbackSourceKey('cover-letter');
-        setTimeout(() => setShowFeedbackModal(true), 500);
+      if (!hasPinSetRef.current && canShowPinPrompt('cover-letter')) {
+        setTimeout(() => {
+          if (hasPinSetRef.current || feedbackOpenRef.current || !canShowPinPrompt('cover-letter')) return;
+          recordPinPromptShown('cover-letter');
+          setShowPinPrompt(true);
+        }, PIN_PROMPT_DELAY_MS);
       }
     }
   }, [generatedLetter, generating]);
@@ -2105,6 +2150,15 @@ const CoverLetter = ({
             onClose={handleFeedbackModalClose}
             source="cover-letter"
           />
+
+          <PinPromptModal
+            isOpen={showPinPrompt}
+            onSetPin={() => {
+              setShowPinPrompt(false);
+              onSetPin?.(); // App.tsx wale SetPinModal ko open karega
+            }}
+            onSkip={() => setShowPinPrompt(false)}
+          />
         </div>
       </>
     );
@@ -2278,6 +2332,15 @@ const CoverLetter = ({
           isOpen={showFeedbackModal}
           onClose={handleFeedbackModalClose}
           source="cover-letter"
+        />
+
+        <PinPromptModal
+          isOpen={showPinPrompt}
+          onSetPin={() => {
+            setShowPinPrompt(false);
+            onSetPin?.(); // App.tsx wale SetPinModal ko open karega
+          }}
+          onSkip={() => setShowPinPrompt(false)}
         />
       </div>
     </>

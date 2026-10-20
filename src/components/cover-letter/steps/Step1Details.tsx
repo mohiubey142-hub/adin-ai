@@ -1,6 +1,11 @@
 // src/components/cover-letter/steps/Step1Details.tsx
 // =====================================================
-// ✅ Profile photo / image upload feature REMOVED
+// ✅ Labels simplified & shortened for better UX
+// ✅ Target Job Title moved to Personal Section
+// ✅ Last section renamed to "Job Details"
+// ✅ NEW: Generate button is ALWAYS visible & clickable
+// ✅ NEW: Click with missing required fields → closed sections open,
+//         empty fields turn red with messages, first one is scrolled into view + focused
 // =====================================================
 
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -21,12 +26,9 @@ import AccordionSection from '../components/AccordionSection';
 // ============================================================
 type Country = (typeof countryCodes)[number];
 
-// Dial code (e.g. +92): use dialCode if the constants have it, else fall back to code
 const getDialCode = (c: { code: string; dialCode?: string }): string =>
   c.dialCode || c.code;
 
-// Flag emoji -> ISO-2 ("🇵🇰" -> "pk"). Windows can't render flag emojis,
-// so we draw real flag images and fall back to the emoji only if the image fails.
 const flagToIso = (flag?: string): string => {
   if (!flag) return '';
   const cps = Array.from(flag).map((ch) => ch.codePointAt(0) as number);
@@ -93,9 +95,6 @@ const CountrySelect: React.FC<{ value: string; onChange: (code: string) => void 
     countryCodes.find((c) => c.code === value) ||
     countryCodes.find((c) => c.dialCode === value);
 
-  // Panel is rendered in a portal with fixed positioning, so parent containers
-  // (accordion overflow, scroll areas, sticky footers) can never clip it.
-  // It opens upward automatically when there is more room above the button.
   const updatePos = () => {
     const btn = btnRef.current;
     if (!btn) return;
@@ -261,6 +260,31 @@ const CountrySelect: React.FC<{ value: string; onChange: (code: string) => void 
   );
 };
 
+// ============================================================
+// VALIDATION HELPERS (field ids, section map, field order)
+// ============================================================
+type SectionKey = 'personal' | 'job' | 'experience' | 'skills';
+type FieldKey = 'userName' | 'jobTitle' | 'email' | 'phone' | 'skills' | 'company' | 'jobDescription';
+
+const fieldDomId = (key: FieldKey): string => `cl-field-${key}`;
+
+// Order = top-to-bottom order in the form (first invalid one gets the focus)
+const FIELD_ORDER: FieldKey[] = [
+  'userName', 'jobTitle', 'email', 'phone', 'skills', 'company', 'jobDescription',
+];
+
+const FIELD_SECTION: Record<FieldKey, SectionKey> = {
+  userName: 'personal',
+  jobTitle: 'personal',
+  email: 'personal',
+  phone: 'personal',
+  skills: 'skills',
+  company: 'job',
+  jobDescription: 'job',
+};
+
+// Wait for the accordion open animation (+ parent's auto-reveal scroll) before scrolling to the field
+const SECTION_OPEN_SETTLE_MS = 450;
 
 interface Step1DetailsProps {
   userName: string;
@@ -296,7 +320,6 @@ interface Step1DetailsProps {
   jobDescription: string;
   setJobDescription: (value: string) => void;
 
-  // Deprecated: photo upload removed (kept optional so parent props don't break)
   profilePhoto?: string | null;
   setProfilePhoto?: (value: string | null) => void;
 
@@ -318,7 +341,7 @@ interface Step1DetailsProps {
     experience: boolean;
     skills: boolean;
   };
-  toggleSection: (key: 'personal' | 'job' | 'experience' | 'skills') => void;
+  toggleSection: (key: SectionKey) => void;
 }
 
 const Step1Details: React.FC<Step1DetailsProps> = ({
@@ -341,18 +364,25 @@ const Step1Details: React.FC<Step1DetailsProps> = ({
   openSections,
   toggleSection,
 }) => {
-  // ============================================================
-  // PHONE VALIDATION
-  // ============================================================
+  // ✅ NEW: errors become visible only after the user taps "Generate" with missing fields
+  const [showErrors, setShowErrors] = useState(false);
+  const scrollTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (scrollTimerRef.current) window.clearTimeout(scrollTimerRef.current);
+    };
+  }, []);
+
   const validatePhoneForCountry = (phone: string, countryCode: string): { isValid: boolean; message: string } => {
     if (!phone) return { isValid: false, message: 'Phone number is required' };
     const digitsOnly = phone.replace(/\D/g, '');
-    if (!/^\d+$/.test(digitsOnly)) return { isValid: false, message: 'Please enter a valid phone number (digits only)' };
+    if (!/^\d+$/.test(digitsOnly)) return { isValid: false, message: 'Please enter a valid phone number' };
 
     const country = countryCodes.find(c => c.code === countryCode);
     if (!country) {
       if (digitsOnly.length < 7 || digitsOnly.length > 15) {
-        return { isValid: false, message: 'Please enter a valid phone number (7-15 digits)' };
+        return { isValid: false, message: 'Please enter a valid phone number' };
       }
       return { isValid: true, message: 'Valid phone number' };
     }
@@ -360,24 +390,20 @@ const Step1Details: React.FC<Step1DetailsProps> = ({
     if (digitsOnly.length !== country.length) {
       return {
         isValid: false,
-        message: `${country.flag} ${country.country} phone number must be exactly ${country.length} digits (e.g., ${country.example})`
+        message: `Must be exactly ${country.length} digits`
       };
     }
 
-    return { isValid: true, message: `Valid ${country.country} phone number` };
+    return { isValid: true, message: `Valid number` };
   };
 
   const phoneValidation = validatePhoneForCountry(phoneNumber, selectedCountryCode);
   const isPhoneValid = phoneValidation.isValid;
   const phoneValidationMessage = phoneValidation.message;
 
-  // ============================================
-  // FILTERS + VALIDATIONS
-  // ============================================
   const selectedCountry = countryCodes.find(c => c.code === selectedCountryCode);
   const dialCode = selectedCountry ? getDialCode(selectedCountry) : selectedCountryCode;
 
-  // Input shows "+92 3123456789", but state keeps digits only (validation unchanged)
   const handlePhoneInputChange = (raw: string) => {
     let rest = raw;
     if (raw.startsWith(dialCode)) {
@@ -395,19 +421,25 @@ const Step1Details: React.FC<Step1DetailsProps> = ({
     return skillList.length > 0;
   };
 
-  const canProceed =
-    userName &&
-    jobTitle &&
-    company &&
-    jobDescription &&
-    email &&
-    email.includes('@gmail.com') &&
-    isPhoneValid &&
-    isSkillsValid();
+  const isGmail = !!email && email.includes('@gmail.com');
 
-  // ============================================
-  // SHARED INPUT CLASSES
-  // ============================================
+  // ✅ NEW: single source of truth for "which required fields are invalid"
+  const fieldErrors: Record<FieldKey, boolean> = {
+    userName: !userName.trim(),
+    jobTitle: !jobTitle.trim(),
+    email: !isGmail,
+    phone: !isPhoneValid,
+    skills: !isSkillsValid(),
+    company: !company.trim(),
+    jobDescription: !jobDescription.trim(),
+  };
+
+  const invalidFields = FIELD_ORDER.filter((k) => fieldErrors[k]);
+  const canProceed = invalidFields.length === 0;
+
+  // Show an error only after the user tried to generate
+  const err = (k: FieldKey): boolean => showErrors && fieldErrors[k];
+
   const baseInput =
     'w-full rounded-xl bg-white border text-slate-900 placeholder:text-slate-400 outline-none transition-all duration-200 px-3 sm:px-4 py-2.5 text-sm sm:text-base';
   const normalInput =
@@ -415,7 +447,6 @@ const Step1Details: React.FC<Step1DetailsProps> = ({
   const errorInput =
     'border-red-400 focus:border-red-500 focus:ring-4 focus:ring-red-500/10';
 
-  // Phone input: exact same sizing as CV builder's PersonalSection
   const phoneBaseInput =
     'w-full rounded-xl bg-white border text-slate-900 placeholder:text-slate-400 outline-none transition-all duration-200 px-4 py-3 text-sm';
 
@@ -429,6 +460,55 @@ const Step1Details: React.FC<Step1DetailsProps> = ({
 
   const noopEnhanceSkills = () => {};
 
+  // ✅ NEW: scroll to the first invalid field and focus it
+  const focusField = (key: FieldKey) => {
+    const el = document.getElementById(fieldDomId(key));
+    if (!el) return;
+    try {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const focusable: HTMLElement | null =
+        el.matches('input, textarea, select, button')
+          ? el
+          : el.querySelector<HTMLElement>('input, textarea, select');
+      focusable?.focus({ preventScroll: true });
+    } catch {
+      /* scroll/focus is only an enhancement — never break the UI */
+    }
+  };
+
+  // ✅ NEW: Generate click handler
+  const handleGenerateClick = () => {
+    if (generating) return;
+
+    if (canProceed) {
+      setShowErrors(false);
+      onNext?.();
+      return;
+    }
+
+    setShowErrors(true);
+
+    // Open every closed section that contains an invalid field
+    const sectionsToOpen = Array.from(
+      new Set(invalidFields.map((k) => FIELD_SECTION[k]))
+    ).filter((s) => !openSections[s]);
+    sectionsToOpen.forEach((s) => toggleSection(s));
+
+    const first = invalidFields[0];
+    if (scrollTimerRef.current) window.clearTimeout(scrollTimerRef.current);
+    scrollTimerRef.current = window.setTimeout(
+      () => focusField(first),
+      sectionsToOpen.length > 0 ? SECTION_OPEN_SETTLE_MS : 0
+    );
+  };
+
+  const ErrorLine: React.FC<{ message: string }> = ({ message }) => (
+    <p className="flex items-center gap-1.5 text-xs text-red-600 mt-1.5" role="alert">
+      <AlertCircle size={12} />
+      {message}
+    </p>
+  );
+
   return (
     <div className="space-y-3">
       {/* ============================================
@@ -436,8 +516,8 @@ const Step1Details: React.FC<Step1DetailsProps> = ({
       ============================================ */}
       <AccordionSection
         id="personal"
-        title="Personal Information"
-        subtitle="Name, contact details, and links"
+        title="Personal Info"
+        subtitle="Name, target role, and contact"
         icon={<User size={16} strokeWidth={2.4} />}
         isOpen={openSections.personal}
         onToggle={() => toggleSection('personal')}
@@ -446,16 +526,18 @@ const Step1Details: React.FC<Step1DetailsProps> = ({
         <div className="space-y-4 pt-3">
           {/* Full Name */}
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-1.5">
+            <label htmlFor={fieldDomId('userName')} className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-1.5">
               <User size={14} className="text-purple-600" />
               Full Name <span className="text-red-500">*</span>
             </label>
             <input
+              id={fieldDomId('userName')}
               type="text"
               value={userName}
               onChange={(e) => setUserName(e.target.value)}
               placeholder="e.g., John Doe"
-              className={`${baseInput} ${normalInput}`}
+              aria-invalid={err('userName')}
+              className={`${baseInput} ${err('userName') ? errorInput : normalInput}`}
             />
             {userName && (
               <p className="flex items-center gap-1.5 text-xs text-emerald-600 mt-1.5">
@@ -463,58 +545,89 @@ const Step1Details: React.FC<Step1DetailsProps> = ({
                 Valid name
               </p>
             )}
+            {err('userName') && <ErrorLine message="Full name is required" />}
+          </div>
+
+          {/* TARGET JOB TITLE */}
+          <div>
+            <label htmlFor={fieldDomId('jobTitle')} className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-1.5">
+              <Briefcase size={14} className="text-purple-600" />
+              Target Job Title <span className="text-red-500">*</span>
+            </label>
+            <input
+              id={fieldDomId('jobTitle')}
+              type="text"
+              value={jobTitle}
+              onChange={(e) => setJobTitle(e.target.value)}
+              placeholder="e.g., Senior Software Engineer"
+              aria-invalid={err('jobTitle')}
+              className={`${baseInput} ${err('jobTitle') ? errorInput : normalInput}`}
+            />
+            {jobTitle && (
+              <p className="flex items-center gap-1.5 text-xs text-emerald-600 mt-1.5">
+                <CheckCircle2 size={12} />
+                Set
+              </p>
+            )}
+            {err('jobTitle') && <ErrorLine message="Target job title is required" />}
           </div>
 
           {/* Email */}
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-1.5">
+            <label htmlFor={fieldDomId('email')} className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-1.5">
               <Mail size={14} className="text-purple-600" />
-              Email Address <span className="text-red-500">*</span>
+              Email <span className="text-red-500">*</span>
             </label>
             <input
+              id={fieldDomId('email')}
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@gmail.com"
+              aria-invalid={(!!email && !isGmail) || err('email')}
               className={`${baseInput} ${
-                email && !email.includes('@gmail.com') ? errorInput : normalInput
+                (email && !isGmail) || err('email') ? errorInput : normalInput
               }`}
             />
-            {email && (
+            {email ? (
               <p className={`flex items-center gap-1.5 text-xs mt-1.5 ${
-                email.includes('@gmail.com') ? 'text-emerald-600' : 'text-red-600'
+                isGmail ? 'text-emerald-600' : 'text-red-600'
               }`}>
-                {email.includes('@gmail.com') ? (
+                {isGmail ? (
                   <>
                     <CheckCircle2 size={12} />
-                    Valid Gmail address
+                    Valid Gmail
                   </>
                 ) : (
                   <>
                     <AlertCircle size={12} />
-                    Please use a Gmail address (@gmail.com)
+                    Please use @gmail.com
                   </>
                 )}
               </p>
+            ) : (
+              err('email') && <ErrorLine message="Email is required" />
             )}
           </div>
 
           {/* Phone */}
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-1.5">
+            <label htmlFor={fieldDomId('phone')} className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-1.5">
               <Phone size={14} className="text-purple-600" />
-              Phone Number <span className="text-red-500">*</span>
+              Phone <span className="text-red-500">*</span>
             </label>
             <div className="space-y-2">
               <CountrySelect value={selectedCountryCode} onChange={setSelectedCountryCode} />
 
               <input
+                id={fieldDomId('phone')}
                 type="tel"
                 value={`${dialCode} ${phoneNumber}`}
                 onChange={(e) => handlePhoneInputChange(e.target.value)}
                 placeholder={selectedCountry?.example || '3123456789'}
+                aria-invalid={(!!phoneNumber && !isPhoneValid) || err('phone')}
                 className={`${phoneBaseInput} text-center tracking-wide ${
-                  phoneNumber && !isPhoneValid ? errorInput : normalInput
+                  (phoneNumber && !isPhoneValid) || err('phone') ? errorInput : normalInput
                 }`}
               />
 
@@ -523,7 +636,7 @@ const Step1Details: React.FC<Step1DetailsProps> = ({
                   isPhoneValid ? (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-100 text-xs font-medium text-emerald-600">
                       <CheckCircle2 size={12} />
-                      Valid {selectedCountry?.country} number
+                      Valid
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 border border-red-100 text-xs font-medium text-red-600">
@@ -531,10 +644,15 @@ const Step1Details: React.FC<Step1DetailsProps> = ({
                       {phoneValidationMessage}
                     </span>
                   )
+                ) : err('phone') ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 border border-red-100 text-xs font-medium text-red-600" role="alert">
+                    <AlertCircle size={12} />
+                    {phoneValidationMessage}
+                  </span>
                 ) : (
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-slate-100 text-xs text-slate-500">
                     <span>{selectedCountry?.flag}</span>
-                    <span>{selectedCountry?.country} • Example: {selectedCountry?.example || '3123456789'}</span>
+                    <span>Example: {selectedCountry?.example || '3123456789'}</span>
                   </span>
                 )}
               </div>
@@ -560,13 +678,13 @@ const Step1Details: React.FC<Step1DetailsProps> = ({
           <div>
             <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-1.5">
               <Linkedin size={14} className="text-purple-600" />
-              LinkedIn Profile <span className="text-slate-400 font-normal">(Optional)</span>
+              LinkedIn <span className="text-slate-400 font-normal">(Optional)</span>
             </label>
             <input
               type="url"
               value={linkedin}
               onChange={(e) => setLinkedin(e.target.value)}
-              placeholder="https://linkedin.com/in/yourprofile"
+              placeholder="linkedin.com/in/yourprofile"
               className={`${baseInput} ${normalInput}`}
             />
           </div>
@@ -578,8 +696,8 @@ const Step1Details: React.FC<Step1DetailsProps> = ({
       ============================================ */}
       <AccordionSection
         id="experience"
-        title="Your Experience"
-        subtitle="Current role (optional)"
+        title="Experience"
+        subtitle="Your current role (optional)"
         icon={<Clock size={16} strokeWidth={2.4} />}
         isOpen={openSections.experience}
         onToggle={() => toggleSection('experience')}
@@ -588,7 +706,7 @@ const Step1Details: React.FC<Step1DetailsProps> = ({
           <div>
             <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-1.5">
               <Briefcase size={14} className="text-purple-600" />
-              Current / Most Recent Job Title <span className="text-slate-400 font-normal">(Optional)</span>
+              Current Job Title <span className="text-slate-400 font-normal">(Optional)</span>
             </label>
             <input
               type="text"
@@ -600,7 +718,7 @@ const Step1Details: React.FC<Step1DetailsProps> = ({
             {currentTitle && (
               <p className="flex items-center gap-1.5 text-xs text-emerald-600 mt-1.5">
                 <CheckCircle2 size={12} />
-                Current position set
+                Set
               </p>
             )}
           </div>
@@ -608,13 +726,13 @@ const Step1Details: React.FC<Step1DetailsProps> = ({
           <div>
             <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-1.5">
               <Building size={14} className="text-purple-600" />
-              Current / Most Recent Company <span className="text-slate-400 font-normal">(Optional)</span>
+              Current Company <span className="text-slate-400 font-normal">(Optional)</span>
             </label>
             <input
               type="text"
               value={currentCompany}
               onChange={(e) => setCurrentCompany(e.target.value)}
-              placeholder="e.g., Techlogix Pakistan"
+              placeholder="e.g., Techlogix"
               className={`${baseInput} ${normalInput}`}
             />
           </div>
@@ -650,7 +768,7 @@ const Step1Details: React.FC<Step1DetailsProps> = ({
       ============================================ */}
       <AccordionSection
         id="skills"
-        title="Your Skills"
+        title="Skills"
         subtitle="Technical and soft skills"
         icon={<Zap size={16} strokeWidth={2.4} />}
         isOpen={openSections.skills}
@@ -658,92 +776,95 @@ const Step1Details: React.FC<Step1DetailsProps> = ({
         badge="Required"
       >
         <div className="pt-3">
-          <SkillsSection
-            skills={skills}
-            setSkills={handleSkillsChange}
-            enhanceSkills={noopEnhanceSkills}
-            generating={generating}
-            personalInfo={{ title: currentTitle || jobTitle }}
-          />
+          {/* Wrapper = scroll/focus target only (no ring). Error is shown as a clear callout. */}
+          <div id={fieldDomId('skills')}>
+            {err('skills') && (
+              <div
+                role="alert"
+                className="flex items-start gap-2.5 rounded-xl bg-red-50 border border-red-200 px-3.5 py-3 mb-3"
+              >
+                <AlertCircle size={16} className="text-red-500 mt-0.5 flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-red-700">Skills are required</p>
+                  <p className="text-xs text-red-600/90 mt-0.5">
+                    Add at least one skill below (e.g., React, Communication) so the AI can write your letter.
+                  </p>
+                </div>
+              </div>
+            )}
+            <SkillsSection
+              skills={skills}
+              setSkills={handleSkillsChange}
+              enhanceSkills={noopEnhanceSkills}
+              generating={generating}
+              personalInfo={{ title: currentTitle || jobTitle }}
+            />
+          </div>
         </div>
       </AccordionSection>
 
       {/* ============================================
-          SECTION 4: JOB INFORMATION (moved to last)
+          SECTION 4: JOB DETAILS
       ============================================ */}
       <AccordionSection
         id="job"
-        title="Job Information"
-        subtitle="Target role details"
-        icon={<Briefcase size={16} strokeWidth={2.4} />}
+        title="Job Details"
+        subtitle="Company and description"
+        icon={<Building size={16} strokeWidth={2.4} />}
         isOpen={openSections.job}
         onToggle={() => toggleSection('job')}
         badge="Required"
       >
         <div className="space-y-4 pt-3">
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-1.5">
+            <label htmlFor={fieldDomId('company')} className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-1.5">
               <Building size={14} className="text-purple-600" />
               Target Company <span className="text-red-500">*</span>
             </label>
             <input
+              id={fieldDomId('company')}
               type="text"
               value={company}
               onChange={(e) => setCompany(e.target.value)}
-              placeholder="e.g., Google, Microsoft"
-              className={`${baseInput} ${normalInput}`}
+              placeholder="e.g., Google"
+              aria-invalid={err('company')}
+              className={`${baseInput} ${err('company') ? errorInput : normalInput}`}
             />
             {company && (
               <p className="flex items-center gap-1.5 text-xs text-emerald-600 mt-1.5">
                 <CheckCircle2 size={12} />
-                Company set
+                Set
               </p>
             )}
+            {err('company') && <ErrorLine message="Target company is required" />}
           </div>
 
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-1.5">
-              <Briefcase size={14} className="text-purple-600" />
-              Target Job Title <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={jobTitle}
-              onChange={(e) => setJobTitle(e.target.value)}
-              placeholder="e.g., Senior Software Engineer"
-              className={`${baseInput} ${normalInput}`}
-            />
-            {jobTitle && (
-              <p className="flex items-center gap-1.5 text-xs text-emerald-600 mt-1.5">
-                <CheckCircle2 size={12} />
-                Job title set
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-1.5">
+            <label htmlFor={fieldDomId('jobDescription')} className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-1.5">
               <FileText size={14} className="text-purple-600" />
               Job Description <span className="text-red-500">*</span>
             </label>
             <textarea
+              id={fieldDomId('jobDescription')}
               value={jobDescription}
               onChange={(e) => setJobDescription(e.target.value)}
-              placeholder="Paste the job description here for a more personalized letter..."
+              placeholder="Paste the job description here..."
               rows={5}
-              className={`${baseInput} ${normalInput} resize-none`}
+              aria-invalid={err('jobDescription')}
+              className={`${baseInput} ${err('jobDescription') ? errorInput : normalInput} resize-none`}
             />
             {jobDescription && (
               <p className="text-xs text-slate-400 mt-1">
                 {jobDescription.split(/\s+/).filter(w => w.length > 0).length} words
               </p>
             )}
+            {err('jobDescription') && <ErrorLine message="Job description is required" />}
           </div>
 
           <div>
             <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-1.5">
               <UserCheck size={14} className="text-purple-600" />
-              Hiring Manager Name <span className="text-slate-400 font-normal">(Optional)</span>
+              Hiring Manager <span className="text-slate-400 font-normal">(Optional)</span>
             </label>
             <input
               type="text"
@@ -753,21 +874,22 @@ const Step1Details: React.FC<Step1DetailsProps> = ({
               className={`${baseInput} ${normalInput}`}
             />
             <p className="text-xs text-slate-400 mt-1">
-              If provided, letter will use "Dear [Name]", else "Dear Hiring Team"
+              Uses "Dear [Name]", else "Dear Hiring Team"
             </p>
           </div>
         </div>
       </AccordionSection>
 
       {/* ============================================
-          GENERATE BUTTON
+          GENERATE BUTTON (always visible & clickable)
       ============================================ */}
       <div className="pt-4 border-t border-slate-100 mt-4">
         <button
-          onClick={onNext}
-          disabled={!canProceed || generating}
+          type="button"
+          onClick={handleGenerateClick}
+          disabled={generating}
           className={`w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm transition-all duration-200 ${
-            (!canProceed || generating)
+            generating
               ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
               : 'bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white shadow-md shadow-purple-600/20 hover:shadow-lg hover:shadow-purple-600/30 focus:outline-none focus:ring-4 focus:ring-purple-500/20'
           }`}
@@ -783,7 +905,7 @@ const Step1Details: React.FC<Step1DetailsProps> = ({
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              Generating your letter...
+              Generating...
             </>
           ) : (
             <>
@@ -792,10 +914,12 @@ const Step1Details: React.FC<Step1DetailsProps> = ({
             </>
           )}
         </button>
-        {!canProceed && !generating && (
-          <p className="flex items-center justify-center gap-1.5 text-xs text-slate-500 mt-2">
+        {showErrors && !canProceed && !generating && (
+          <p className="flex items-center justify-center gap-1.5 text-xs text-red-600 mt-2" role="alert">
             <AlertCircle size={12} />
-            Please fill all required fields (*) before generating
+            {invalidFields.length === 1
+              ? '1 required field needs attention'
+              : `${invalidFields.length} required fields need attention`}
           </p>
         )}
       </div>

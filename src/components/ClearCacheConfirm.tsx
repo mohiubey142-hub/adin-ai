@@ -2,7 +2,7 @@
 // ============================================
 // Adin AI — Clear Local Cache Confirmation
 // ============================================
-// ✅ NEW: "Type CLEAR to confirm" safety
+// ✅ UPDATED: "Type CLEAR" replaced with a simple confirmation checkbox
 // ✅ NEW: "Download my ID" shortcut button
 // ✅ NEW: "What will be cleared" list
 
@@ -24,12 +24,15 @@ const ClearCacheConfirm: React.FC<ClearCacheConfirmProps> = ({
   onConfirm,
   onCancel,
 }) => {
-  const [confirmText, setConfirmText] = useState('');
+  // ✅ NEW: Checkbox state
+  const [isConfirmed, setIsConfirmed] = useState(false);
 
   if (!isOpen) return null;
 
   const usedMB = getStorageUsageMB();
-  const canClear = confirmText.trim().toUpperCase() === 'CLEAR';
+  
+  // ✅ Button enable tabhi hoga jab checkbox tick ho
+  const canClear = isConfirmed;
 
   const handleDownloadId = () => {
     if (!userId) return;
@@ -56,7 +59,7 @@ Save this file somewhere safe:
 - Take a screenshot
 
 Generated on: ${new Date().toLocaleString()}
-Adin AI — https://adin-ai.vercel.app
+Adin AI — https://getadinai.com
 `;
       const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
       const url = URL.createObjectURL(blob);
@@ -75,12 +78,12 @@ Adin AI — https://adin-ai.vercel.app
 
   const handleConfirm = () => {
     if (!canClear) return;
-    setConfirmText('');
+    setIsConfirmed(false);
     onConfirm();
   };
 
   const handleCancel = () => {
-    setConfirmText('');
+    setIsConfirmed(false);
     onCancel();
   };
 
@@ -179,19 +182,23 @@ Adin AI — https://adin-ai.vercel.app
           </button>
         </div>
 
-        {/* Confirm input */}
+        {/* ✅ NEW: Confirmation Checkbox */}
         <div className="px-5 pb-4">
-          <label className="block text-xs font-medium text-slate-700 mb-1.5">
-            Type <code className="px-1.5 py-0.5 bg-slate-100 rounded font-mono text-amber-600 font-bold">CLEAR</code> to confirm:
+          <label 
+            htmlFor="confirm-clear" 
+            className="flex items-start gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors"
+          >
+            <input
+              id="confirm-clear"
+              type="checkbox"
+              checked={isConfirmed}
+              onChange={(e) => setIsConfirmed(e.target.checked)}
+              className="mt-0.5 w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500"
+            />
+            <span className="text-xs text-slate-700 leading-relaxed">
+              I understand that my local data will be removed from this browser.
+            </span>
           </label>
-          <input
-            type="text"
-            value={confirmText}
-            onChange={(e) => setConfirmText(e.target.value)}
-            placeholder="Type CLEAR"
-            autoFocus
-            className="w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-sm font-mono tracking-wider focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 outline-none transition-all"
-          />
         </div>
 
         {/* Actions */}

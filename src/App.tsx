@@ -134,6 +134,40 @@ const sessionRemove = (key: string): void => {
 };
 
 // ═══════════════════════════════════════════════════════════════
+// ✅ Popup flags reset (PIN prompt + feedback) — logout / delete account par
+//    taake naye login / naye account par ye popups fresh ki tarah dobara aayein
+// ═══════════════════════════════════════════════════════════════
+const resetPopupFlags = (): void => {
+  try {
+    const popupKeys: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i);
+      if (
+        k &&
+        (k.startsWith('adin-feedback-') ||
+          k.startsWith('adin-pdf-download-count') ||
+          k.startsWith('adin-pin-prompt-count'))
+      ) {
+        popupKeys.push(k);
+      }
+    }
+    popupKeys.forEach((k) => safeRemoveItem(k));
+  } catch (e) {
+    console.error('[App] Popup-flag cleanup failed:', e);
+  }
+  try {
+    const sessionPopupKeys: string[] = [];
+    for (let i = 0; i < window.sessionStorage.length; i++) {
+      const k = window.sessionStorage.key(i);
+      if (k && k.startsWith('adin-pin-prompt-session')) sessionPopupKeys.push(k);
+    }
+    sessionPopupKeys.forEach((k) => sessionRemove(k));
+  } catch (e) {
+    console.error('[App] Popup-session cleanup failed:', e);
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════
 // ✅ THEME — identical to CVBuilder.tsx
 // ═══════════════════════════════════════════════════════════════
 
@@ -476,6 +510,10 @@ function AppInner() {
 
   const openedViaDeepLinkRef = useRef<boolean>(getDeepLinkRoute() !== null);
 
+  // ✅ Onboarding se pehle template choose ho to doc abhi nahi banta —
+  //    onboarding complete hote hi (naye userId ke saath) banta ha.
+  const pendingTemplateRef = useRef<{ kind: 'cv' | 'cover'; templateId: string } | null>(null);
+
   const [showRestoreModal, setShowRestoreModal] = useState<boolean>(false);
   const [showLogoutWarning, setShowLogoutWarning] = useState<boolean>(false);
   const [showClearCache, setShowClearCache] = useState(false);
@@ -518,7 +556,10 @@ function AppInner() {
 
   // ✅ SECURE: ID always goes through utils/userId.ts validation.
   //    Old / tampered / test-format IDs are replaced with a fresh valid one.
+  //    ✅ ID sirf onboarding complete hone ke BAAD banti ha. Landing → public page
+  //       (templates/founder/legal) kholne se account auto-create nahi hota.
   const userId = useMemo(() => {
+    if (!isOnboardingComplete) return '';
     return getUserId() || getOrCreateUserId();
   }, [isOnboardingComplete]);
 
@@ -652,13 +693,24 @@ function AppInner() {
     else sessionRemove('adin-session-cl-entry-source');
   }, [coverLetterEntrySource]);
 
+  // ✅ Account (onboarding) ke bina koi ID nahi — user ko pehle onboarding pe bhejo
+  const startOnboarding = useCallback(() => {
+    setCurrentPage('workspace');
+    setActive('AI Chat');
+    navigateToPath('/');
+  }, []);
+
   const handleOpenBackupHelp = useCallback(() => {
     if (!userId) {
+      if (!isOnboardingComplete) {
+        startOnboarding();
+        return;
+      }
       toast.error('Session error. Please refresh.');
       return;
     }
     setShowPinEducation(true);
-  }, [userId]);
+  }, [userId, isOnboardingComplete, startOnboarding]);
 
   const handlePinEducationSetPin = useCallback(() => {
     if (!userId) {
@@ -702,19 +754,45 @@ function AppInner() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleOnboardingComplete = (
+  const handleOnboardingComplete = async (
     profile: { name: string; userId: string },
   ) => {
     safeSetItem("adin_user_name", profile.name);
     safeSetItem("adin-user-id", profile.userId);
     safeSetItem("adin-guest-session", JSON.stringify({ isGuest: true, guestCreatedAt: new Date().toISOString() }));
     safeSetItem("adin-onboarding-completed", "true");
+
+    // ✅ Onboarding se pehle jo template select hua tha, ab naye userId se doc banao
+    const pending = pendingTemplateRef.current;
+    pendingTemplateRef.current = null;
+    if (pending) {
+      try {
+        if (pending.kind === 'cv') {
+          const meta = await localStorageDocumentService.createEmpty(profile.userId);
+          setActiveDocumentId(meta.id);
+          setSelectedTemplateId(pending.templateId);
+          setCvBuilderEntrySource('template-gallery');
+        } else {
+          const { localStorageCoverLetterService } = await import('./components/cover-letter/services/coverLetterService');
+          const meta = await localStorageCoverLetterService.createEmpty(profile.userId);
+          setActiveCoverLetterId(meta.id);
+          setSelectedCoverTemplateId(pending.templateId);
+          setCoverLetterEntrySource('template-gallery');
+          setCoverLetterKey(prev => prev + 1);
+        }
+      } catch (e: any) {
+        console.error('❌ Failed to create document after onboarding:', e);
+        toast.error('Failed to create document');
+      }
+    }
+
     setIsGuest(true);
     setIsOnboardingComplete(true);
     setUserName(profile.name);
   };
 
   const handleRestoredFromOnboarding = () => {
+    pendingTemplateRef.current = null; // restore pe naya doc nahi banana
     const restoredName = safeGetItem("adin_user_name");
     if (!safeGetItem("adin-guest-session")) {
       safeSetItem("adin-guest-session", JSON.stringify({ isGuest: true, guestCreatedAt: new Date().toISOString() }));
@@ -800,6 +878,35 @@ function AppInner() {
     safeRemoveItem('adin-has-seen-landing');
     safeRemoveItem('adin-pin-education-shown');
     safeRemoveItem('adin-backup-reminder-shown');
+
+    // ✅ FIX: previous account ka cover letter / CV draft logout par saaf karo
+    safeRemoveItem('cover_letter_data');
+    safeRemoveItem('adin-selected-cover-template');
+    try {
+      const draftKeys: string[] = [];
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const k = window.localStorage.key(i);
+        if (k && (k.startsWith('cover_letter_data_') || k.startsWith('adin_cv_builder_data_'))) {
+          draftKeys.push(k);
+        }
+      }
+      draftKeys.forEach((k) => safeRemoveItem(k));
+    } catch (e) {
+      console.error('[App] Logout draft cleanup failed:', e);
+    }
+
+    // ✅ FIX: PIN prompt + feedback popup flags reset — naye login par dobara aayein
+    resetPopupFlags();
+
+    // ✅ FIX: in-memory state bhi reset karo warna sessionSet effects purani IDs wapas likh dete hain
+    setActiveDocumentId(null);
+    setActiveCoverLetterId(null);
+    setSelectedTemplateId(null);
+    setSelectedCoverTemplateId(null);
+    setCvBuilderEntrySource(null);
+    setCoverLetterEntrySource(null);
+    setCoverLetterKey(prev => prev + 1);
+
     sessionRemove('adin-session-page');
     sessionRemove('adin-session-active');
     sessionRemove('adin-session-cv-doc');
@@ -820,6 +927,7 @@ function AppInner() {
 
   const handleDeleteAccountConfirm = () => {
     setShowDeleteAccount(false);
+    resetPopupFlags();
     setIsGuest(false);
     setIsOnboardingComplete(false);
     setUserName('User');
@@ -833,8 +941,9 @@ function AppInner() {
   };
 
   const handleSetPinClick = useCallback(() => {
+    if (!userId) return;
     setShowSetPin(true);
-  }, []);
+  }, [userId]);
 
   const handleSetPinSuccess = () => {
     setShowSetPin(false);
@@ -980,6 +1089,15 @@ Adin AI
   }, []);
 
   const handleTemplateSelect = useCallback(async (templateId: string) => {
+    // ✅ Onboarding baqi ha → doc abhi nahi, pehle onboarding (template yaad rakho)
+    if (!isOnboardingComplete || !userId) {
+      pendingTemplateRef.current = { kind: 'cv', templateId };
+      setCurrentPage('app');
+      setActive('CV Builder');
+      navigateToPath('/cv-builder');
+      return;
+    }
+
     const shouldApplyToExisting = !!activeDocumentId;
 
     if (shouldApplyToExisting) {
@@ -1005,9 +1123,18 @@ Adin AI
       console.error('❌ Failed to create document from template:', e);
       toast.error('Failed to create document');
     }
-  }, [userId, cvBuilderEntrySource, activeDocumentId]);
+  }, [userId, isOnboardingComplete, cvBuilderEntrySource, activeDocumentId]);
 
   const handleCoverTemplateSelect = useCallback(async (templateId: string) => {
+    // ✅ Onboarding baqi ha → doc abhi nahi, pehle onboarding (template yaad rakho)
+    if (!isOnboardingComplete || !userId) {
+      pendingTemplateRef.current = { kind: 'cover', templateId };
+      setCurrentPage('app');
+      setActive('Cover Letter');
+      navigateToPath('/cover-letter');
+      return;
+    }
+
     const shouldApplyToExisting = !!activeCoverLetterId;
 
     if (shouldApplyToExisting) {
@@ -1036,7 +1163,7 @@ Adin AI
       console.error('❌ Failed to create cover letter from template:', e);
       toast.error('Failed to create cover letter');
     }
-  }, [userId, coverLetterEntrySource, activeCoverLetterId]);
+  }, [userId, isOnboardingComplete, coverLetterEntrySource, activeCoverLetterId]);
 
   const navigateToWorkspace = useCallback(() => {
     setCurrentPage('workspace');
@@ -1694,6 +1821,7 @@ Adin AI
                       onDocumentCreated={(docId) => setActiveDocumentId(docId)}
                       onDownloadId={handleDownloadMyId}
                       onSetPin={handleSetPinClick}
+                      hasPinSet={hasPinSet}
                     />
                   </Suspense>
                 ) : active === "Cover Letter" ? (
@@ -1709,6 +1837,8 @@ Adin AI
                       onTemplateChange={(template) => {
                         setSelectedCoverTemplateId(template);
                       }}
+                      onSetPin={handleSetPinClick}
+                      hasPinSet={hasPinSet}
                     />
                   </Suspense>
                 ) : (
@@ -1803,7 +1933,7 @@ Adin AI
           userId={userId}
           userName={userName}
           hasPinSet={hasPinSet}
-          onOpenProfile={() => setShowProfilePage(true)}
+          onOpenProfile={() => { if (userId) setShowProfilePage(true); else startOnboarding(); }}
         />
 
         <ProfilePage

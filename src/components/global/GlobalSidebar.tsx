@@ -105,8 +105,12 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({
         setTimeout(() => onOpenProfile?.(), 150);
     };
 
-    const avatarLetter = getAvatarLetter(userName);
-    const avatarGradient = getAvatarGradient(userName);
+    // ✅ userId onboarding complete hone ke baad hi hota ha. Uske bina (landing → public page)
+    //    koi account nahi ha, to "Guest / Create account" card dikhao.
+    const isSignedIn = !!userId;
+    const displayName = isSignedIn ? (userName || 'User') : 'Guest';
+    const avatarLetter = isSignedIn ? getAvatarLetter(userName) : 'G';
+    const avatarGradient = getAvatarGradient(displayName);
 
     // ✅ Sidebar shows only the first 8 characters of the user ID, followed by
     //    "..." to signal the rest is hidden. The full ID is always visible in
@@ -253,16 +257,18 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({
                             >
                                 {avatarLetter}
                             </div>
-                            <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white shadow-sm" />
+                            {isSignedIn && (
+                                <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white shadow-sm" />
+                            )}
                         </div>
 
                         {/* Name + ID (truncated) */}
                         <div className="min-w-0 flex-1 text-left">
                             <div className="text-[13.5px] font-bold text-slate-900 truncate leading-tight">
-                                {userName || 'User'}
+                                {displayName}
                             </div>
-                            <div className="text-[10.5px] text-slate-500 font-mono tracking-wide truncate mt-0.5">
-                                {shortId || 'Guest'}
+                            <div className={`text-[10.5px] text-slate-500 truncate mt-0.5 ${isSignedIn ? 'font-mono tracking-wide' : 'font-medium'}`}>
+                                {isSignedIn ? shortId : 'Tap to create your account'}
                             </div>
                         </div>
 
@@ -276,7 +282,7 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({
                     {/* Hint */}
                     <div className="mt-2 px-1 flex items-center justify-center">
                         <span className="text-[10px] text-slate-400 font-medium">
-                            Tap to manage account
+                            {isSignedIn ? 'Tap to manage account' : 'Your ID is created only when you get started'}
                         </span>
                     </div>
                 </div>

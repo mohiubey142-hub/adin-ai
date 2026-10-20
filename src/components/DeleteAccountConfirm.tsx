@@ -3,14 +3,13 @@
 // Account Deletion Confirmation Modal
 // ============================================
 // ✅ PIN verification required before delete (only if PIN is set)
-// ✅ Double confirmation: "DELETE" text + 4-digit PIN
+// ✅ Double confirmation: Checkbox + 4-digit PIN
 // ✅ Checks PIN existence upfront — hides PIN field if not set
 // ✅ Plain text style (no over-colorful cards)
 // ✅ Profile photo line removed
 // ✅ Forgot PIN? → hint to change PIN from profile (no old PIN needed)
-// ✅ NEW: real PIN error shown (wrong PIN / rate limit / network)
 // ✅ NEW: if PIN status can't be checked (network/rate limit) → delete BLOCKED + Retry
-//         (before: any error was treated as "no PIN" and PIN step was skipped)
+// ✅ UPDATED: Removed "Type DELETE" requirement. Replaced with a simple confirmation checkbox.
 
 import { useState, useEffect } from 'react';
 import { AlertTriangle, X, Loader2, Lock, AlertCircle } from 'lucide-react';
@@ -33,7 +32,7 @@ export default function DeleteAccountConfirm({
   onConfirm,
   onCancel,
 }: DeleteAccountConfirmProps) {
-  const [confirmText, setConfirmText] = useState('');
+  const [isConfirmed, setIsConfirmed] = useState(false); // ✅ NEW: Checkbox state
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
@@ -45,7 +44,7 @@ export default function DeleteAccountConfirm({
 
   useEffect(() => {
     if (!isOpen) {
-      setConfirmText('');
+      setIsConfirmed(false);
       setPin('');
       setPinError('');
       setIsDeleting(false);
@@ -84,8 +83,9 @@ export default function DeleteAccountConfirm({
 
   if (!isOpen) return null;
 
+  // ✅ Button enable tabhi hoga jab checkbox tick ho aur (PIN set hai to PIN 4 digit ka ho)
   const canDelete =
-    confirmText === 'DELETE' &&
+    isConfirmed &&
     (accountState === 'no_pin' || (accountState === 'has_pin' && pin.length === 4));
 
   const handlePinChange = (value: string) => {
@@ -144,7 +144,7 @@ export default function DeleteAccountConfirm({
 
   const handleCancel = () => {
     if (isDeleting || isVerifying) return;
-    setConfirmText('');
+    setIsConfirmed(false);
     setPin('');
     setPinError('');
     onCancel();
@@ -176,7 +176,7 @@ export default function DeleteAccountConfirm({
           </div>
         )}
 
-        {/* ✅ NEW: ERROR STATE (could not check PIN status) */}
+        {/* ERROR STATE (could not check PIN status) */}
         {accountState === 'error' && (
           <div className="flex flex-col items-center justify-center py-6 text-center">
             <div className="w-12 h-12 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center mb-4">
@@ -237,7 +237,7 @@ export default function DeleteAccountConfirm({
             {/* PIN status hint */}
             {accountState === 'no_pin' && (
               <p className="text-[11px] text-slate-500 mb-4 leading-relaxed">
-                This account has no PIN set. Just type DELETE below to confirm.
+                This account has no PIN set. Just tick the box below to confirm.
               </p>
             )}
 
@@ -247,19 +247,22 @@ export default function DeleteAccountConfirm({
               </p>
             )}
 
-            {/* Step 1: Type DELETE */}
-            <label className="block text-xs font-medium text-slate-700 mb-2">
-              Step 1: Type <code className="px-1.5 py-0.5 bg-slate-100 rounded font-mono text-red-600 font-bold">DELETE</code> to confirm
-            </label>
-            <input
-              type="text"
-              value={confirmText}
-              onChange={(e) => setConfirmText(e.target.value)}
-              placeholder="Type DELETE"
-              disabled={isBusy}
-              autoFocus
-              className="w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-sm mb-4 font-mono tracking-wider focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none disabled:opacity-60"
-            />
+            {/* Step 1: Checkbox */}
+            <div className="mb-4">
+              <label htmlFor="confirm-delete" className="flex items-start gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors">
+                <input
+                  id="confirm-delete"
+                  type="checkbox"
+                  checked={isConfirmed}
+                  onChange={(e) => setIsConfirmed(e.target.checked)}
+                  disabled={isBusy}
+                  className="mt-0.5 w-4 h-4 text-red-600 rounded border-slate-300 focus:ring-red-500"
+                />
+                <span className="text-xs text-slate-700 leading-relaxed">
+                  I understand that this action is permanent and all my data will be erased.
+                </span>
+              </label>
+            </div>
 
             {/* Step 2: PIN */}
             {accountState === 'has_pin' && (

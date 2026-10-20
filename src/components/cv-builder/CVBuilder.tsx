@@ -90,6 +90,12 @@ import { SYNC_CONFIG } from '../../services/sync/config';
 
 // ✅ NEW: Backup reminder popup
 import BackupReminderPopup from '../../components/BackupReminderPopup';
+import {
+    canAutoShowFeedback,
+    bumpPdfDownloadCount,
+    FEEDBACK_AUTO_DELAY_MS,
+} from '../../services/feedbackAutoPrompt';
+import PinPromptModal, { canShowPinPrompt, recordPinPromptShown } from '../../components/PinPromptModal';
 
 // ✅ Click-to-focus scroll offsets
 const EDITOR_SCROLL_OFFSET_PX = 12;
@@ -100,6 +106,9 @@ const FIELD_INTERACT_THROTTLE_MS = 600;
 
 // ✅ LocalStorage flag for backup reminder
 const BACKUP_REMINDER_FLAG = 'adin-backup-reminder-shown';
+
+// ✅ PIN prompt — download ke baad, sirf jab PIN set na ho (sirf 1 baar)
+const PIN_PROMPT_DELAY_MS = 500;
 
 // ✅ KICKRESUME STYLE: Preview debounce time
 const PREVIEW_DEBOUNCE_MS = 800;
@@ -390,6 +399,7 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
     onDocumentCreated,
     onDownloadId,
     onSetPin,
+    hasPinSet = false,
 }) => {
     const { open: openSidebar } = useSidebar();
 
@@ -633,6 +643,30 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
     const [feedbackSourceKey, setFeedbackSourceKey] = useState('cv-builder');
 
     const [showBackupReminder, setShowBackupReminder] = useState(false);
+    const [showPinPrompt, setShowPinPrompt] = useState(false);
+    // ✅ Refs: setTimeout ke andar latest values chahiye
+    const hasPinSetRef = useRef(hasPinSet);
+    hasPinSetRef.current = hasPinSet;
+    const feedbackOpenRef = useRef(false);
+    feedbackOpenRef.current = showFeedbackModal;
+    const pinPromptOpenRef = useRef(false);
+    pinPromptOpenRef.current = showPinPrompt;
+
+    // ✅ Auto feedback: 24h mein 1 baar; PIN popup ya feedback khula ho to skip
+    const maybeOpenFeedback = useCallback(() => {
+        if (!canAutoShowFeedback()) return;
+        setTimeout(() => {
+            if (!canAutoShowFeedback() || feedbackOpenRef.current || pinPromptOpenRef.current) return;
+            setShowFeedbackModal(true);
+        }, FEEDBACK_AUTO_DELAY_MS);
+    }, []);
+
+    // ✅ PNG export (desktop preview ke apne buttons bhi) khatam ho to feedback
+    const wasExportingPNGRef = useRef(false);
+    useEffect(() => {
+        if (wasExportingPNGRef.current && !isExportingPNG) maybeOpenFeedback();
+        wasExportingPNGRef.current = isExportingPNG;
+    }, [isExportingPNG, maybeOpenFeedback]);
 
     const [personalInfo, setPersonalInfo] = useState(() => {
         if (savedData?.personalInfo) {
@@ -1236,7 +1270,6 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
     } = downloadActions;
 
     const handleDownloadPDF = async () => {
-        const shouldShow = shouldShowFeedback('cv-builder');
         switch (template) {
             case 'classic': await downloadClassicPDF(); break;
             case 'minimal': await downloadMinimalPDF(); break;
@@ -1248,14 +1281,20 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
             case 'standard': await downloadStandardPDF(); break;
             default: await downloadPDF(); break;
         }
-        if (shouldShow) {
-            setFeedbackSourceKey('cv-builder');
-            setTimeout(() => setShowFeedbackModal(true), 500);
+        // ✅ 2nd (ya zyada) PDF pe feedback
+        if (bumpPdfDownloadCount('cv-builder') >= 2) maybeOpenFeedback();
+        if (!hasPinSetRef.current && canShowPinPrompt('cv-builder')) {
+            setTimeout(() => {
+                // dobara check: is dauran PIN set ho gaya ya feedback khul gaya ho
+                if (hasPinSetRef.current || feedbackOpenRef.current || !canShowPinPrompt('cv-builder')) return;
+                recordPinPromptShown('cv-builder');
+                setShowPinPrompt(true);
+            }, PIN_PROMPT_DELAY_MS);
         }
     };
 
-    const handleDownloadTXT = async () => { await downloadTXT(); };
-    const handleCopyCV = async () => { await copyCV(); };
+    const handleDownloadTXT = async () => { await downloadTXT(); maybeOpenFeedback(); };
+    const handleCopyCV = async () => { await copyCV(); maybeOpenFeedback(); };
 
     const handleFeedbackModalClose = useCallback(() => {
         setShowFeedbackModal(false);
@@ -1446,13 +1485,15 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
 
     const handleDownloadPNG = useCallback(() => {
         if (previewHandleRef.current) {
-            return previewHandleRef.current.downloadPNG();
+            const result = previewHandleRef.current.downloadPNG();
+            Promise.resolve(result).then(() => maybeOpenFeedback()).catch(() => {});
+            return result;
         }
         if (isMobile) {
             toast.loading('Preparing PNG...', { id: 'cv-png-mobile' });
             setPngOffscreen(true);
         }
-    }, [isMobile]);
+    }, [isMobile, maybeOpenFeedback]);
 
     useEffect(() => {
         if (!pngOffscreen) return;
@@ -1816,7 +1857,7 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
                                 completionPercentage={realCompletionPercentage}
                                 sectionStatuses={sectionStatuses}
                                 autoDownloadPNG
-                                onAutoDownloadPNGDone={() => setPngOffscreen(false)}
+                                onAutoDownloadPNGDone={() => { setPngOffscreen(false); maybeOpenFeedback(); }}
                             />
                         </div>
                     )}
@@ -1862,6 +1903,15 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
                     onClose={handleBackupReminderClose}
                     onDownloadId={handleBackupReminderDownloadId}
                     onSetPin={handleBackupReminderSetPin}
+                />
+
+                <PinPromptModal
+                    isOpen={showPinPrompt}
+                    onSetPin={() => {
+                        setShowPinPrompt(false);
+                        onSetPin?.(); // App.tsx wale SetPinModal ko open karega
+                    }}
+                    onSkip={() => setShowPinPrompt(false)}
                 />
             </div>
         </>

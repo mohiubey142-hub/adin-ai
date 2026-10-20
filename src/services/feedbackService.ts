@@ -156,6 +156,29 @@ export const markFeedbackCompleted = (source: FeedbackSource): void => {
   localStorage.setItem(keys.completed, 'true');
 };
 
+const ALL_SOURCES: FeedbackSource[] = ['cv-builder', 'cover-letter', 'global'];
+
+/**
+ * ✅ Auto-popup helpers (feedbackAutoPrompt.ts use karta ha)
+ * User ne kisi bhi screen se feedback SUBMIT kiya ho (tier set ya completed) → true.
+ * Sirf close/dismiss karne se tier set nahi hota, to wo yahan count nahi hota.
+ */
+export const hasSubmittedAnyFeedback = (): boolean =>
+  ALL_SOURCES.some((source) => {
+    const keys = getKeys(source);
+    return (
+      localStorage.getItem(keys.completed) === 'true' ||
+      !!localStorage.getItem(keys.tier)
+    );
+  });
+
+/** Kisi bhi screen pe feedback modal aakhri baar kab khula (ms timestamp, 0 = kabhi nahi) */
+export const getLastFeedbackShownAt = (): number =>
+  ALL_SOURCES.reduce((latest, source) => {
+    const t = parseInt(localStorage.getItem(getKeys(source).lastShown) || '0', 10);
+    return Number.isFinite(t) && t > latest ? t : latest;
+  }, 0);
+
 /**
  * Called after successful submission.
  * Determines whether this user should be asked again.

@@ -5,14 +5,8 @@
 // ✅ Subtle purple scrollbar (matches theme)
 // ✅ Body scroll lock via CSS class (overrides App.tsx !important)
 // ✅ Sectioned layout with hairline separators
-// ✅ Removed: "NEW" badge, gradient hero, decorative circles
-// ✅ "Guest Account" info button — opens a clean modal explaining
-//         what a Guest Account is and why we give it.
-// ✅ UPDATED: Guest Account trigger is now a modern, discoverable pill
-//              with a Gift icon (🎁) + ArrowRight (→) — replaces the
-//              muted "Info (ⓘ)" link. Clear affordance = "click me".
-// ✅ NEW: Modal body now includes a warm welcome line: "You've been
-//         given a Guest Account" at the top, above the explanation.
+// ✅ Guest Account Info Button & Modal
+// ✅ UPDATED: ID and Download button always visible (disabled until PIN is set)
 
 import React, { useEffect, useState } from 'react';
 import {
@@ -22,8 +16,6 @@ import {
 import toast from 'react-hot-toast';
 
 // Restore needs BOTH the ID and the PIN → the ID is only copyable once a PIN is set.
-const COPY_NEEDS_PIN_MESSAGE = 'Set your PIN first — restore needs both your ID and your PIN.';
-const COPY_NEEDS_PIN_TOAST_MS = 3500;
 const ID_HINT_WITH_PIN = 'Use this together with your PIN to restore your data on any device.';
 const ID_HINT_NO_PIN = 'Your ID alone cannot restore your data — set a PIN below first.';
 
@@ -93,11 +85,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   const avatarLetter = getAvatarLetter(userName);
 
   const handleCopyId = () => {
-    if (!userId) return;
-    if (!hasPinSet) {
-      toast.error(COPY_NEEDS_PIN_MESSAGE, { duration: COPY_NEEDS_PIN_TOAST_MS });
-      return;
-    }
+    if (!userId || !hasPinSet) return; // Guard (though button is disabled)
     try {
       if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
         navigator.clipboard.writeText(userId);
@@ -214,7 +202,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                 {userName || 'User'}
               </h2>
 
-              {/* ✅ Guest Account — modern, discoverable pill (Gift + Arrow) */}
+              {/* Guest Account Button */}
               <button
                 type="button"
                 onClick={() => setShowGuestInfo(true)}
@@ -238,7 +226,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
             </div>
           </section>
 
-          {/* User ID */}
+          {/* User ID Section */}
           {userId && (
             <section className="mb-10">
               <div className="flex items-baseline justify-between mb-3">
@@ -248,14 +236,23 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                 <button
                   type="button"
                   onClick={handleCopyId}
-                  className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-purple-600 transition-colors"
+                  disabled={!hasPinSet}
+                  className={`inline-flex items-center gap-1 text-[11px] font-medium transition-colors ${
+                    hasPinSet
+                      ? 'text-slate-500 hover:text-purple-600'
+                      : 'text-slate-300 cursor-not-allowed'
+                  }`}
                 >
                   <Copy size={11} strokeWidth={2.4} />
                   <span>Copy</span>
                 </button>
               </div>
-              <div className="rounded-xl bg-white border border-slate-200 px-4 py-3.5">
-                <div className="text-sm font-semibold text-slate-900 font-mono tracking-wider select-all text-center break-all">
+              <div className={`rounded-xl border px-4 py-3.5 transition-colors ${
+                hasPinSet ? 'bg-white border-slate-200' : 'bg-slate-50 border-slate-100'
+              }`}>
+                <div className={`text-sm font-semibold font-mono tracking-wider select-all text-center break-all ${
+                  hasPinSet ? 'text-slate-900' : 'text-slate-400'
+                }`}>
                   {userId}
                 </div>
               </div>
@@ -281,8 +278,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
               <ProfileRow
                 icon={<Download size={17} strokeWidth={2} />}
                 title="Download my ID"
-                subtitle="Save as .txt file"
+                subtitle={hasPinSet ? "Save as .txt file" : "Set PIN to enable download"}
                 onClick={() => handleAction(onDownloadIdClick)}
+                disabled={!hasPinSet}
               />
               <ProfileRow
                 icon={<Lock size={17} strokeWidth={2} />}
@@ -344,7 +342,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
         </main>
       </div>
 
-      {/* ✅ Guest Account Info Modal */}
+      {/* Guest Account Info Modal */}
       {showGuestInfo && (
         <div
           className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200"
@@ -379,7 +377,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
             {/* Modal body */}
             <div className="guest-info-scroll flex-1 min-h-0 overflow-y-auto px-5 py-5 space-y-5">
 
-              {/* ✅ NEW: warm welcome line — explains the Guest Account was given */}
+              {/* Warm welcome line */}
               <div className="flex items-start gap-3 rounded-xl bg-gradient-to-br from-purple-50 via-white to-blue-50 border border-purple-100 px-4 py-3.5">
                 <div className="shrink-0 w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center mt-0.5">
                   <Sparkles size={15} strokeWidth={2.2} />
@@ -478,6 +476,7 @@ interface ProfileRowProps {
   subtitle: string;
   onClick: () => void;
   variant?: 'default' | 'danger';
+  disabled?: boolean;
 }
 
 const ProfileRow: React.FC<ProfileRowProps> = ({
@@ -486,21 +485,29 @@ const ProfileRow: React.FC<ProfileRowProps> = ({
   subtitle,
   onClick,
   variant = 'default',
+  disabled = false,
 }) => {
   const isDanger = variant === 'danger';
 
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       className={`w-full flex items-center gap-3.5 px-4 sm:px-5 py-4 text-left transition-colors duration-150 group ${
-        isDanger ? 'hover:bg-red-50/50' : 'hover:bg-slate-50'
+        disabled
+          ? 'opacity-50 cursor-not-allowed'
+          : isDanger
+            ? 'hover:bg-red-50/50'
+            : 'hover:bg-slate-50'
       }`}
     >
       <div
         className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors duration-150 ${
-          isDanger
-            ? 'bg-red-50 text-red-600 group-hover:bg-red-100'
-            : 'bg-slate-100 text-slate-600 group-hover:bg-slate-200'
+          disabled
+            ? 'bg-slate-50 text-slate-400'
+            : isDanger
+              ? 'bg-red-50 text-red-600 group-hover:bg-red-100'
+              : 'bg-slate-100 text-slate-600 group-hover:bg-slate-200'
         }`}
       >
         {icon}
@@ -509,14 +516,14 @@ const ProfileRow: React.FC<ProfileRowProps> = ({
       <div className="flex-1 min-w-0">
         <div
           className={`text-sm font-medium truncate ${
-            isDanger ? 'text-red-700' : 'text-slate-900'
+            disabled ? 'text-slate-400' : isDanger ? 'text-red-700' : 'text-slate-900'
           }`}
         >
           {title}
         </div>
         <div
           className={`text-xs mt-0.5 truncate ${
-            isDanger ? 'text-red-500/80' : 'text-slate-500'
+            disabled ? 'text-slate-400' : isDanger ? 'text-red-500/80' : 'text-slate-500'
           }`}
         >
           {subtitle}
@@ -527,9 +534,11 @@ const ProfileRow: React.FC<ProfileRowProps> = ({
         size={16}
         strokeWidth={2}
         className={`shrink-0 transition-colors duration-150 ${
-          isDanger
-            ? 'text-slate-300 group-hover:text-red-400'
-            : 'text-slate-300 group-hover:text-slate-500'
+          disabled
+            ? 'text-slate-200'
+            : isDanger
+              ? 'text-slate-300 group-hover:text-red-400'
+              : 'text-slate-300 group-hover:text-slate-500'
         }`}
       />
     </button>
