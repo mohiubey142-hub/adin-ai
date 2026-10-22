@@ -52,6 +52,8 @@ const Founder = lazy(() => import("./pages/Founder"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const Contact = lazy(() => import("./pages/Contact"));
+const Blog = lazy(() => import("./pages/Blog"));
+const BlogPost = lazy(() => import("./pages/BlogPost"));
 
 import { localStorageDocumentService } from "./components/cv-builder/services/documentService";
 
@@ -234,7 +236,14 @@ const AdinToaster = () => {
 // ✅ PATH-BASED ROUTING
 // ═══════════════════════════════════════════════════════════════
 
-type PageType = 'workspace' | 'my-documents' | 'app' | 'templates' | 'cover-templates' | 'founder' | 'legal';
+type PageType = 'workspace' | 'my-documents' | 'app' | 'templates' | 'cover-templates' | 'founder' | 'legal' | 'blog' | 'blog-post';
+
+// ✅ Blog constants (no magic strings)
+const BLOG_ROUTE_PATH = '/blog';
+const BLOG_POST_ROUTE_PREFIX = '/blog/';
+const ACTIVE_BLOG = 'Blog';
+const PAGE_KEY_BLOG = 'blog';
+const LANDING_SEEN_STORAGE_KEY = 'adin-has-seen-landing';
 
 interface PathRoute {
   page: PageType;
@@ -253,12 +262,33 @@ const PATH_ROUTES: Record<string, PathRoute> = {
   '/privacy-policy':    { page: 'legal',           active: 'Privacy Policy' },
   '/terms-of-service':  { page: 'legal',           active: 'Terms of Service' },
   '/contact':           { page: 'legal',           active: 'Contact' },
+  [BLOG_ROUTE_PATH]:    { page: 'blog',            active: ACTIVE_BLOG },
 };
 
 const getPathRoute = (): PathRoute | null => {
   if (typeof window === 'undefined') return null;
   const path = window.location.pathname.replace(/\/$/, '') || '/';
+
+  // ✅ /blog/:slug — dynamic route, PATH_ROUTES mein static key nahi ho sakti
+  if (path.startsWith(BLOG_POST_ROUTE_PREFIX) && path.length > BLOG_POST_ROUTE_PREFIX.length) {
+    return { page: 'blog-post', active: ACTIVE_BLOG };
+  }
+
   return PATH_ROUTES[path] || null;
+};
+
+// ✅ URL se blog slug nikalta hai (deep link / refresh / back-forward ke liye)
+const getBlogSlugFromPath = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  const path = window.location.pathname.replace(/\/$/, '') || '/';
+  if (!path.startsWith(BLOG_POST_ROUTE_PREFIX)) return null;
+  const rawSlug = path.slice(BLOG_POST_ROUTE_PREFIX.length);
+  if (!rawSlug) return null;
+  try {
+    return decodeURIComponent(rawSlug);
+  } catch {
+    return rawSlug;
+  }
 };
 
 const navigateToPath = (path: string, replace = false): void => {
@@ -646,6 +676,8 @@ function AppInner() {
 
   const [coverLetterKey, setCoverLetterKey] = useState<number>(0);
 
+  const [activeBlogSlug, setActiveBlogSlug] = useState<string | null>(() => getBlogSlugFromPath());
+
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<MessageType[]>([]);
@@ -732,6 +764,8 @@ function AppInner() {
     if (currentPage === 'templates') return 'templates';
     if (currentPage === 'cover-templates') return 'cover-templates';
     if (currentPage === 'founder') return 'founder';
+    if (currentPage === 'blog') return PAGE_KEY_BLOG;
+    if (currentPage === 'blog-post') return PAGE_KEY_BLOG;
     if (currentPage === 'legal') {
       if (active === 'Privacy Policy') return 'privacy-policy';
       if (active === 'Terms of Service') return 'terms-of-service';
@@ -1195,6 +1229,19 @@ Adin AI
     navigateToPath('/my-documents');
   }, []);
 
+  const navigateToBlog = useCallback(() => {
+    setCurrentPage('blog');
+    setActive(ACTIVE_BLOG);
+    navigateToPath(BLOG_ROUTE_PATH);
+  }, []);
+
+  const navigateToBlogPost = useCallback((slug: string) => {
+    setActiveBlogSlug(slug);
+    setCurrentPage('blog-post');
+    setActive(ACTIVE_BLOG);
+    navigateToPath(`${BLOG_POST_ROUTE_PREFIX}${slug}`);
+  }, []);
+
   const handleGlobalNavigate = useCallback((route: AppRoute) => {
     switch (route) {
       case 'home':
@@ -1260,10 +1307,14 @@ Adin AI
         break;
       }
 
+      case 'blog':
+        navigateToBlog();
+        break;
+
       default:
         break;
     }
-  }, [navigateToWorkspace, navigateToMyDocuments, getLastCVDocument, getLastCoverLetterDocument]);
+  }, [navigateToWorkspace, navigateToMyDocuments, navigateToBlog, getLastCVDocument, getLastCoverLetterDocument]);
 
   const handleCreateNewCV = useCallback(() => {
     sessionRemove('adin-session-cv-doc');
@@ -1382,6 +1433,9 @@ Adin AI
     const handleRouteChange = () => {
       const pathRoute = getPathRoute();
       if (pathRoute) {
+        if (pathRoute.page === 'blog-post') {
+          setActiveBlogSlug(getBlogSlugFromPath());
+        }
         setCurrentPage(pathRoute.page);
         setActive(pathRoute.active);
         return;
@@ -1426,9 +1480,16 @@ Adin AI
       'templates': '/templates',
       'cover-templates': '/cover-templates',
       'founder': '/founder',
+      'blog': BLOG_ROUTE_PATH,
     };
 
     let targetPath = routeMap[currentPage] || '/';
+
+    if (currentPage === 'blog-post') {
+      targetPath = activeBlogSlug
+        ? `${BLOG_POST_ROUTE_PREFIX}${activeBlogSlug}`
+        : BLOG_ROUTE_PATH;
+    }
 
     if (currentPage === 'app') {
       targetPath = active === 'CV Builder' ? '/cv-builder' : '/cover-letter';
@@ -1442,7 +1503,7 @@ Adin AI
     if (currentPath !== targetPath) {
       window.history.replaceState({}, '', targetPath);
     }
-  }, [currentPage, active]);
+  }, [currentPage, active, activeBlogSlug]);
 
   const sortChats = useCallback((chats: ChatType[]) => [...chats].sort((a, b) => {
     if (a.pinned === b.pinned) return b.id - a.id;
@@ -1561,6 +1622,12 @@ Adin AI
     navigateToPath('/cover-templates');
   }, []);
 
+  const handleLandingViewBlog = useCallback(() => {
+    safeSetItem(LANDING_SEEN_STORAGE_KEY, 'true');
+    setShowLanding(false);
+    navigateToBlog();
+  }, [navigateToBlog]);
+
   const handleLandingFounder = useCallback(() => {
     sessionSet('adin-legal-from-landing', 'true');
     safeSetItem('adin-has-seen-landing', 'true');
@@ -1596,6 +1663,18 @@ Adin AI
     setActive('Contact');
     navigateToPath('/contact');
   }, []);
+
+  // ✅ Blog → Back: exactly landing page par wapas
+  const handleBlogBackToLanding = useCallback(() => {
+    navigateToWorkspace();
+    setShowLanding(true);
+  }, [navigateToWorkspace]);
+
+  // ✅ Onboarding → Back: exactly landing page par wapas
+  const handleOnboardingBackToLanding = useCallback(() => {
+    navigateToWorkspace();
+    setShowLanding(true);
+  }, [navigateToWorkspace]);
 
   // ═══════════════════════════════════════════════════════════════
   // 1. LANDING PAGE
@@ -1636,6 +1715,7 @@ Adin AI
           onWriteCoverLetter={handleLandingWriteCoverLetter}
           onViewCVTemplates={handleLandingViewCVTemplates}
           onViewCoverTemplates={handleLandingViewCoverTemplates}
+          onOpenBlog={handleLandingViewBlog}
           onOpenFounder={handleLandingFounder}
           onOpenSidebar={undefined}
           onOpenPrivacy={handleLandingPrivacy}
@@ -1675,6 +1755,42 @@ Adin AI
   }
 
   // ═══════════════════════════════════════════════════════════════
+  // 2b. BLOG PAGES (public — onboarding se pehle render)
+  // ═══════════════════════════════════════════════════════════════
+  if (currentPage === 'blog') {
+    return (
+      <>
+        <SEOHead title={seoConfig.title} description={seoConfig.description} keywords={seoConfig.keywords} canonicalUrl={seoConfig.canonicalUrl} />
+        <style>{buildScrollbarCss(true)}</style>
+        <AdinToaster />
+        <Suspense fallback={<LoadingScreen />}>
+          <Blog 
+            onOpenArticle={navigateToBlogPost} 
+            onBackToLanding={handleBlogBackToLanding} 
+          />
+        </Suspense>
+      </>
+    );
+  }
+
+  if (currentPage === 'blog-post' && activeBlogSlug) {
+    return (
+      <>
+        <style>{buildScrollbarCss(true)}</style>
+        <AdinToaster />
+        <Suspense fallback={<LoadingScreen />}>
+          <BlogPost 
+            slug={activeBlogSlug} 
+            onBackToBlog={navigateToBlog} 
+            onBuildCV={handleLandingBuildCV} 
+            onWriteCoverLetter={handleLandingWriteCoverLetter} 
+          />
+        </Suspense>
+      </>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
   // 3. ONBOARDING (skip for public SEO pages)
   // ═══════════════════════════════════════════════════════════════
   const isPublicPageForSEO = PUBLIC_PAGES_FOR_SEO.includes(currentPage);
@@ -1686,6 +1802,7 @@ Adin AI
         <Onboarding
           onComplete={handleOnboardingComplete}
           onRestoreClick={() => setShowRestoreModal(true)}
+          onBack={handleOnboardingBackToLanding}
         />
         <RestoreData
           isOpen={showRestoreModal}

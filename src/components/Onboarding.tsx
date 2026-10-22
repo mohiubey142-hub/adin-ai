@@ -8,7 +8,7 @@
 // ✅ FIX: Privacy Policy + Terms links → path-based (no hash)
 
 import { useState, useEffect, useRef } from "react";
-import { ArrowRight, User, AlertCircle } from "lucide-react";
+import { ArrowRight, ArrowLeft, User, AlertCircle } from "lucide-react";
 import { getOrCreateUserId } from '../utils/userId';
 import { syncService } from '../services/sync/syncService';
 import { enableAnalytics } from '../utils/analytics';
@@ -19,6 +19,8 @@ interface OnboardingProps {
     userId: string;
   }) => void;
   onRestoreClick: () => void;
+  // ✅ Optional: Back button → landing page par wapas
+  onBack?: () => void;
 }
 
 type OnboardingProfile = Parameters<OnboardingProps['onComplete']>[0];
@@ -50,7 +52,7 @@ const CONSENT_HELPER_TEXT = "Your work auto-saves to a private cloud — safe an
 const LEGAL_LINK_CLASSES =
   "inline text-purple-600 hover:underline focus-visible:underline focus-visible:outline-none font-medium";
 
-export const Onboarding = ({ onComplete }: OnboardingProps) => {
+export const Onboarding = ({ onComplete, onBack }: OnboardingProps) => {
   const [name, setName] = useState(() => localStorage.getItem(NAME_STORAGE_KEY) || "");
   const [nameError, setNameError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -209,6 +211,21 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
 
       {/* Content */}
       <div className="relative z-10 w-full min-h-screen flex items-center justify-center px-4 py-8 sm:py-12">
+
+        {/* ✅ Back button → landing page */}
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            disabled={isLoading}
+            aria-label="Back to home page"
+            className="absolute top-4 left-4 sm:top-6 sm:left-6 z-20 inline-flex items-center gap-1.5 min-h-[44px] px-4 rounded-xl bg-white/80 backdrop-blur-xl border border-slate-200 text-sm font-medium text-slate-600 shadow-sm transition-all duration-200 hover:text-purple-600 hover:border-purple-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ArrowLeft size={16} />
+            Back
+          </button>
+        )}
+
         <div className="w-full max-w-md mx-auto p-6 animate-fade-in">
 
           {/* Logo */}

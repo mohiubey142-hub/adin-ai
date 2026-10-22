@@ -2,19 +2,6 @@
 // ============================================================
 // seoPages.ts — PER-PAGE SEO CONFIG
 // ============================================================
-// Har page ka unique title, description, keywords, canonical.
-// Sab kuch site.ts se derive hota hai — domain change = 1 file.
-//
-// ✅ UPDATED: `templates` title + description no longer claim a fixed
-//             template count. Replaced with a "growing library" framing
-//             so the copy stays honest, evergreen, and SEO-safe as the
-//             catalogue grows. No other page touched.
-// ✅ UPDATED (Oct 2026): removed "no ads" (kept out on purpose) and the
-//             "millions of job seekers" claim, removed the "gdpr" keyword
-//             (tool is Pakistan-focused), and added noIndex entries for
-//             onboarding / profile / settings so they never fall back to
-//             the indexable home config.
-// ============================================================
 
 import { SITE_CONFIG, SITE_URL, canonicalFor, OG_IMAGE } from './site';
 
@@ -32,9 +19,6 @@ export interface SEOConfig {
   themeColor?: string;
 }
 
-// ─────────────────────────────────────────────
-// DEFAULT (fallback for unknown pages)
-// ─────────────────────────────────────────────
 const DEFAULTS = {
   ogImage: OG_IMAGE,
   ogType: 'website' as const,
@@ -45,9 +29,6 @@ const DEFAULTS = {
   themeColor: SITE_CONFIG.themeColor,
 };
 
-// ─────────────────────────────────────────────
-// ALL PAGES
-// ─────────────────────────────────────────────
 export const SEO_PAGES: Record<string, SEOConfig> = {
   // ══════════════════════════════════════════════
   // HOME
@@ -74,9 +55,29 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
   },
 
   // ══════════════════════════════════════════════
+  // BLOG
+  // ══════════════════════════════════════════════
+  blog: {
+    // ✅ UPDATED: Added Cover Letter in title and description
+    title: 'Career Tips, CV & Cover Letter Advice | Adin AI Blog',
+    description:
+      'Read the latest career tips, CV writing advice, cover letter guides, and AI insights to help you land your dream job in Pakistan.',
+    keywords: [
+      'career tips',
+      'cv advice',
+      'cover letter tips',
+      'job search pakistan',
+      'ai career',
+      'adin ai blog',
+      'resume tips',
+    ].join(', '),
+    canonicalUrl: canonicalFor('/blog'),
+    ...DEFAULTS,
+    ogType: 'article',
+  },
+
+  // ══════════════════════════════════════════════
   // TEMPLATES — CV
-  // ✅ No fixed count in copy. "Growing library" framing keeps the
-  //    metadata evergreen and SEO-safe as the catalogue expands.
   // ══════════════════════════════════════════════
   templates: {
     title: 'Free CV Templates — Professional & ATS-Friendly Designs',
@@ -142,7 +143,7 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
     ].join(', '),
     canonicalUrl: canonicalFor('/cv-builder'),
     ...DEFAULTS,
-    noIndex: true, // editor page — not indexed
+    noIndex: true,
     noFollow: true,
   },
 
@@ -295,6 +296,7 @@ export const SITEMAP_PAGES = [
   { path: '/',                priority: '1.0',  changefreq: 'daily'   },
   { path: '/templates',       priority: '0.95', changefreq: 'weekly'  },
   { path: '/cover-templates', priority: '0.95', changefreq: 'weekly'  },
+  { path: '/blog',            priority: '0.90', changefreq: 'weekly'  },
   { path: '/founder',         priority: '0.70', changefreq: 'monthly' },
   { path: '/privacy-policy',  priority: '0.40', changefreq: 'monthly' },
   { path: '/terms-of-service',priority: '0.40', changefreq: 'monthly' },

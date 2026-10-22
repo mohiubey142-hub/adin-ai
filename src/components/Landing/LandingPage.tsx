@@ -113,6 +113,7 @@ interface LandingPageProps {
   onViewCoverTemplates?: () => void;
   onOpenSidebar?: () => void;
   onOpenFounder?: () => void;
+  onOpenBlog?: () => void;
   onOpenPrivacy?: () => void;   // ✅ NEW
   onOpenTerms?: () => void;     // ✅ NEW
   onOpenContact?: () => void;   // ✅ NEW
@@ -129,6 +130,7 @@ export default function LandingPage({
   onViewCoverTemplates,
   onOpenSidebar,
   onOpenFounder,
+  onOpenBlog,
   onOpenPrivacy,
   onOpenTerms,
   onOpenContact,
@@ -179,21 +181,10 @@ export default function LandingPage({
   }), [mousePosition]);
 
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (rect) {
-        setMousePosition({
-          x: (e.clientX - rect.left) / rect.width,
-          y: (e.clientY - rect.top) / rect.height,
-        });
-      }
-    };
     const handleScroll = () => setScrolled(window.scrollY > 20);
 
-    window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('scroll', handleScroll);
     };
   }, []);
@@ -240,6 +231,11 @@ export default function LandingPage({
     setMobileNavOpen(false);
     (onOpenFounder || onGetStarted)();
   }, [onOpenFounder, onGetStarted]);
+
+  const handleNavBlog = useCallback(() => {
+    setMobileNavOpen(false);
+    (onOpenBlog || onGetStarted)();
+  }, [onOpenBlog, onGetStarted]);
 
   const handleNavPrivacy = useCallback(() => {
     setMobileNavOpen(false);
@@ -318,6 +314,7 @@ export default function LandingPage({
             <NavLink onClick={handleNavCVTemplates}>CV Templates</NavLink>
             <NavLink onClick={handleNavCoverTemplates}>Cover Templates</NavLink>
             <NavLink onClick={() => scrollToSection('features')}>Features</NavLink>
+            <NavLink onClick={handleNavBlog}>Blog</NavLink>
             <NavLink onClick={handleNavFounder}>Founder</NavLink>
           </nav>
 
@@ -372,6 +369,7 @@ export default function LandingPage({
                 Features
               </MobileNavItem>
               <MobileNavItem onClick={handleNavFounder} icon={<User size={17} />}>Founder</MobileNavItem>
+              <MobileNavItem onClick={handleNavBlog} icon={<FileText size={17} />}>Blog</MobileNavItem>
               <MobileNavItem onClick={handleNavPrivacy} icon={<Shield size={17} />}>Privacy Policy</MobileNavItem>
               <MobileNavItem onClick={handleNavTerms} icon={<FileText size={17} />}>Terms of Service</MobileNavItem>
               <MobileNavItem onClick={handleNavContact} icon={<Mail size={17} />}>Contact Us</MobileNavItem>
@@ -540,7 +538,6 @@ export default function LandingPage({
               }
             >
             {HERO_FAN.map((c) => {
-              const o = getParallaxOffset(c.factor);
               return (
                 <div
                   key={c.src}
@@ -552,8 +549,8 @@ export default function LandingPage({
                     zIndex: c.z,
                     boxShadow: c.shadow,
                     transformOrigin: '50% 100%',
-                    transform: `translateX(-50%) rotate(${c.rotate}deg) translate(${o.x}px, ${o.y}px)`,
-                    transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+                    // ✅ FIX: static transform — mouse parallax removed (sub-pixel moves made template text shake)
+                    transform: `translateX(-50%) rotate(${c.rotate}deg)`,
                   }}
                 >
                   <div className="aspect-[3/4] bg-slate-50 relative">
@@ -575,7 +572,7 @@ export default function LandingPage({
 
             <div
               className="absolute inset-x-0 flex justify-center pointer-events-none"
-              style={{ bottom: '3%', zIndex: 5, transform: `translate(${getParallaxOffset(0.028).x}px, ${getParallaxOffset(0.028).y}px)`, transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}
+              style={{ bottom: '3%', zIndex: 5 }}
             >
               <div className="px-3 py-2 rounded-xl bg-white border border-purple-200 shadow-lg flex items-center gap-2 animate-float">
                 <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center">
@@ -843,6 +840,7 @@ export default function LandingPage({
               <FooterLink onClick={() => scrollToSection('features')}>Features</FooterLink>
               <FooterLink onClick={() => scrollToSection('templates')}>Templates</FooterLink>
               <FooterLink onClick={onGetStarted}>Get Started</FooterLink>
+              <FooterLink onClick={handleNavBlog}>Blog</FooterLink>
             </FooterColumn>
 
             <FooterColumn title="Company">
