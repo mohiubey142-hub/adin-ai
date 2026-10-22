@@ -24,6 +24,7 @@ import {
   Download, Eye, Shield, Menu, X, Wand2, Palette,
   FileDown, Lock, ChevronRight, Cpu, User,
 } from 'lucide-react';
+import InstallAppCompact from '../InstallAppCompact';
 
 // ============================================================
 // TEMPLATE DATA
@@ -382,6 +383,8 @@ export default function LandingPage({
               >
                 Start Building — Free
               </button>
+              {/* ✅ NEW: PWA install (drawer bottom) */}
+              <InstallAppCompact variant="drawer" />
             </div>
           </div>
         </div>
@@ -827,6 +830,8 @@ export default function LandingPage({
                 Free CV builder, cover letter writer, and AI career assistant.
                 Powered by GPT-OSS 120B.
               </p>
+              {/* ✅ NEW: PWA install (footer) */}
+              <InstallAppCompact variant="footer" />
             </div>
 
             <FooterColumn title="Product">
