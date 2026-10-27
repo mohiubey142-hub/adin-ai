@@ -392,8 +392,8 @@ export default function LandingPage({
       )}
 
       {/* HERO */}
-      <section className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 pt-10 sm:pt-14 md:pt-20 pb-16 md:pb-24">
-        <div className="grid lg:grid-cols-2 gap-10 lg:gap-14 items-center">
+      <section className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 pt-10 sm:pt-14 md:pt-10 pb-12 md:pb-16">
+        <div className="grid lg:grid-cols-2 gap-10 lg:gap-14 items-center lg:items-start">
           <div className="text-center lg:text-left">
             <div
               className="animate-fade-up"
@@ -511,12 +511,12 @@ export default function LandingPage({
 
           <div
             ref={heroStageRef}
-            className="relative block w-full mt-2 lg:h-[520px] lg:self-start lg:mt-[56px] animate-fade-up"
+            className="relative block w-full mt-2 lg:h-auto lg:aspect-[580/450] lg:self-start lg:mt-[56px] animate-fade-up"
             style={{
               animationDelay: '200ms',
               opacity: 0,
               animationFillMode: 'forwards',
-              ...(heroFit.isDesktop ? {} : { height: 520 * heroFit.scale }),
+              ...(heroFit.isDesktop ? {} : { height: 450 * heroFit.scale }),
             }}
           >
             <div
@@ -531,7 +531,7 @@ export default function LandingPage({
               className="absolute top-0"
               style={
                 heroFit.isDesktop
-                  ? { left: 0, right: 0, bottom: 0 }
+                  ? { left: 0, right: 0, aspectRatio: '580 / 520' }
                   : {
                       left: '50%',
                       width: 580,
@@ -575,16 +575,20 @@ export default function LandingPage({
             })}
 
             <div
-              className="absolute inset-x-0 flex justify-center pointer-events-none"
-              style={{ bottom: '3%', zIndex: 5 }}
+              className="absolute pointer-events-none"
+              style={{ width: '54%', left: '50%', top: 0, transform: 'translateX(-50%)', zIndex: 5 }}
             >
-              <div className="px-3 py-2 rounded-xl bg-white border border-purple-200 shadow-lg flex items-center gap-2 animate-float">
-                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center">
-                  <Wand2 size={14} className="text-white" />
-                </div>
-                <div>
-                  <div className="text-[10px] font-semibold text-slate-800 leading-tight">AI Writing</div>
-                  <div className="text-[9px] text-slate-500 leading-tight">Advanced GPT Models</div>
+              <div className="aspect-[3/4] relative">
+                <div className="absolute inset-x-0 bottom-4 flex justify-center">
+                  <div className="px-3 py-2 rounded-xl bg-white border border-purple-200 shadow-lg flex items-center gap-2 animate-float">
+                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center">
+                      <Wand2 size={14} className="text-white" />
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-semibold text-slate-800 leading-tight">AI Writing</div>
+                      <div className="text-[9px] text-slate-500 leading-tight">Advanced GPT Models</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
