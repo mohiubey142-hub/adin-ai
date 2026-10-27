@@ -25,6 +25,7 @@ import {
   FileDown, Lock, ChevronRight, Cpu, User,
 } from 'lucide-react';
 import InstallAppCompact from '../InstallAppCompact';
+import Testimonials from './Testimonials';
 
 // ============================================================
 // TEMPLATE DATA
@@ -470,7 +471,7 @@ export default function LandingPage({
               style={{ animationDelay: '160ms', opacity: 0, animationFillMode: 'forwards' }}
             >
               AI-powered writing, ATS-optimized templates, and instant PDF export.
-              Powered by <span className="font-semibold text-slate-800">GPT-OSS 120B</span>.
+              Powered by <span className="font-semibold text-slate-800">Advanced GPT Models</span>.
             </p>
 
             <div
@@ -500,7 +501,7 @@ export default function LandingPage({
               className="mt-7 flex flex-wrap items-center justify-center lg:justify-start gap-x-5 gap-y-2.5 text-xs sm:text-sm animate-fade-up"
               style={{ animationDelay: '320ms', opacity: 0, animationFillMode: 'forwards' }}
             >
-              <TrustItem icon={<Cpu size={14} />} label="Powered by GPT-OSS 120B" />
+              <TrustItem icon={<Cpu size={14} />} label="Powered by Advanced GPT Models" />
               <TrustItem icon={<CheckCircle size={14} />} label="ATS Optimized" />
               <TrustItem icon={<Layout size={14} />} label="Professional Templates" />
               <TrustItem icon={<Shield size={14} />} label="No Watermark" />
@@ -583,7 +584,7 @@ export default function LandingPage({
                 </div>
                 <div>
                   <div className="text-[10px] font-semibold text-slate-800 leading-tight">AI Writing</div>
-                  <div className="text-[9px] text-slate-500 leading-tight">GPT-OSS 120B</div>
+                  <div className="text-[9px] text-slate-500 leading-tight">Advanced GPT Models</div>
                 </div>
               </div>
             </div>
@@ -597,7 +598,7 @@ export default function LandingPage({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-center flex-wrap gap-x-8 gap-y-3 text-xs sm:text-sm text-slate-600">
             {[
-              { icon: <Cpu size={14} className="text-purple-600" />, label: 'GPT-OSS 120B' },
+              { icon: <Cpu size={14} className="text-purple-600" />, label: 'Advanced GPT Models' },
               { icon: <CheckCircle size={14} className="text-emerald-600" />, label: '100% Free' },
               { icon: <Layout size={14} className="text-blue-600" />, label: 'Professional Templates' },
               { icon: <Shield size={14} className="text-purple-600" />, label: 'ATS Optimized' },
@@ -701,7 +702,7 @@ export default function LandingPage({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
             {[
-              { icon: <Cpu size={20} />, title: 'GPT-OSS 120B AI', desc: 'Powered by one of the most capable open models for natural, human-sounding writing.', accent: 'purple' },
+              { icon: <Cpu size={20} />, title: 'Advanced GPT Models', desc: 'Powered by one of the most capable open models for natural, human-sounding writing.', accent: 'purple' },
               { icon: <CheckCircle size={20} />, title: 'ATS Optimized', desc: 'Every template is built with a clean, ATS-friendly structure.', accent: 'emerald' },
               { icon: <Layout size={20} />, title: 'Professional Templates', desc: 'A growing library of CV and cover letter designs — pick your style.', accent: 'blue' },
               { icon: <Download size={20} />, title: 'PDF · PNG · TXT', desc: 'Export in multiple formats with a single click. No watermark.', accent: 'purple' },
@@ -749,6 +750,8 @@ export default function LandingPage({
           ))}
         </div>
       </section>
+
+      <Testimonials />
 
       {/* STATS */}
       <section className="relative z-10 bg-white/60 backdrop-blur-sm border-y border-slate-200">
@@ -828,7 +831,7 @@ export default function LandingPage({
               </div>
               <p className="mt-3 text-xs text-slate-500 leading-relaxed max-w-xs">
                 Free CV builder, cover letter writer, and AI career assistant.
-                Powered by GPT-OSS 120B.
+                Powered by Advanced GPT Models.
               </p>
               {/* ✅ NEW: PWA install (footer) */}
               <InstallAppCompact variant="footer" />
@@ -865,7 +868,7 @@ export default function LandingPage({
             </p>
             <p className="text-xs text-slate-500 flex items-center gap-1.5">
               <Cpu size={12} className="text-purple-600" />
-              Powered by GPT-OSS 120B
+              Powered by Advanced GPT Models
             </p>
           </div>
         </div>
