@@ -28,6 +28,57 @@
     <priority>0.95</priority>
   </url>
 
+  <!-- BLOG -->
+  <url>
+    <loc>https://getadinai.com/blog</loc>
+    <lastmod>2026-10-21</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.90</priority>
+  </url>
+
+  <!-- BLOG POSTS -->
+  <url>
+    <loc>https://getadinai.com/blog/naya-job-chahiye-cv-mistakes</loc>
+    <lastmod>2026-10-16</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.70</priority>
+  </url>
+
+  <url>
+    <loc>https://getadinai.com/blog/fresher-cv-kaise-banayein</loc>
+    <lastmod>2026-10-17</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.70</priority>
+  </url>
+
+  <url>
+    <loc>https://getadinai.com/blog/ats-friendly-cv-kya-hai</loc>
+    <lastmod>2026-10-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.70</priority>
+  </url>
+
+  <url>
+    <loc>https://getadinai.com/blog/cover-letter-kaise-likhein</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.70</priority>
+  </url>
+
+  <url>
+    <loc>https://getadinai.com/blog/top-10-skills-pakistan-2026</loc>
+    <lastmod>2026-10-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.70</priority>
+  </url>
+
+  <url>
+    <loc>https://getadinai.com/blog/cover-letter-ki-5-badi-galtiyan</loc>
+    <lastmod>2026-10-21</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.70</priority>
+  </url>
+
   <!-- FOUNDER -->
   <url>
     <loc>https://getadinai.com/founder</loc>

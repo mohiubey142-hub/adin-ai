@@ -25,46 +25,46 @@
          🔥 PRIMARY SEO META (Static fallback — SEOHead overrides when JS runs)
          ============================================ -->
     <title>Adin AI — Free CV Builder, Cover Letter &amp; Career Assistant</title>
-    <meta
+    <meta data-static-seo
       name="description"
       content="Adin AI is a 100% free AI CV builder, cover letter generator and career assistant. Build professional, ATS-friendly CVs in minutes — no signup, no credit card."
     />
-    <meta
+    <meta data-static-seo
       name="keywords"
       content="free cv builder, free cover letter generator, free resume builder, free career assistant, ai cv builder, ai resume builder, free cv maker online, ats cv builder, professional cv builder free, free cv builder pakistan, adin ai"
     />
-    <meta name="author" content="Adin AI" />
-    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large" />
-    <link rel="canonical" href="https://getadinai.com/" />
+    <meta data-static-seo name="author" content="Adin AI" />
+    <meta data-static-seo name="robots" content="index, follow, max-snippet:-1, max-image-preview:large" />
+    <link data-static-seo rel="canonical" href="https://getadinai.com/" />
 
     <!-- ============================================
          🔥 OPEN GRAPH (Static fallback)
          ============================================ -->
-    <meta property="og:title" content="Adin AI — Free CV Builder, Cover Letter &amp; Career Assistant" />
-    <meta property="og:description" content="Build professional, ATS-friendly CVs for free with Adin AI. AI-powered writing, 50+ templates, instant PDF download." />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://getadinai.com/" />
-    <meta property="og:image" content="https://getadinai.com/og-image.png" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta property="og:site_name" content="Adin AI" />
-    <meta property="og:locale" content="en_US" />
+    <meta data-static-seo property="og:title" content="Adin AI — Free CV Builder, Cover Letter &amp; Career Assistant" />
+    <meta data-static-seo property="og:description" content="Build professional, ATS-friendly CVs for free with Adin AI. AI-powered writing, 50+ templates, instant PDF download." />
+    <meta data-static-seo property="og:type" content="website" />
+    <meta data-static-seo property="og:url" content="https://getadinai.com/" />
+    <meta data-static-seo property="og:image" content="https://getadinai.com/og-image.png" />
+    <meta data-static-seo property="og:image:width" content="1200" />
+    <meta data-static-seo property="og:image:height" content="630" />
+    <meta data-static-seo property="og:site_name" content="Adin AI" />
+    <meta data-static-seo property="og:locale" content="en_US" />
 
     <!-- ============================================
          🔥 TWITTER CARDS (Static fallback)
          ============================================ -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Adin AI — Free CV Builder, Cover Letter &amp; Career Assistant" />
-    <meta name="twitter:description" content="Build professional, ATS-friendly CVs for free with Adin AI. AI-powered writing, 50+ templates, instant PDF download." />
-    <meta name="twitter:image" content="https://getadinai.com/og-image.png" />
-    <meta name="twitter:site" content="@adin_ai" />
-    <meta name="twitter:creator" content="@adin_ai" />
+    <meta data-static-seo name="twitter:card" content="summary_large_image" />
+    <meta data-static-seo name="twitter:title" content="Adin AI — Free CV Builder, Cover Letter &amp; Career Assistant" />
+    <meta data-static-seo name="twitter:description" content="Build professional, ATS-friendly CVs for free with Adin AI. AI-powered writing, 50+ templates, instant PDF download." />
+    <meta data-static-seo name="twitter:image" content="https://getadinai.com/og-image.png" />
+    <meta data-static-seo name="twitter:site" content="@adin_ai" />
+    <meta data-static-seo name="twitter:creator" content="@adin_ai" />
 
     <!-- ============================================
          🔥 GEO TAGS
          ============================================ -->
-    <meta name="geo.region" content="PK" />
-    <meta name="geo.placename" content="Pakistan" />
+    <meta data-static-seo name="geo.region" content="PK" />
+    <meta data-static-seo name="geo.placename" content="Pakistan" />
 
     <!-- ============================================
          ✅ PWA: Web App Manifest
@@ -128,6 +128,15 @@
           "alternateName": "Adin AI — Free CV Builder, Cover Letter & Career Assistant",
           "url": "https://getadinai.com",
           "inLanguage": "en"
+        },
+        {
+          "@type": "WebApplication",
+          "name": "Adin AI",
+          "url": "https://getadinai.com",
+          "applicationCategory": "BusinessApplication",
+          "operatingSystem": "Web",
+          "description": "Free AI CV builder, cover letter generator and career assistant. No signup required.",
+          "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
         }
       ]
     }
@@ -135,7 +144,25 @@
 
     </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Static fallback for crawlers that do not run JavaScript (React replaces this on load) -->
+      <div id="seo-fallback" style="position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">
+        <!--SEO_FALLBACK_START-->
+        <h1>Adin AI — Free CV Builder, Cover Letter &amp; Career Assistant</h1>
+        <p>Adin AI is a 100% free AI-powered career platform. Build professional, ATS-friendly CVs, generate tailored cover letters and get career help — no signup, no credit card, no ads. Download as PDF, PNG or TXT.</p>
+        <nav aria-label="Adin AI pages">
+          <a href="/">Home</a>
+          <a href="/templates">Free CV Templates</a>
+          <a href="/cover-templates">Free Cover Letter Templates</a>
+          <a href="/blog">Career Tips, CV &amp; Cover Letter Blog</a>
+          <a href="/founder">Founder</a>
+          <a href="/contact">Contact</a>
+          <a href="/privacy-policy">Privacy Policy</a>
+          <a href="/terms-of-service">Terms of Service</a>
+        </nav>
+        <!--SEO_FALLBACK_END-->
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

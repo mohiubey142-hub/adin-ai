@@ -3,6 +3,7 @@ import React, { useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { ARTICLES, DEFAULT_BLOG_CTA, type BlogCta } from '../config/articles';
 import { SEOHead } from '../components/SEO/SEOHead';
+import { canonicalFor, absoluteUrl, LOGO_URL, SITE_NAME } from '../config/site';
 import { ArrowLeft, ArrowRight, Clock, User, Share2, FileText, Mail } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -58,6 +59,34 @@ export default function BlogPost({ slug, onBackToBlog, onBuildCV, onWriteCoverLe
   const isCoverLetterCta = ctaType === 'cover-letter';
   const handleCtaClick = isCoverLetterCta ? onWriteCoverLetter : onBuildCV;
 
+  // ✅ Article structured data (JSON-LD) for Google & AI search
+  const articleUrl = canonicalFor(`/blog/${article.slug}`);
+  const parsed = new Date(article.date);
+  const isoDate = Number.isNaN(parsed.getTime())
+    ? undefined
+    : `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`;
+  const imageUrl = article.image
+    ? (/^https?:\/\//.test(article.image) ? article.image : absoluteUrl(article.image))
+    : undefined;
+  const articleSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: article.title,
+    description: article.excerpt,
+    mainEntityOfPage: { '@type': 'WebPage', '@id': articleUrl },
+    author: {
+      '@type': /adin ai|team/i.test(article.author) ? 'Organization' : 'Person',
+      name: article.author,
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: SITE_NAME,
+      logo: { '@type': 'ImageObject', url: LOGO_URL },
+    },
+    ...(isoDate ? { datePublished: isoDate, dateModified: isoDate } : {}),
+    ...(imageUrl ? { image: imageUrl } : {}),
+  };
+
   const handleShare = () => {
     const url = window.location.href;
     if (navigator.share) {
@@ -73,8 +102,14 @@ export default function BlogPost({ slug, onBackToBlog, onBuildCV, onWriteCoverLe
       <SEOHead
         title={`${article.title} | Adin AI Blog`}
         description={article.excerpt}
+        canonicalUrl={canonicalFor(`/blog/${article.slug}`)}
         ogType="article"
+        author={article.author}
+        publishedTime={isoDate}
       />
+      <script type="application/ld+json">
+        {JSON.stringify(articleSchema).replace(/</g, '\\u003c')}
+      </script>
 
       {/* Hero Section */}
       <div className="bg-white border-b border-slate-200">

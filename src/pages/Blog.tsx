@@ -76,7 +76,16 @@ export default function Blog({ onOpenArticle, onBackToLanding }: BlogProps) {
                   </span>
                 </div>
                 <h2 className="text-lg sm:text-xl font-bold text-slate-900 group-hover:text-purple-600 transition-colors leading-snug mb-2">
-                  {article.title}
+                  {/* ✅ Real link for crawlers; normal click still uses the card's SPA navigation */}
+                  <a
+                    href={`/blog/${article.slug}`}
+                    onClick={(e) => {
+                      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) { e.stopPropagation(); return; }
+                      e.preventDefault();
+                    }}
+                  >
+                    {article.title}
+                  </a>
                 </h2>
                 <p className="text-sm text-slate-600 leading-relaxed mb-4 flex-1">
                   {article.excerpt}

@@ -878,6 +878,17 @@ export default function LandingPage({
         </div>
       </footer>
 
+      {/* Crawlable internal links (visually hidden, not focusable) — real <a href> for search engines & AI crawlers */}
+      <nav aria-hidden="true" className="sr-only">
+        <a href="/templates" tabIndex={-1}>Free CV Templates</a>
+        <a href="/cover-templates" tabIndex={-1}>Free Cover Letter Templates</a>
+        <a href="/blog" tabIndex={-1}>Career Tips, CV &amp; Cover Letter Blog</a>
+        <a href="/founder" tabIndex={-1}>Founder</a>
+        <a href="/contact" tabIndex={-1}>Contact</a>
+        <a href="/privacy-policy" tabIndex={-1}>Privacy Policy</a>
+        <a href="/terms-of-service" tabIndex={-1}>Terms of Service</a>
+      </nav>
+
       {/* STYLES */}
       <style>{`
         html {

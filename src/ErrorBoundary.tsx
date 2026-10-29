@@ -7,6 +7,7 @@ import React from "react";
 // in-app browser. This boundary catches that error and shows a safe retry
 // screen instead of a blank page, and it never touches SEO, PWA, or any
 // existing UI/AI logic.
+
 type Props = { children: React.ReactNode };
 type State = { hasError: boolean };
 
@@ -43,31 +44,59 @@ export class ErrorBoundary extends React.Component<Props, State> {
             gap: "16px",
             padding: "24px",
             textAlign: "center",
-            background: "#0a0a0a",
-            color: "#fff",
-            fontFamily: "sans-serif",
+            // ✅ Background color matched with CVBuilder (bg-slate-100)
+            background: "#f1f5f9", 
+            color: "#0f172a", // Slate-900 text
+            fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
           }}
         >
-          <p style={{ fontSize: "18px", fontWeight: 600 }}>
-            Something went wrong loading Adin AI.
+          {/* Icon / Graphic (Optional but looks premium) */}
+          <div
+            style={{
+              width: "48px",
+              height: "48px",
+              borderRadius: "12px",
+              background: "linear-gradient(135deg, #7c3aed, #3b82f6)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "white",
+              fontWeight: "bold",
+              fontSize: "24px",
+              marginBottom: "8px",
+              boxShadow: "0 10px 20px rgba(124, 58, 237, 0.2)"
+            }}
+          >
+            !
+          </div>
+
+          <p style={{ fontSize: "18px", fontWeight: "700", margin: 0 }}>
+            Something went wrong
           </p>
-          <p style={{ fontSize: "14px", opacity: 0.7, maxWidth: 320 }}>
-            Please tap below to reload. If you opened this from Instagram,
-            try opening it in your regular browser (Chrome/Safari) instead.
+          
+          <p style={{ fontSize: "14px", color: "#475569", maxWidth: "340px", lineHeight: "1.5", margin: 0 }}>
+            We encountered a small issue while loading Adin AI. Please tap below to reload. If the problem persists, try clearing your browser cache.
           </p>
+
           <button
             onClick={this.handleReload}
             style={{
-              padding: "10px 20px",
-              borderRadius: "8px",
-              background: "#8b5cf6",
+              marginTop: "8px",
+              padding: "10px 24px",
+              borderRadius: "10px",
+              background: "linear-gradient(135deg, #7c3aed, #3b82f6)",
               color: "#fff",
               border: "none",
               fontSize: "14px",
+              fontWeight: "600",
               cursor: "pointer",
+              boxShadow: "0 4px 12px rgba(124, 58, 237, 0.25)",
+              transition: "transform 0.2s ease",
             }}
+            onMouseOver={(e) => e.currentTarget.style.transform = "scale(1.05)"}
+            onMouseOut={(e) => e.currentTarget.style.transform = "scale(1)"}
           >
-            Reload
+            Reload Page
           </button>
         </div>
       );

@@ -24,12 +24,16 @@ Allow: /
 Disallow: /cv-builder
 Disallow: /cover-letter
 Disallow: /my-documents
+Disallow: /settings
+Disallow: /profile
 
 User-agent: Bingbot
 Allow: /
 Disallow: /cv-builder
 Disallow: /cover-letter
 Disallow: /my-documents
+Disallow: /settings
+Disallow: /profile
 
 User-agent: DuckDuckBot
 Allow: /
@@ -40,6 +44,9 @@ Allow: /
 # ============================================
 # AI CRAWLERS — allow (for AI search visibility)
 # ============================================
+User-agent: OAI-SearchBot
+Allow: /
+
 User-agent: ChatGPT-User
 Allow: /
 
@@ -55,7 +62,7 @@ Allow: /
 User-agent: FacebookBot
 Allow: /
 
-User-agent: TwitterBot
+User-agent: Twitterbot
 Allow: /
 
 # ============================================

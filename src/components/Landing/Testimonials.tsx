@@ -54,8 +54,7 @@ export default function Testimonials() {
                 <Star key={i} size={18} className="fill-amber-400 text-amber-400" />
               ))}
             </div>
-            <span className="text-sm font-semibold text-slate-700">4.9 out of 5</span>
-            <span className="text-sm text-slate-500">based on user feedback</span>
+            <span className="text-sm font-semibold text-slate-700">Real feedback from our users</span>
           </div>
         </div>
 

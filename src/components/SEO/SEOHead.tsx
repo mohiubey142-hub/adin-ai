@@ -5,6 +5,7 @@
 // ✅ Future domain change = only site.ts update
 // ============================================================
 
+import { useEffect } from 'react';
 import {
   SITE_CONFIG,
   SITE_URL,
@@ -51,6 +52,14 @@ export function SEOHead({
   applicationName = SITE_CONFIG.name,
   themeColor = SITE_CONFIG.themeColor,
 }: SEOHeadProps) {
+  // ─────────────────────────────────────────────
+  // index.html ke static SEO tags (data-static-seo) hata do — warna har page par
+  // home ki canonical/description duplicate ho kar page-specific tags ko override karti thi
+  // ─────────────────────────────────────────────
+  useEffect(() => {
+    document.head.querySelectorAll('[data-static-seo]').forEach((el) => el.remove());
+  }, []);
+
   // ─────────────────────────────────────────────
   // TITLE — brand auto-appended (no duplicate)
   // ─────────────────────────────────────────────

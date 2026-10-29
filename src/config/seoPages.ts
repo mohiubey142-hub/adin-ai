@@ -73,7 +73,7 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
     ].join(', '),
     canonicalUrl: canonicalFor('/blog'),
     ...DEFAULTS,
-    ogType: 'article',
+    ogType: 'website',
   },
 
   // ══════════════════════════════════════════════
@@ -195,7 +195,7 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
     ].join(', '),
     canonicalUrl: canonicalFor('/founder'),
     ...DEFAULTS,
-    ogType: 'article',
+    ogType: 'website',
   },
 
   // ══════════════════════════════════════════════
@@ -243,7 +243,7 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
     ].join(', '),
     canonicalUrl: canonicalFor('/privacy-policy'),
     ...DEFAULTS,
-    ogType: 'article',
+    ogType: 'website',
   },
 
   // ══════════════════════════════════════════════
@@ -260,7 +260,7 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
     ].join(', '),
     canonicalUrl: canonicalFor('/terms-of-service'),
     ...DEFAULTS,
-    ogType: 'article',
+    ogType: 'website',
   },
 
   // ══════════════════════════════════════════════
@@ -278,7 +278,7 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
     ].join(', '),
     canonicalUrl: canonicalFor('/contact'),
     ...DEFAULTS,
-    ogType: 'article',
+    ogType: 'website',
   },
 };
 

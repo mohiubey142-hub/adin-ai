@@ -13,6 +13,7 @@ import QuoteSection from "../components/founder/QuoteSection";
 import VisionSection from "../components/founder/VisionSection";
 import FAQSection from "../components/founder/FAQSection";
 import { ArrowLeft } from "lucide-react";
+import { SITE_URL } from "../config/site";
 
 interface FounderProps {
   onBack?: () => void;
@@ -41,7 +42,7 @@ export default function Founder({ onBack }: FounderProps) {
         keywords={seoConfig.keywords}
         canonicalUrl={seoConfig.canonicalUrl}
         ogType={seoConfig.ogType || "website"}
-        ogImage="https://adin-ai.com/founder-og.jpg"
+        ogImage={`${SITE_URL}/founder-og.jpg`}
       />
 
       {/* ✅ JSON-LD: Person Schema + Page Schemas */}
