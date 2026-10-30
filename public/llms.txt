@@ -6,6 +6,8 @@ Website: https://getadinai.com
 
 ## Main pages
 - [Home](https://getadinai.com/): Free CV builder, cover letter generator and career assistant
+- [Free CV Builder](https://getadinai.com/free-cv-builder): Build an ATS-friendly CV online for free, no signup
+- [Free Cover Letter Generator](https://getadinai.com/free-cover-letter-generator): Generate a professional cover letter for free, no signup
 - [Free CV Templates](https://getadinai.com/templates): Professional, ATS-friendly CV templates
 - [Free Cover Letter Templates](https://getadinai.com/cover-templates): Professional cover letter templates
 - [Blog](https://getadinai.com/blog): Career tips, CV and cover letter advice for job seekers in Pakistan

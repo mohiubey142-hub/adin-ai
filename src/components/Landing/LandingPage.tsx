@@ -13,6 +13,12 @@
 // ✅ UPDATED: Stat label "Free Forever" → "100% Free" (honest, timeless).
 //             Removed "No Ads" claim from hero trust row — future-proof
 //             so we never contradict ourselves if ads are introduced later.
+// ✅ UPDATED (Oct 2026, SEO): Header nav, mobile menu and footer links to public pages
+//             are now REAL <a href> links (was <button onClick>), so Google can
+//             discover and weigh /templates, /cover-templates, /blog, /founder,
+//             /contact, /privacy-policy, /terms-of-service. Normal left-click still
+//             uses the app's own navigation (no reload); Ctrl/Cmd/middle-click and
+//             right-click "open in new tab" now work too.
 // ✅ UPDATED (Oct 2026): Removed claims that did not match the real system —
 //             "End-to-end encrypted", "Encrypted · No Tracking" (Google Analytics
 //             is used), "Encrypted Cloud Sync", "All Premium Features" (no tiers),
@@ -297,8 +303,9 @@ export default function LandingPage({
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-          <button
-            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          <a
+            href="/"
+            onClick={spaClick(() => window.scrollTo({ top: 0, behavior: 'smooth' }))}
             className="flex items-center gap-2.5 group shrink-0"
             aria-label="Adin AI home"
           >
@@ -308,16 +315,16 @@ export default function LandingPage({
             <span className="text-base sm:text-lg font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent tracking-tight">
               Adin AI
             </span>
-          </button>
+          </a>
 
           <nav className="hidden lg:flex items-center gap-1">
             <NavLink onClick={handleNavCV}>CV Builder</NavLink>
             <NavLink onClick={handleNavCover}>Cover Letter</NavLink>
-            <NavLink onClick={handleNavCVTemplates}>CV Templates</NavLink>
-            <NavLink onClick={handleNavCoverTemplates}>Cover Templates</NavLink>
+            <NavLink href="/templates" onClick={handleNavCVTemplates}>CV Templates</NavLink>
+            <NavLink href="/cover-templates" onClick={handleNavCoverTemplates}>Cover Templates</NavLink>
             <NavLink onClick={() => scrollToSection('features')}>Features</NavLink>
-            <NavLink onClick={handleNavBlog}>Blog</NavLink>
-            <NavLink onClick={handleNavFounder}>Founder</NavLink>
+            <NavLink href="/blog" onClick={handleNavBlog}>Blog</NavLink>
+            <NavLink href="/founder" onClick={handleNavFounder}>Founder</NavLink>
           </nav>
 
           <div className="flex items-center gap-2 shrink-0">
@@ -362,19 +369,19 @@ export default function LandingPage({
             <nav className="flex-1 overflow-y-auto p-4 space-y-1">
               <MobileNavItem onClick={handleNavCV} icon={<FileText size={17} />}>CV Builder</MobileNavItem>
               <MobileNavItem onClick={handleNavCover} icon={<Mail size={17} />}>Cover Letter</MobileNavItem>
-              <MobileNavItem onClick={handleNavCVTemplates} icon={<Layout size={17} />}>CV Templates</MobileNavItem>
-              <MobileNavItem onClick={handleNavCoverTemplates} icon={<Palette size={17} />}>Cover Templates</MobileNavItem>
+              <MobileNavItem href="/templates" onClick={handleNavCVTemplates} icon={<Layout size={17} />}>CV Templates</MobileNavItem>
+              <MobileNavItem href="/cover-templates" onClick={handleNavCoverTemplates} icon={<Palette size={17} />}>Cover Templates</MobileNavItem>
               <MobileNavItem
                 onClick={() => { setMobileNavOpen(false); scrollToSection('features'); }}
                 icon={<Sparkles size={17} />}
               >
                 Features
               </MobileNavItem>
-              <MobileNavItem onClick={handleNavFounder} icon={<User size={17} />}>Founder</MobileNavItem>
-              <MobileNavItem onClick={handleNavBlog} icon={<FileText size={17} />}>Blog</MobileNavItem>
-              <MobileNavItem onClick={handleNavPrivacy} icon={<Shield size={17} />}>Privacy Policy</MobileNavItem>
-              <MobileNavItem onClick={handleNavTerms} icon={<FileText size={17} />}>Terms of Service</MobileNavItem>
-              <MobileNavItem onClick={handleNavContact} icon={<Mail size={17} />}>Contact Us</MobileNavItem>
+              <MobileNavItem href="/founder" onClick={handleNavFounder} icon={<User size={17} />}>Founder</MobileNavItem>
+              <MobileNavItem href="/blog" onClick={handleNavBlog} icon={<FileText size={17} />}>Blog</MobileNavItem>
+              <MobileNavItem href="/privacy-policy" onClick={handleNavPrivacy} icon={<Shield size={17} />}>Privacy Policy</MobileNavItem>
+              <MobileNavItem href="/terms-of-service" onClick={handleNavTerms} icon={<FileText size={17} />}>Terms of Service</MobileNavItem>
+              <MobileNavItem href="/contact" onClick={handleNavContact} icon={<Mail size={17} />}>Contact Us</MobileNavItem>
             </nav>
             <div className="p-4 border-t border-slate-100">
               <button
@@ -841,28 +848,30 @@ export default function LandingPage({
               <InstallAppCompact variant="footer" />
             </div>
 
-            <FooterColumn title="Product">
-              <FooterLink onClick={handleNavCV}>CV Builder</FooterLink>
-              <FooterLink onClick={handleNavCover}>Cover Letter</FooterLink>
-              <FooterLink onClick={handleNavCVTemplates}>CV Templates</FooterLink>
-              <FooterLink onClick={handleNavCoverTemplates}>Cover Templates</FooterLink>
-            </FooterColumn>
-
             <FooterColumn title="Resources">
               <FooterLink onClick={() => scrollToSection('features')}>Features</FooterLink>
               <FooterLink onClick={() => scrollToSection('templates')}>Templates</FooterLink>
               <FooterLink onClick={onGetStarted}>Get Started</FooterLink>
-              <FooterLink onClick={handleNavBlog}>Blog</FooterLink>
+              <FooterLink href="/blog" onClick={handleNavBlog}>Blog</FooterLink>
+              <li><a href="/free-cv-builder" className="text-xs text-slate-500 hover:text-purple-700 transition-colors text-left">Free CV Builder</a></li>
+              <li><a href="/free-cover-letter-generator" className="text-xs text-slate-500 hover:text-purple-700 transition-colors text-left">Free Cover Letter Generator</a></li>
+            </FooterColumn>
+
+            <FooterColumn title="Product">
+              <FooterLink onClick={handleNavCV}>CV Builder</FooterLink>
+              <FooterLink onClick={handleNavCover}>Cover Letter</FooterLink>
+              <FooterLink href="/templates" onClick={handleNavCVTemplates}>CV Templates</FooterLink>
+              <FooterLink href="/cover-templates" onClick={handleNavCoverTemplates}>Cover Templates</FooterLink>
             </FooterColumn>
 
             <FooterColumn title="Company">
-              <FooterLink onClick={handleNavFounder}>Founder</FooterLink>
-              <FooterLink onClick={handleNavContact}>Contact Us</FooterLink>
+              <FooterLink href="/founder" onClick={handleNavFounder}>Founder</FooterLink>
+              <FooterLink href="/contact" onClick={handleNavContact}>Contact Us</FooterLink>
             </FooterColumn>
 
             <FooterColumn title="Legal">
-              <FooterLink onClick={handleNavPrivacy}>Privacy Policy</FooterLink>
-              <FooterLink onClick={handleNavTerms}>Terms of Service</FooterLink>
+              <FooterLink href="/privacy-policy" onClick={handleNavPrivacy}>Privacy Policy</FooterLink>
+              <FooterLink href="/terms-of-service" onClick={handleNavTerms}>Terms of Service</FooterLink>
             </FooterColumn>
           </div>
 
@@ -878,9 +887,11 @@ export default function LandingPage({
         </div>
       </footer>
 
-      {/* Crawlable internal links (visually hidden, not focusable) — real <a href> for search engines & AI crawlers */}
+      {/* Crawlable internal links (visually hidden backup) — the visible header/footer links above are now real <a href> too */}
       <nav aria-hidden="true" className="sr-only">
         <a href="/templates" tabIndex={-1}>Free CV Templates</a>
+        <a href="/free-cv-builder" tabIndex={-1}>Free CV Builder</a>
+        <a href="/free-cover-letter-generator" tabIndex={-1}>Free Cover Letter Generator</a>
         <a href="/cover-templates" tabIndex={-1}>Free Cover Letter Templates</a>
         <a href="/blog" tabIndex={-1}>Career Tips, CV &amp; Cover Letter Blog</a>
         <a href="/founder" tabIndex={-1}>Founder</a>
@@ -951,28 +962,55 @@ export default function LandingPage({
 // ============================================================
 // SMALL SUB-COMPONENTS
 // ============================================================
-function NavLink({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
+// Real-link helper: plain left-click keeps the app's own (no-reload) navigation;
+// Ctrl/Cmd/Shift/Alt/middle-click fall through to the browser (new tab etc.).
+function spaClick(cb?: () => void) {
+  return (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!cb || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    cb();
+  };
+}
+
+function NavLink({
+  children, onClick, href,
+}: { children: React.ReactNode; onClick?: () => void; href?: string }) {
+  const cls = 'px-3.5 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-purple-700 hover:bg-purple-50 transition-colors';
+  if (href) {
+    return (
+      <a href={href} onClick={spaClick(onClick)} className={`inline-block ${cls}`}>
+        {children}
+      </a>
+    );
+  }
   return (
-    <button
-      onClick={onClick}
-      className="px-3.5 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-purple-700 hover:bg-purple-50 transition-colors"
-    >
+    <button onClick={onClick} className={cls}>
       {children}
     </button>
   );
 }
 
 function MobileNavItem({
-  children, icon, onClick,
-}: { children: React.ReactNode; icon: React.ReactNode; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors"
-    >
+  children, icon, onClick, href,
+}: { children: React.ReactNode; icon: React.ReactNode; onClick: () => void; href?: string }) {
+  const cls = 'w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors';
+  const inner = (
+    <>
       <span className="text-purple-600">{icon}</span>
       <span>{children}</span>
       <ChevronRight size={15} className="ml-auto text-slate-400" />
+    </>
+  );
+  if (href) {
+    return (
+      <a href={href} onClick={spaClick(onClick)} className={cls}>
+        {inner}
+      </a>
+    );
+  }
+  return (
+    <button onClick={onClick} className={cls}>
+      {inner}
     </button>
   );
 }
@@ -1038,15 +1076,21 @@ function FooterColumn({ title, children }: { title: string; children: React.Reac
   );
 }
 
-function FooterLink({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
+function FooterLink({
+  children, onClick, href,
+}: { children: React.ReactNode; onClick?: () => void; href?: string }) {
+  const cls = 'text-xs text-slate-500 hover:text-purple-700 transition-colors text-left';
   return (
     <li>
-      <button
-        onClick={onClick}
-        className="text-xs text-slate-500 hover:text-purple-700 transition-colors text-left"
-      >
-        {children}
-      </button>
+      {href ? (
+        <a href={href} onClick={spaClick(onClick)} className={`inline-block ${cls}`}>
+          {children}
+        </a>
+      ) : (
+        <button onClick={onClick} className={cls}>
+          {children}
+        </button>
+      )}
     </li>
   );
 }

@@ -68,6 +68,7 @@ async function loadData() {
 export * from './src/config/site';
 export { SEO_PAGES, SITEMAP_PAGES } from './${seoPath.replace(/\.ts$/, '')}';
 export const ARTICLES = [${files.map((_, i) => `...Object.values(a${i})`).join(', ')}].filter((a) => a && a.slug);
+${fs.existsSync(rel('src/config/toolLandingContent.ts')) ? "export { TOOL_LANDING_CONTENT, buildToolLandingSchema } from './src/config/toolLandingContent';" : 'export const TOOL_LANDING_CONTENT = {}; export const buildToolLandingSchema = () => null;'}
 `;
 
   const result = await build({
@@ -99,7 +100,12 @@ async function main() {
   const navHtml = `<nav aria-label="Adin AI pages">
           <a href="/">Home</a>
           <a href="/templates">Free CV Templates</a>
+          <a href="/free-cv-builder">Free CV Builder</a>
+          <a href="/free-cover-letter-generator">Free Cover Letter Generator</a>
           <a href="/cover-templates">Free Cover Letter Templates</a>
+          <a href="/cv-builder">Free AI CV Builder</a>
+          <a href="/cover-letter">Free AI Cover Letter Generator</a>
+          <a href="/my-documents">My Documents</a>
           <a href="/blog">Career Tips, CV &amp; Cover Letter Blog</a>
           <a href="/founder">Founder</a>
           <a href="/contact">Contact</a>
@@ -179,10 +185,43 @@ async function main() {
         (a) => `<li><h2><a href="/blog/${esc(a.slug)}">${esc(a.title)}</a></h2><p>${esc(a.excerpt)}</p></li>`
       ).join('')}</ul>`;
     }
-    const bodyHtml = `<h1>${esc(seo.title)}</h1>
+    if (key === 'cv-builder') {
+      bodyExtra = `<p>Free AI CV builder: AI-powered summaries, experience descriptions and skills enhancement. Choose from free ATS-friendly <a href="/templates">CV templates</a> and export your CV as PDF, PNG or TXT. No signup required. Need ideas? Read our <a href="/blog">CV writing tips</a>.</p>`;
+    }
+    if (key === 'cover-letter') {
+      bodyExtra = `<p>Free AI cover letter generator: add your details and get a professional, tailored draft in seconds that you can edit. Pick a design from our <a href="/cover-templates">cover letter templates</a>. No signup required. Read our <a href="/blog">cover letter guides</a>.</p>`;
+    }
+    if (key === 'my-documents') {
+      bodyExtra = `<p>Your saved CVs and cover letters in one place. Create a new one with the <a href="/cv-builder">free AI CV builder</a> or the <a href="/cover-letter">free AI cover letter generator</a>.</p>`;
+    }
+    const tool = (D.TOOL_LANDING_CONTENT || {})[key];
+    let bodyHtml = `<h1>${esc(seo.title)}</h1>
         <p>${esc(seo.description)}</p>
         ${bodyExtra}
         ${navHtml}`;
+    let toolSchema;
+    if (tool) {
+      bodyHtml = `<h1>${esc(tool.h1)}</h1>
+        <p>${esc(tool.intro)}</p>
+        <ul>${tool.highlights.map((h) => `<li>${esc(h)}</li>`).join('')}</ul>
+        <h2>${esc(tool.galleryTitle)}</h2>
+        <p>${esc(tool.gallerySubtitle)}</p>
+        <ul>${tool.gallery.map((t) => `<li>${esc(t.name)} — ${esc(t.subtitle)}</li>`).join('')}</ul>
+        <p><a href="${esc(tool.galleryHref)}">${esc(tool.galleryCta)}</a></p>
+        <h2>${esc(tool.featuresTitle)}</h2>
+        ${tool.features.map((f) => `<h3>${esc(f.title)}</h3><p>${esc(f.text)}</p>`).join('')}
+        <h2>${esc(tool.stepsTitle)}</h2>
+        <ol>${tool.steps.map((s) => `<li><strong>${esc(s.title)}</strong> — ${esc(s.text)}</li>`).join('')}</ol>
+        <h2>${esc(tool.tipsTitle)}</h2>
+        <ul>${tool.tips.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
+        <h2>${esc(tool.faqTitle)}</h2>
+        ${tool.faqs.map((f) => `<h3>${esc(f.q)}</h3><p>${esc(f.a)}</p>`).join('')}
+        <h2>${esc(tool.guidesTitle)}</h2>
+        <ul>${tool.guides.map((g) => `<li><a href="${esc(g.href)}">${esc(g.label)}</a></li>`).join('')}</ul>
+        <ul>${tool.related.map((r) => `<li><a href="${esc(r.href)}">${esc(r.label)}</a></li>`).join('')}</ul>
+        ${navHtml}`;
+      toolSchema = D.buildToolLandingSchema(tool);
+    }
 
     const head = headBlock({
       title: seo.title,
@@ -191,6 +230,7 @@ async function main() {
       canonical: seo.canonicalUrl,
       ogType: seo.ogType || 'website',
       ogImage: key === 'founder' ? `${SITE_URL}/founder-og.jpg` : OG_IMAGE,
+      jsonld: toolSchema,
     });
     writeRoute(page.path, renderPage({ head, bodyHtml }));
   }

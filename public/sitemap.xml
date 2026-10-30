@@ -28,6 +28,41 @@
     <priority>0.95</priority>
   </url>
 
+  <!-- FREE CV BUILDER LANDING -->
+  <url>
+    <loc>https://getadinai.com/free-cv-builder</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.95</priority>
+  </url>
+
+  <!-- FREE COVER LETTER GENERATOR LANDING -->
+  <url>
+    <loc>https://getadinai.com/free-cover-letter-generator</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.95</priority>
+  </url>
+
+  <!-- CV BUILDER -->
+  <url>
+    <loc>https://getadinai.com/cv-builder</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.90</priority>
+  </url>
+
+  <!-- COVER LETTER GENERATOR -->
+  <url>
+    <loc>https://getadinai.com/cover-letter</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.90</priority>
+  </url>
+
+  <!-- MY DOCUMENTS -->
+  <url>
+    <loc>https://getadinai.com/my-documents</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.50</priority>
+  </url>
+
   <!-- BLOG -->
   <url>
     <loc>https://getadinai.com/blog</loc>

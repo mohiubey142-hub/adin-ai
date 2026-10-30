@@ -7,9 +7,6 @@ User-agent: *
 Allow: /
 
 # DISALLOW private tools & user pages
-Disallow: /cv-builder
-Disallow: /cover-letter
-Disallow: /my-documents
 Disallow: /settings
 Disallow: /profile
 
@@ -21,17 +18,11 @@ Sitemap: https://getadinai.com/sitemap.xml
 # ============================================
 User-agent: Googlebot
 Allow: /
-Disallow: /cv-builder
-Disallow: /cover-letter
-Disallow: /my-documents
 Disallow: /settings
 Disallow: /profile
 
 User-agent: Bingbot
 Allow: /
-Disallow: /cv-builder
-Disallow: /cover-letter
-Disallow: /my-documents
 Disallow: /settings
 Disallow: /profile
 

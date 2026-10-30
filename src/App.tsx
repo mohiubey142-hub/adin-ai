@@ -49,6 +49,7 @@ const WorkspacePage = lazy(() => import("./components/Workspace/WorkspacePage"))
 
 const MyDocuments = lazy(() => import("./components/cv-builder/components/MyDocuments"));
 const Founder = lazy(() => import("./pages/Founder"));
+const ToolLandingPage = lazy(() => import("./pages/ToolLandingPage"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const Contact = lazy(() => import("./pages/Contact"));
@@ -74,6 +75,7 @@ import toast, { Toaster, useToasterStore } from "react-hot-toast";
 import { sendToAI, saveMemoryFromResponse } from "./services/ai";
 import { saveMemory, loadMemory } from "./utils/memory";
 import { LoadingScreen } from "./components/LoadingScreen";
+import { TOOL_LANDING_CONTENT } from "./config/toolLandingContent";
 
 // ═══════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
@@ -236,7 +238,7 @@ const AdinToaster = () => {
 // ✅ PATH-BASED ROUTING
 // ═══════════════════════════════════════════════════════════════
 
-type PageType = 'workspace' | 'my-documents' | 'app' | 'templates' | 'cover-templates' | 'founder' | 'legal' | 'blog' | 'blog-post';
+type PageType = 'workspace' | 'my-documents' | 'app' | 'templates' | 'cover-templates' | 'founder' | 'legal' | 'blog' | 'blog-post' | 'tool-landing';
 
 // ✅ Blog constants (no magic strings)
 const BLOG_ROUTE_PATH = '/blog';
@@ -263,6 +265,9 @@ const PATH_ROUTES: Record<string, PathRoute> = {
   '/terms-of-service':  { page: 'legal',           active: 'Terms of Service' },
   '/contact':           { page: 'legal',           active: 'Contact' },
   [BLOG_ROUTE_PATH]:    { page: 'blog',            active: ACTIVE_BLOG },
+  // ✅ Public SEO landing pages (onboarding ke bina khulte hain)
+  '/free-cv-builder':   { page: 'tool-landing',    active: 'Free CV Builder' },
+  '/free-cover-letter-generator': { page: 'tool-landing', active: 'Free Cover Letter Generator' },
 };
 
 const getPathRoute = (): PathRoute | null => {
@@ -766,6 +771,7 @@ function AppInner() {
     if (currentPage === 'founder') return 'founder';
     if (currentPage === 'blog') return PAGE_KEY_BLOG;
     if (currentPage === 'blog-post') return PAGE_KEY_BLOG;
+    if (currentPage === 'tool-landing') return active === 'Free Cover Letter Generator' ? 'free-cover-letter-generator' : 'free-cv-builder';
     if (currentPage === 'legal') {
       if (active === 'Privacy Policy') return 'privacy-policy';
       if (active === 'Terms of Service') return 'terms-of-service';
@@ -1784,6 +1790,29 @@ Adin AI
             onBackToBlog={navigateToBlog} 
             onBuildCV={handleLandingBuildCV} 
             onWriteCoverLetter={handleLandingWriteCoverLetter} 
+          />
+        </Suspense>
+      </>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // 2c. TOOL LANDING PAGES (public SEO pages — onboarding ke bina)
+  // ═══════════════════════════════════════════════════════════════
+  if (currentPage === 'tool-landing') {
+    const toolContent =
+      active === 'Free Cover Letter Generator'
+        ? TOOL_LANDING_CONTENT['free-cover-letter-generator']
+        : TOOL_LANDING_CONTENT['free-cv-builder'];
+    return (
+      <>
+        <style>{buildScrollbarCss(true)}</style>
+        <AdinToaster />
+        <Suspense fallback={<LoadingScreen />}>
+          <ToolLandingPage
+            content={toolContent}
+            onStart={toolContent.ctaTarget === 'cover-letter' ? handleLandingWriteCoverLetter : handleLandingBuildCV}
+            onBack={handleBlogBackToLanding}
           />
         </Suspense>
       </>

@@ -124,7 +124,46 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
   },
 
   // ══════════════════════════════════════════════
-  // CV BUILDER (editor — not indexed)
+  // PUBLIC SEO LANDING — FREE CV BUILDER
+  // ══════════════════════════════════════════════
+  'free-cv-builder': {
+    title: 'Free CV Builder Online — AI-Powered & ATS-Friendly',
+    description:
+      'Build a professional, ATS-friendly CV online for free with Adin AI. Pick a template, get AI help with your summary and experience, and download as PDF, PNG or TXT. No signup.',
+    keywords: [
+      'free cv builder',
+      'cv builder online free',
+      'ats friendly cv builder',
+      'ai cv builder',
+      'free cv maker online',
+      'free cv builder pakistan',
+      'adin ai',
+    ].join(', '),
+    canonicalUrl: canonicalFor('/free-cv-builder'),
+    ...DEFAULTS,
+  },
+
+  // ══════════════════════════════════════════════
+  // PUBLIC SEO LANDING — FREE COVER LETTER GENERATOR
+  // ══════════════════════════════════════════════
+  'free-cover-letter-generator': {
+    title: 'Free Cover Letter Generator — AI-Powered, No Signup',
+    description:
+      'Generate a professional, tailored cover letter for free with Adin AI. Add your details and get an editable draft in seconds. No signup, no credit card.',
+    keywords: [
+      'free cover letter generator',
+      'ai cover letter generator',
+      'cover letter generator no signup',
+      'free cover letter writer',
+      'professional cover letter generator',
+      'adin ai',
+    ].join(', '),
+    canonicalUrl: canonicalFor('/free-cover-letter-generator'),
+    ...DEFAULTS,
+  },
+
+  // ══════════════════════════════════════════════
+  // CV BUILDER (editor — indexed)
   // ══════════════════════════════════════════════
   'cv-builder': {
     title: 'Free AI CV Builder — Create a Professional CV in Minutes',
@@ -143,12 +182,10 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
     ].join(', '),
     canonicalUrl: canonicalFor('/cv-builder'),
     ...DEFAULTS,
-    noIndex: true,
-    noFollow: true,
   },
 
   // ══════════════════════════════════════════════
-  // COVER LETTER (editor — not indexed)
+  // COVER LETTER (editor — indexed)
   // ══════════════════════════════════════════════
   'cover-letter': {
     title: 'Free AI Cover Letter Generator',
@@ -162,12 +199,10 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
     ].join(', '),
     canonicalUrl: canonicalFor('/cover-letter'),
     ...DEFAULTS,
-    noIndex: true,
-    noFollow: true,
   },
 
   // ══════════════════════════════════════════════
-  // MY DOCUMENTS (private)
+  // MY DOCUMENTS (indexed — shows onboarding to first-time visitors)
   // ══════════════════════════════════════════════
   'my-documents': {
     title: 'My Documents',
@@ -175,8 +210,6 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
     keywords: 'my documents, my cvs, my cover letters',
     canonicalUrl: canonicalFor('/my-documents'),
     ...DEFAULTS,
-    noIndex: true,
-    noFollow: true,
   },
 
   // ══════════════════════════════════════════════
@@ -294,8 +327,13 @@ export const getSEOConfig = (pageKey: string): SEOConfig => {
 // ─────────────────────────────────────────────
 export const SITEMAP_PAGES = [
   { path: '/',                priority: '1.0',  changefreq: 'daily'   },
+  { path: '/free-cv-builder', priority: '0.95', changefreq: 'monthly' },
+  { path: '/free-cover-letter-generator', priority: '0.95', changefreq: 'monthly' },
   { path: '/templates',       priority: '0.95', changefreq: 'weekly'  },
   { path: '/cover-templates', priority: '0.95', changefreq: 'weekly'  },
+  { path: '/cv-builder',       priority: '0.90', changefreq: 'monthly' },
+  { path: '/cover-letter',    priority: '0.90', changefreq: 'monthly' },
+  { path: '/my-documents',    priority: '0.50', changefreq: 'monthly' },
   { path: '/blog',            priority: '0.90', changefreq: 'weekly'  },
   { path: '/founder',         priority: '0.70', changefreq: 'monthly' },
   { path: '/privacy-policy',  priority: '0.40', changefreq: 'monthly' },
@@ -307,9 +345,6 @@ export const SITEMAP_PAGES = [
 // ROBOTS — disallowed paths (private)
 // ─────────────────────────────────────────────
 export const ROBOTS_DISALLOW = [
-  '/cv-builder',
-  '/cover-letter',
-  '/my-documents',
   '/settings',
   '/profile',
 ] as const;
