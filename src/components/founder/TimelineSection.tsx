@@ -1,5 +1,5 @@
 // src/components/founder/TimelineSection.tsx
-import { Calendar, GraduationCap, Rocket } from "lucide-react";
+import { Calendar, Rocket } from "lucide-react";
 
 export default function TimelineSection() {
   const timeline = [
@@ -11,17 +11,10 @@ export default function TimelineSection() {
       color: "purple"
     },
     {
-      year: "2026",
-      title: "Intermediate (ICS)",
-      description: "Currently pursuing Intermediate in Computer Science (ICS) with an A+ grade.",
-      icon: <GraduationCap size={16} />,
-      color: "blue"
-    },
-    {
       year: "July 2026",
       title: "Adin AI Launch",
       description: "Launched Adin AI, an AI-powered career platform for resumes, cover letters, and career growth.",
-      icon: <img src="/icon-192x192.png" alt="Adin AI" className="w-5 h-5 object-contain rounded" />,
+      icon: <img src="/icon-v2-192x192.png" alt="Adin AI" className="w-5 h-5 object-contain rounded" />,
       color: "amber"
     }
   ];

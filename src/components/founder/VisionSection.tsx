@@ -30,7 +30,7 @@ export default function VisionSection() {
           <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-md hover:border-purple-200 transition-all duration-300">
             <div className="flex items-center gap-2 mb-3">
               <img
-                src="/icon-192x192.png"
+                src="/icon-v2-192x192.png"
                 alt="Adin AI Logo"
                 className="w-5 h-5 object-contain rounded"
               />

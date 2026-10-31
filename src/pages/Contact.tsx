@@ -6,11 +6,10 @@
 // ✅ Purple + blue accents
 // ✅ Contact form → backend proxy /api/sync (action: submit_contact)
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SEOHead } from "../components/SEO/SEOHead";
 import { getSEOConfig } from "../utils/seoPages";
-import { cameFromApp } from "../utils/inAppNav";
-import HomeLink from "../components/HomeLink";
+import { cameFromApp, markLandingIntent } from "../utils/inAppNav";
 import {
   ArrowLeft, Mail, MapPin, MessageSquare, Send, User, Clock,
   Shield, FileText, ExternalLink,
@@ -25,6 +24,14 @@ interface ContactProps {
 export default function Contact({ onBack }: ContactProps) {
   // ✅ Back sirf tab jab user app ke andar se aaya; seedha khulne par Adin AI home link
   const showBack = cameFromApp();
+  // Header: transparent on top, glass + border after scrolling (same as the main landing page)
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -118,17 +125,30 @@ export default function Contact({ onBack }: ContactProps) {
 
       <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 text-slate-900">
         {/* Sticky Header */}
-        <header className="sticky top-0 z-50 h-[56px] flex items-center justify-between px-4 sm:px-6 border-b border-slate-200 bg-white/85 backdrop-blur-xl">
+        <header className={`sticky top-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/85 backdrop-blur-xl border-b border-slate-200 shadow-sm' : 'bg-transparent border-b border-transparent'}`}>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
           {showBack ? (
             <button
               onClick={goBack}
-              className="group inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50 text-slate-700 hover:text-purple-700 transition-all duration-200 shadow-sm hover:shadow-md"
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-purple-700 hover:bg-purple-50 transition-colors"
             >
-              <ArrowLeft size={16} className="transition-transform group-hover:-translate-x-0.5" />
-              <span className="text-xs sm:text-sm font-semibold">Back</span>
+              <ArrowLeft size={16} />
+              <span>Back</span>
             </button>
           ) : (
-            <HomeLink />
+            <a
+              href="/"
+              onClick={markLandingIntent}
+              aria-label="Adin AI home"
+              className="flex items-center gap-2.5 group shrink-0"
+            >
+              <div className="w-9 h-9 rounded-xl bg-white shadow-md shadow-purple-900/10 border border-slate-200 flex items-center justify-center overflow-hidden">
+                <img src="/icon-1024x1024.png" alt="Adin AI" className="w-full h-full object-contain" />
+              </div>
+              <span className="hidden sm:inline text-base sm:text-lg font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent tracking-tight">
+                Adin AI
+              </span>
+            </a>
           )}
 
           <div className="flex items-center gap-2">
@@ -140,7 +160,8 @@ export default function Contact({ onBack }: ContactProps) {
             </span>
           </div>
 
-          <div className="w-[80px]" aria-hidden="true" />
+          <div className="hidden sm:block w-[80px]" aria-hidden="true" />
+        </div>
         </header>
 
         {/* Content */}

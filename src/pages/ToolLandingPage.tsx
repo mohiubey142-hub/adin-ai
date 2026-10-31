@@ -10,7 +10,6 @@
 
 import type { CSSProperties } from 'react';
 import {
-  ArrowLeft,
   ArrowRight,
   Check,
   ChevronDown,
@@ -26,17 +25,17 @@ import {
   Wand2,
 } from 'lucide-react';
 import { SEOHead } from '../components/SEO/SEOHead';
+import { markLandingIntent } from '../utils/inAppNav';
 import { getSEOConfig } from '../config/seoPages';
 import { buildToolLandingSchema, type ToolLandingContent } from '../config/toolLandingContent';
-import { cameFromApp } from '../utils/inAppNav';
-import HomeLink from '../components/HomeLink';
 
 interface ToolLandingPageProps {
   content: ToolLandingContent;
   /** Primary CTA — App.tsx ka existing "Build CV" / "Write Cover Letter" handler (templates page par le jata hai) */
   onStart: () => void;
   /** Back — landing page par wapas */
-  onBack: () => void;
+  /** Kept so App.tsx's props stay valid; this page has no Back button anymore */
+  onBack?: () => void;
 }
 
 const CTA_GRADIENT = 'linear-gradient(135deg, #7c3aed 0%, #6366f1 50%, #2563eb 100%)';
@@ -95,10 +94,8 @@ const scrollToTemplates = () => {
   document.getElementById('templates')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
 
-export default function ToolLandingPage({ content, onStart, onBack }: ToolLandingPageProps) {
+export default function ToolLandingPage({ content, onStart }: ToolLandingPageProps) {
   const seo = getSEOConfig(content.seoKey);
-  // ✅ Back sirf tab jab user app ke andar se aaya; Google/seedha link se aaye visitor ko Adin AI home link
-  const showBack = cameFromApp();
   const isCover = content.ctaTarget === 'cover-letter';
   const CtaIcon = isCover ? Mail : FileText;
   const schema = buildToolLandingSchema(content);
@@ -148,40 +145,29 @@ export default function ToolLandingPage({ content, onStart, onBack }: ToolLandin
       </div>
 
       {/* Top bar */}
-      <header className="sticky top-0 z-40 h-14 flex items-center justify-between border-b border-slate-200/80 bg-white/80 backdrop-blur-xl px-4 sm:px-6">
-        {showBack ? (
-          <button
-            onClick={onBack}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-slate-600 hover:text-purple-700 hover:bg-purple-50 text-sm font-medium transition-colors"
-          >
-            <ArrowLeft size={16} />
-            Back
-          </button>
-        ) : (
-          <HomeLink className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-slate-600 hover:text-purple-700 hover:bg-purple-50 text-sm font-medium transition-colors" />
-        )}
-        <button
-          onClick={onStart}
-          className="hidden sm:inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-white text-sm font-semibold shadow-md shadow-purple-600/20 hover:scale-[1.03] active:scale-[0.97] transition-transform"
-          style={{ background: CTA_GRADIENT }}
-        >
-          {content.ctaLabel}
-          <ArrowRight size={14} />
-        </button>
-      </header>
 
       <main className="relative z-10">
         {/* ───────── HERO ───────── */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 pt-8 sm:pt-10 tlp-hero-section">
+        <section className="relative max-w-7xl mx-auto px-4 sm:px-6 pt-4 sm:pt-5 tlp-hero-section">
+          {/* Header bar nahi hai: CTA hero ke top-right me */}
+          <button
+              onClick={onStart}
+              className="hidden sm:inline-flex absolute right-4 sm:right-6 top-[21px] sm:top-[26px] z-20 items-center gap-1.5 px-4 py-1.5 rounded-full text-white text-sm font-semibold shadow-md shadow-purple-600/20 hover:scale-[1.03] active:scale-[0.97] transition-transform"
+              style={{ background: CTA_GRADIENT }}
+            >
+              {content.ctaLabel}
+              <ArrowRight size={14} />
+            </button>
           <div className="grid lg:grid-cols-2 gap-10 lg:gap-14 items-start">
             {/* Left */}
             <div className="tlp-rise text-left">
               <nav aria-label="Breadcrumb" className="mb-5 flex items-center text-xs text-slate-500">
-                <a href="/" className="inline-flex items-center gap-2 group" aria-label="Adin AI home">
-                  <span className="w-8 h-8 rounded-xl bg-white shadow-md shadow-purple-900/10 border border-slate-200 flex items-center justify-center overflow-hidden">
+                <a href="/"
+              onClick={markLandingIntent} className="inline-flex items-center gap-2 group" aria-label="Adin AI home">
+                  <span className="w-11 h-11 rounded-xl bg-white shadow-md shadow-purple-900/10 border border-slate-200 flex items-center justify-center overflow-hidden">
                     <img src="/icon-1024x1024.png" alt="Adin AI" className="w-full h-full object-contain" />
                   </span>
-                  <span className="text-sm font-bold text-slate-800 tracking-tight">
+                  <span className="text-base font-bold text-slate-800 tracking-tight">
                     Adin AI
                   </span>
                 </a>

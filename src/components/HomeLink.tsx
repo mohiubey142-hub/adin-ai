@@ -6,19 +6,19 @@
 // ============================================================
 
 interface HomeLinkProps {
-  /** Style override (default: Privacy/Terms/Contact wale Back button jaisa pill) */
+  /** Style override (default: plain logo + naam, bina border/shadow) */
   className?: string;
   label?: string;
 }
 
 const DEFAULT_CLASS =
-  'group inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50 text-slate-700 hover:text-purple-700 transition-all duration-200 shadow-sm hover:shadow-md';
+  'inline-flex items-center gap-2 py-1.5 text-slate-800 hover:text-purple-700 transition-colors duration-200';
 
 export default function HomeLink({ className, label = 'Adin AI' }: HomeLinkProps) {
   return (
     <a href="/" aria-label="Adin AI home" className={className ?? DEFAULT_CLASS}>
-      <img src="/icon-1024x1024.png" alt="" className="w-5 h-5 rounded-md object-contain" />
-      <span className="text-xs sm:text-sm font-semibold">{label}</span>
+      <img src="/icon-1024x1024.png" alt="" className="w-6 h-6 rounded-md object-contain" />
+      <span className="text-sm font-bold tracking-tight">{label}</span>
     </a>
   );
 }

@@ -40,7 +40,7 @@ export default function HeroSection() {
 
   return (
     <>
-      <section className="relative overflow-hidden py-12 sm:py-16 px-4 sm:px-6 bg-gradient-to-b from-slate-50 via-slate-50 to-white">
+      <section className="relative overflow-hidden pt-28 pb-12 sm:pt-32 sm:pb-16 px-4 sm:px-6 bg-gradient-to-b from-slate-50 via-slate-50 to-white">
         {/* Background Glow */}
         <div className="absolute top-[-30%] left-[-20%] w-[600px] h-[600px] bg-purple-300/25 rounded-full blur-[130px]" />
         <div className="absolute bottom-[-30%] right-[-20%] w-[550px] h-[550px] bg-blue-200/20 rounded-full blur-[140px]" />
@@ -105,16 +105,13 @@ export default function HeroSection() {
                 <span className="px-3.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold">
                   AI Product Builder
                 </span>
-                <span className="px-3.5 py-1.5 rounded-full bg-amber-50 border border-amber-100 text-amber-700 text-xs font-semibold">
-                  92% Matric
-                </span>
               </div>
 
               {/* Location & Age */}
               <div className="flex flex-wrap gap-4 mt-5 text-xs text-slate-500 justify-center md:justify-start">
                 <span className="flex items-center gap-1.5">
                   <MapPin size={14} className="text-purple-600" />
-                  Punjab, Pakistan
+                  Pakistan
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Calendar size={14} className="text-purple-600" />

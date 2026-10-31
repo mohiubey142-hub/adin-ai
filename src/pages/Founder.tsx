@@ -2,6 +2,7 @@
 // ✅ NEW: onBack prop — entry-aware back navigation
 // ✅ FIXED: Neutral gray scrollbar (no purple, matches app)
 
+import { useState } from "react";
 import { SEOHead } from "../components/SEO/SEOHead";
 import { generatePageSchemas, generateJSONLDScript } from "../utils/seo";
 import { getSEOConfig } from "../utils/seoPages";
@@ -14,16 +15,17 @@ import VisionSection from "../components/founder/VisionSection";
 import FAQSection from "../components/founder/FAQSection";
 import { ArrowLeft } from "lucide-react";
 import { SITE_URL } from "../config/site";
-import { cameFromApp } from "../utils/inAppNav";
-import HomeLink from "../components/HomeLink";
+import { cameFromApp, markLandingIntent } from "../utils/inAppNav";
 
 interface FounderProps {
   onBack?: () => void;
 }
 
 export default function Founder({ onBack }: FounderProps) {
-  // ✅ Back sirf tab jab user app ke andar se aaya; seedha khulne par Adin AI home link
+  // ✅ Back sirf tab jab user app ke andar se aaya; seedha khulne par Adin AI logo link
   const showBack = cameFromApp();
+  // Header: transparent on top, glass + border after scrolling (this page scrolls inside its own container)
+  const [scrolled, setScrolled] = useState(false);
 
   // ✅ Entry-aware back — if App passes onBack, use it; otherwise fallback to old behavior
   const goBack = () => {
@@ -56,22 +58,40 @@ export default function Founder({ onBack }: FounderProps) {
       </script>
 
       {/* ✅ Page Content - light theme, matches Workspace page */}
-      <div className="founder-scroll h-screen bg-slate-50 text-slate-900 overflow-y-auto">
-        {/* Navigation - Sticky top */}
-        <div className="sticky top-0 z-50 h-14 flex items-center border-b border-slate-200 bg-white/90 backdrop-blur-md px-4 md:px-6">
-          {/* ✅ Back Button - matches Workspace's purple accent */}
-          {showBack ? (
-            <button
-              onClick={goBack}
-              className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-slate-600 hover:text-purple-700 hover:bg-purple-50 font-medium transition-colors duration-200"
-            >
-              <ArrowLeft size={16} />
-              <span className="text-sm">Back</span>
-            </button>
-          ) : (
-            <HomeLink className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-slate-600 hover:text-purple-700 hover:bg-purple-50 font-medium transition-colors duration-200" />
-          )}
-        </div>
+      <div
+        className="founder-scroll h-screen bg-slate-50 text-slate-900 overflow-y-auto"
+        onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 20)}
+      >
+        {/* Header — Privacy/Terms jaisa: in-app aaye to Back, seedha open par logo.
+            -mb-16 = header content ke upar overlay hota hai (jagah nahi gherta), isliye Hero ka glow
+            header ke peeche se guzarta hai aur upar "kati hui patti" nahi dikhti. */}
+        <header className={`sticky top-0 z-50 -mb-16 transition-all duration-300 ${scrolled ? 'bg-white/85 backdrop-blur-xl border-b border-slate-200 shadow-sm' : 'bg-transparent border-b border-transparent'}`}>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+            {showBack ? (
+              <button
+                onClick={goBack}
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-purple-700 hover:bg-purple-50 transition-colors"
+              >
+                <ArrowLeft size={16} />
+                <span>Back</span>
+              </button>
+            ) : (
+              <a
+                href="/"
+              onClick={markLandingIntent}
+                aria-label="Adin AI home"
+                className="flex items-center gap-2.5 group shrink-0"
+              >
+                <div className="w-9 h-9 rounded-xl bg-white shadow-md shadow-purple-900/10 border border-slate-200 flex items-center justify-center overflow-hidden">
+                  <img src="/icon-1024x1024.png" alt="Adin AI" className="w-full h-full object-contain" />
+                </div>
+                <span className="hidden sm:inline text-base sm:text-lg font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent tracking-tight">
+                  Adin AI
+                </span>
+              </a>
+            )}
+          </div>
+        </header>
 
         {/* Sections */}
         <HeroSection />

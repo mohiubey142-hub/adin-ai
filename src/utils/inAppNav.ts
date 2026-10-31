@@ -20,3 +20,21 @@ export function cameFromApp(): boolean {
     return false;
   }
 }
+
+// ------------------------------------------------------------
+// "Adin AI" logo → real landing page
+// Public pages ka logo <a href="/"> full reload karta hai. Agar user pehle "Get Started"/koi page
+// dekh chuka hai (adin-has-seen-landing), to App `/` par landing ki jagah onboarding dikha deta tha.
+// Logo click par yeh session flag lagta hai; App.tsx isse dekh kar (sirf naye / onboarding-se-pehle
+// wale visitor ko) landing page dikhata hai.
+// ------------------------------------------------------------
+export const FORCE_LANDING_KEY = 'adin-force-landing';
+
+export function markLandingIntent(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(FORCE_LANDING_KEY, 'true');
+  } catch {
+    /* ignore */
+  }
+}

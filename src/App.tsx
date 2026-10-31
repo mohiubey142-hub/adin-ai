@@ -39,7 +39,7 @@ import ProfilePage from './components/profile/ProfilePage';
 import { useSidebar, SidebarProvider } from './hooks/useSidebar';
 
 import { STORAGE_QUOTA_EXCEEDED_EVENT } from './components/cv-builder/hooks/useAutoSave';
-import { IN_APP_STATE } from './utils/inAppNav';
+import { IN_APP_STATE, FORCE_LANDING_KEY } from './utils/inAppNav';
 
 const CVBuilder = lazy(() => import("./components/cv-builder/CVBuilder"));
 const CoverLetter = lazy(() => import("./components/cover-letter/CoverLetter"));
@@ -587,10 +587,17 @@ function AppInner() {
     const userName = safeGetItem('adin_user_name');
 
     if (onboardingCompleted === 'true' || guestSession || userName) return false;
+    // ✅ Public page ke "Adin AI" logo se aaya → asli landing page (onboarding nahi)
+    if (sessionGet(FORCE_LANDING_KEY) === 'true') return true;
     if (hasSeenLanding) return false;
 
     return true;
   });
+
+  // Flag mount ke BAAD hatao (initializer StrictMode mein 2 baar chal sakta hai)
+  useEffect(() => {
+    sessionRemove(FORCE_LANDING_KEY);
+  }, []);
 
   // ✅ SECURE: ID always goes through utils/userId.ts validation.
   //    Old / tampered / test-format IDs are replaced with a fresh valid one.

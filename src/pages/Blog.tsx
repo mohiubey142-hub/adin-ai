@@ -3,7 +3,7 @@ import React from 'react';
 import { ARTICLES } from '../config/articles';
 import { SEOHead } from '../components/SEO/SEOHead';
 import { getSEOConfig } from '../utils/seoPages';
-import { cameFromApp } from '../utils/inAppNav';
+import { cameFromApp, markLandingIntent } from '../utils/inAppNav';
 import { Clock, ArrowRight, User, FileText } from 'lucide-react';
 
 interface BlogProps {
@@ -45,6 +45,7 @@ export default function Blog({ onOpenArticle, onBackToLanding }: BlogProps) {
           ) : (
             <a
               href="/"
+              onClick={markLandingIntent}
               className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-purple-600 hover:text-purple-700 transition-colors"
             >
               Adin AI home

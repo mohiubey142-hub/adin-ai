@@ -1,5 +1,5 @@
 // src/components/founder/AboutSection.tsx
-import { User, GraduationCap } from "lucide-react";
+import { User } from "lucide-react";
 
 export default function AboutSection() {
   return (
@@ -34,16 +34,16 @@ export default function AboutSection() {
                 <div className="text-[11px] text-slate-500 font-medium mt-0.5">Age</div>
               </div>
               <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-100 text-center">
-                <div className="text-xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">92%</div>
-                <div className="text-[11px] text-slate-500 font-medium mt-0.5">Matric Score</div>
+                <div className="text-xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">Pakistan</div>
+                <div className="text-[11px] text-slate-500 font-medium mt-0.5">Based In</div>
               </div>
               <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-100 text-center">
-                <div className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent">A+</div>
-                <div className="text-[11px] text-slate-500 font-medium mt-0.5">Current Grade</div>
+                <div className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent">May 2026</div>
+                <div className="text-[11px] text-slate-500 font-medium mt-0.5">Building Since</div>
               </div>
               <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-100 text-center">
-                <div className="text-xl font-bold bg-gradient-to-r from-amber-600 to-orange-500 bg-clip-text text-transparent">ICS</div>
-                <div className="text-[11px] text-slate-500 font-medium mt-0.5">Field of Study</div>
+                <div className="text-xl font-bold bg-gradient-to-r from-amber-600 to-orange-500 bg-clip-text text-transparent">100%</div>
+                <div className="text-[11px] text-slate-500 font-medium mt-0.5">Free to Use</div>
               </div>
             </div>
 
@@ -58,24 +58,6 @@ export default function AboutSection() {
                 className="w-full h-auto object-cover"
                 loading="lazy"
               />
-            </div>
-          </div>
-        </div>
-
-        {/* Education Detail - Full Width */}
-        <div className="mt-6 p-5 rounded-2xl bg-gradient-to-br from-purple-50 to-blue-50 border border-purple-100">
-          <div className="flex items-center gap-2 mb-3">
-            <GraduationCap size={18} className="text-purple-600" />
-            <h3 className="text-sm font-semibold text-slate-900">Education</h3>
-          </div>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between items-center border-b border-slate-200 pb-2">
-              <span className="text-slate-500">Matriculation</span>
-              <span className="text-slate-900 font-medium">92% (Bio)</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-slate-500">Intermediate</span>
-              <span className="text-slate-900 font-medium">ICS (Computer Science)</span>
             </div>
           </div>
         </div>
