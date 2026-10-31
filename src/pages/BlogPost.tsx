@@ -114,12 +114,18 @@ export default function BlogPost({ slug, onBackToBlog, onBuildCV, onWriteCoverLe
       {/* Hero Section */}
       <div className="bg-white border-b border-slate-200">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10 sm:py-16 text-center">
-          <button
-            onClick={onBackToBlog}
+          {/* ✅ Real link to the blog hub (crawlable, works for direct visitors too); normal click keeps SPA navigation */}
+          <a
+            href="/blog"
+            onClick={(e) => {
+              if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+              e.preventDefault();
+              onBackToBlog();
+            }}
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 hover:text-purple-600 transition-colors mb-8"
           >
             <ArrowLeft size={16} /> Back to Blog
-          </button>
+          </a>
           
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-900 tracking-tight leading-tight mb-6">
             {article.title}

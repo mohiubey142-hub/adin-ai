@@ -14,12 +14,17 @@ import VisionSection from "../components/founder/VisionSection";
 import FAQSection from "../components/founder/FAQSection";
 import { ArrowLeft } from "lucide-react";
 import { SITE_URL } from "../config/site";
+import { cameFromApp } from "../utils/inAppNav";
+import HomeLink from "../components/HomeLink";
 
 interface FounderProps {
   onBack?: () => void;
 }
 
 export default function Founder({ onBack }: FounderProps) {
+  // ✅ Back sirf tab jab user app ke andar se aaya; seedha khulne par Adin AI home link
+  const showBack = cameFromApp();
+
   // ✅ Entry-aware back — if App passes onBack, use it; otherwise fallback to old behavior
   const goBack = () => {
     if (onBack) {
@@ -55,13 +60,17 @@ export default function Founder({ onBack }: FounderProps) {
         {/* Navigation - Sticky top */}
         <div className="sticky top-0 z-50 h-14 flex items-center border-b border-slate-200 bg-white/90 backdrop-blur-md px-4 md:px-6">
           {/* ✅ Back Button - matches Workspace's purple accent */}
-          <button
-            onClick={goBack}
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-slate-600 hover:text-purple-700 hover:bg-purple-50 font-medium transition-colors duration-200"
-          >
-            <ArrowLeft size={16} />
-            <span className="text-sm">Back</span>
-          </button>
+          {showBack ? (
+            <button
+              onClick={goBack}
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-slate-600 hover:text-purple-700 hover:bg-purple-50 font-medium transition-colors duration-200"
+            >
+              <ArrowLeft size={16} />
+              <span className="text-sm">Back</span>
+            </button>
+          ) : (
+            <HomeLink className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-slate-600 hover:text-purple-700 hover:bg-purple-50 font-medium transition-colors duration-200" />
+          )}
         </div>
 
         {/* Sections */}

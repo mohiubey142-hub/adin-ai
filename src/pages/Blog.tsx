@@ -3,6 +3,7 @@ import React from 'react';
 import { ARTICLES } from '../config/articles';
 import { SEOHead } from '../components/SEO/SEOHead';
 import { getSEOConfig } from '../utils/seoPages';
+import { cameFromApp } from '../utils/inAppNav';
 import { Clock, ArrowRight, User, FileText } from 'lucide-react';
 
 interface BlogProps {
@@ -12,6 +13,8 @@ interface BlogProps {
 
 export default function Blog({ onOpenArticle, onBackToLanding }: BlogProps) {
   const seo = getSEOConfig('blog');
+  // ✅ Back sirf tab jab user app ke andar se aaya; seedha khulne par Adin AI home link
+  const showBack = cameFromApp();
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -31,13 +34,22 @@ export default function Blog({ onOpenArticle, onBackToLanding }: BlogProps) {
           <p className="mt-4 text-slate-600 text-base sm:text-lg max-w-2xl mx-auto">
             Career tips, CV advice, cover letter guides, and AI insights to help you land your dream job.
           </p>
-          <button
-            onClick={onBackToLanding}
-            className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-purple-600 hover:text-purple-700 transition-colors"
-          >
-            <ArrowRight size={16} className="rotate-180" />
-            Back
-          </button>
+          {showBack ? (
+            <button
+              onClick={onBackToLanding}
+              className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-purple-600 hover:text-purple-700 transition-colors"
+            >
+              <ArrowRight size={16} className="rotate-180" />
+              Back
+            </button>
+          ) : (
+            <a
+              href="/"
+              className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-purple-600 hover:text-purple-700 transition-colors"
+            >
+              Adin AI home
+            </a>
+          )}
         </div>
 
         {/* Articles Grid */}

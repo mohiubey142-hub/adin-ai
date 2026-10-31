@@ -39,6 +39,7 @@ import ProfilePage from './components/profile/ProfilePage';
 import { useSidebar, SidebarProvider } from './hooks/useSidebar';
 
 import { STORAGE_QUOTA_EXCEEDED_EVENT } from './components/cv-builder/hooks/useAutoSave';
+import { IN_APP_STATE } from './utils/inAppNav';
 
 const CVBuilder = lazy(() => import("./components/cv-builder/CVBuilder"));
 const CoverLetter = lazy(() => import("./components/cover-letter/CoverLetter"));
@@ -303,9 +304,11 @@ const navigateToPath = (path: string, replace = false): void => {
   if (currentPath === targetPath) return;
 
   if (replace) {
-    window.history.replaceState({}, '', targetPath);
+    // existing state (incl. inApp marker) preserve karo
+    window.history.replaceState(window.history.state ?? {}, '', targetPath);
   } else {
-    window.history.pushState({}, '', targetPath);
+    // ✅ inApp marker: pages isse jaante hain ki user app ke andar se aaya (Back dikhana hai ya nahi)
+    window.history.pushState(IN_APP_STATE, '', targetPath);
   }
 };
 
@@ -1505,9 +1508,16 @@ Adin AI
       else if (active === 'Contact') targetPath = '/contact';
     }
 
+    // ✅ FIX: tool-landing pages ka URL (pehle routeMap mein nahi tha → URL "/" ban jata tha)
+    if (currentPage === 'tool-landing') {
+      targetPath = active === 'Free Cover Letter Generator'
+        ? '/free-cover-letter-generator'
+        : '/free-cv-builder';
+    }
+
     const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
     if (currentPath !== targetPath) {
-      window.history.replaceState({}, '', targetPath);
+      window.history.replaceState(window.history.state ?? {}, '', targetPath);
     }
   }, [currentPage, active, activeBlogSlug]);
 
@@ -1670,6 +1680,23 @@ Adin AI
     navigateToPath('/contact');
   }, []);
 
+  // ✅ Landing footer → public SEO tool pages (in-app navigation, no page reload)
+  const handleLandingFreeCVBuilder = useCallback(() => {
+    safeSetItem('adin-has-seen-landing', 'true');
+    setShowLanding(false);
+    setCurrentPage('tool-landing');
+    setActive('Free CV Builder');
+    navigateToPath('/free-cv-builder');
+  }, []);
+
+  const handleLandingFreeCoverLetter = useCallback(() => {
+    safeSetItem('adin-has-seen-landing', 'true');
+    setShowLanding(false);
+    setCurrentPage('tool-landing');
+    setActive('Free Cover Letter Generator');
+    navigateToPath('/free-cover-letter-generator');
+  }, []);
+
   // ✅ Blog → Back: exactly landing page par wapas
   const handleBlogBackToLanding = useCallback(() => {
     navigateToWorkspace();
@@ -1727,6 +1754,8 @@ Adin AI
           onOpenPrivacy={handleLandingPrivacy}
           onOpenTerms={handleLandingTerms}
           onOpenContact={handleLandingContact}
+          onOpenFreeCVBuilder={handleLandingFreeCVBuilder}
+          onOpenFreeCoverLetter={handleLandingFreeCoverLetter}
         />
       </>
     );

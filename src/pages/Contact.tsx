@@ -9,6 +9,8 @@
 import { useState } from "react";
 import { SEOHead } from "../components/SEO/SEOHead";
 import { getSEOConfig } from "../utils/seoPages";
+import { cameFromApp } from "../utils/inAppNav";
+import HomeLink from "../components/HomeLink";
 import {
   ArrowLeft, Mail, MapPin, MessageSquare, Send, User, Clock,
   Shield, FileText, ExternalLink,
@@ -21,6 +23,9 @@ interface ContactProps {
 }
 
 export default function Contact({ onBack }: ContactProps) {
+  // ✅ Back sirf tab jab user app ke andar se aaya; seedha khulne par Adin AI home link
+  const showBack = cameFromApp();
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
@@ -114,13 +119,17 @@ export default function Contact({ onBack }: ContactProps) {
       <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 text-slate-900">
         {/* Sticky Header */}
         <header className="sticky top-0 z-50 h-[56px] flex items-center justify-between px-4 sm:px-6 border-b border-slate-200 bg-white/85 backdrop-blur-xl">
-          <button
-            onClick={goBack}
-            className="group inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50 text-slate-700 hover:text-purple-700 transition-all duration-200 shadow-sm hover:shadow-md"
-          >
-            <ArrowLeft size={16} className="transition-transform group-hover:-translate-x-0.5" />
-            <span className="text-xs sm:text-sm font-semibold">Back</span>
-          </button>
+          {showBack ? (
+            <button
+              onClick={goBack}
+              className="group inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50 text-slate-700 hover:text-purple-700 transition-all duration-200 shadow-sm hover:shadow-md"
+            >
+              <ArrowLeft size={16} className="transition-transform group-hover:-translate-x-0.5" />
+              <span className="text-xs sm:text-sm font-semibold">Back</span>
+            </button>
+          ) : (
+            <HomeLink />
+          )}
 
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center shadow-sm">

@@ -28,6 +28,8 @@ import {
 import { SEOHead } from '../components/SEO/SEOHead';
 import { getSEOConfig } from '../config/seoPages';
 import { buildToolLandingSchema, type ToolLandingContent } from '../config/toolLandingContent';
+import { cameFromApp } from '../utils/inAppNav';
+import HomeLink from '../components/HomeLink';
 
 interface ToolLandingPageProps {
   content: ToolLandingContent;
@@ -95,6 +97,8 @@ const scrollToTemplates = () => {
 
 export default function ToolLandingPage({ content, onStart, onBack }: ToolLandingPageProps) {
   const seo = getSEOConfig(content.seoKey);
+  // ✅ Back sirf tab jab user app ke andar se aaya; Google/seedha link se aaye visitor ko Adin AI home link
+  const showBack = cameFromApp();
   const isCover = content.ctaTarget === 'cover-letter';
   const CtaIcon = isCover ? Mail : FileText;
   const schema = buildToolLandingSchema(content);
@@ -145,13 +149,17 @@ export default function ToolLandingPage({ content, onStart, onBack }: ToolLandin
 
       {/* Top bar */}
       <header className="sticky top-0 z-40 h-14 flex items-center justify-between border-b border-slate-200/80 bg-white/80 backdrop-blur-xl px-4 sm:px-6">
-        <button
-          onClick={onBack}
-          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-slate-600 hover:text-purple-700 hover:bg-purple-50 text-sm font-medium transition-colors"
-        >
-          <ArrowLeft size={16} />
-          Back
-        </button>
+        {showBack ? (
+          <button
+            onClick={onBack}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-slate-600 hover:text-purple-700 hover:bg-purple-50 text-sm font-medium transition-colors"
+          >
+            <ArrowLeft size={16} />
+            Back
+          </button>
+        ) : (
+          <HomeLink className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-slate-600 hover:text-purple-700 hover:bg-purple-50 text-sm font-medium transition-colors" />
+        )}
         <button
           onClick={onStart}
           className="hidden sm:inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-white text-sm font-semibold shadow-md shadow-purple-600/20 hover:scale-[1.03] active:scale-[0.97] transition-transform"

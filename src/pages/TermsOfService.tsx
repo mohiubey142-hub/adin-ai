@@ -15,6 +15,8 @@
 
 import { SEOHead } from "../components/SEO/SEOHead";
 import { getSEOConfig } from "../utils/seoPages";
+import { cameFromApp } from "../utils/inAppNav";
+import HomeLink from "../components/HomeLink";
 import {
   ArrowLeft, FileText, CheckCircle, Lock, AlertCircle,
   Trash2, Scale, Users, Sparkles, Mail, Globe, Shield,
@@ -27,6 +29,9 @@ interface TermsOfServiceProps {
 }
 
 export default function TermsOfService({ onBack }: TermsOfServiceProps) {
+  // ✅ Back sirf tab jab user app ke andar se aaya; seedha khulne par Adin AI home link
+  const showBack = cameFromApp();
+
   // ✅ Smart back button — returns to referring page
   const goBack = () => {
     // 1. If opened in new tab (no history) → close tab
@@ -63,13 +68,17 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
 
       <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 text-slate-900">
         <header className="sticky top-0 z-50 h-[56px] flex items-center justify-between px-4 sm:px-6 border-b border-slate-200 bg-white/85 backdrop-blur-xl">
-          <button
-            onClick={goBack}
-            className="group inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50 text-slate-700 hover:text-purple-700 transition-all duration-200 shadow-sm hover:shadow-md"
-          >
-            <ArrowLeft size={16} className="transition-transform group-hover:-translate-x-0.5" />
-            <span className="text-xs sm:text-sm font-semibold">Back</span>
-          </button>
+          {showBack ? (
+            <button
+              onClick={goBack}
+              className="group inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50 text-slate-700 hover:text-purple-700 transition-all duration-200 shadow-sm hover:shadow-md"
+            >
+              <ArrowLeft size={16} className="transition-transform group-hover:-translate-x-0.5" />
+              <span className="text-xs sm:text-sm font-semibold">Back</span>
+            </button>
+          ) : (
+            <HomeLink />
+          )}
 
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center shadow-sm">

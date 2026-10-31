@@ -69,18 +69,24 @@
     <!-- ============================================
          ✅ PWA: Web App Manifest
          ============================================ -->
-    <link rel="manifest" href="/site.webmanifest" />
+    <link rel="manifest" href="/site.webmanifest?v=2" />
 
     <!-- ============================================
          ✅ PWA: Apple Touch Icon
          ============================================ -->
-    <link rel="apple-touch-icon" href="/icon-192x192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-v2.png" />
 
     <!-- ============================================
          ✅ FAVICON (Updated Paths to match your public folder)
          ============================================ -->
-    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192x192.png" />
-    <link rel="icon" type="image/png" sizes="512x512" href="/icon-512x512.png" />
+    <!-- New filenames (v2) + ?v=2 so Google/browsers drop the cached old favicon.
+         Google needs a favicon whose size is a multiple of 48px (48, 96, 144, 192...). -->
+    <link rel="icon" href="/favicon-v2.ico?v=2" sizes="any" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-v2-48x48.png" />
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-v2-96x96.png" />
+    <link rel="icon" type="image/png" sizes="144x144" href="/favicon-v2-144x144.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-v2-192x192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icon-v2-512x512.png" />
 
     <!-- ============================================
          ✅ VIEWPORT
@@ -156,9 +162,6 @@
           <a href="/free-cv-builder">Free CV Builder</a>
           <a href="/free-cover-letter-generator">Free Cover Letter Generator</a>
           <a href="/cover-templates">Free Cover Letter Templates</a>
-          <a href="/cv-builder">Free AI CV Builder</a>
-          <a href="/cover-letter">Free AI Cover Letter Generator</a>
-          <a href="/my-documents">My Documents</a>
           <a href="/blog">Career Tips, CV &amp; Cover Letter Blog</a>
           <a href="/founder">Founder</a>
           <a href="/contact">Contact</a>

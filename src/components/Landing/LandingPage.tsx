@@ -125,6 +125,8 @@ interface LandingPageProps {
   onOpenPrivacy?: () => void;   // ✅ NEW
   onOpenTerms?: () => void;     // ✅ NEW
   onOpenContact?: () => void;   // ✅ NEW
+  onOpenFreeCVBuilder?: () => void;      // ✅ /free-cv-builder (in-app navigation, no reload)
+  onOpenFreeCoverLetter?: () => void;    // ✅ /free-cover-letter-generator (in-app navigation, no reload)
 }
 
 // ============================================================
@@ -142,6 +144,8 @@ export default function LandingPage({
   onOpenPrivacy,
   onOpenTerms,
   onOpenContact,
+  onOpenFreeCVBuilder,
+  onOpenFreeCoverLetter,
 }: LandingPageProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0.5, y: 0.5 });
@@ -259,6 +263,16 @@ export default function LandingPage({
     setMobileNavOpen(false);
     (onOpenContact || onGetStarted)();
   }, [onOpenContact, onGetStarted]);
+
+  const handleNavFreeCV = useCallback(() => {
+    setMobileNavOpen(false);
+    onOpenFreeCVBuilder?.();
+  }, [onOpenFreeCVBuilder]);
+
+  const handleNavFreeCoverLetter = useCallback(() => {
+    setMobileNavOpen(false);
+    onOpenFreeCoverLetter?.();
+  }, [onOpenFreeCoverLetter]);
 
   const scrollToSection = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -853,8 +867,9 @@ export default function LandingPage({
               <FooterLink onClick={() => scrollToSection('templates')}>Templates</FooterLink>
               <FooterLink onClick={onGetStarted}>Get Started</FooterLink>
               <FooterLink href="/blog" onClick={handleNavBlog}>Blog</FooterLink>
-              <li><a href="/free-cv-builder" className="text-xs text-slate-500 hover:text-purple-700 transition-colors text-left">Free CV Builder</a></li>
-              <li><a href="/free-cover-letter-generator" className="text-xs text-slate-500 hover:text-purple-700 transition-colors text-left">Free Cover Letter Generator</a></li>
+              {/* Real links; if the App does not pass a handler, the browser just follows the href */}
+              <FooterLink href="/free-cv-builder" onClick={onOpenFreeCVBuilder ? handleNavFreeCV : undefined}>Free CV Builder</FooterLink>
+              <FooterLink href="/free-cover-letter-generator" onClick={onOpenFreeCoverLetter ? handleNavFreeCoverLetter : undefined}>Free Cover Letter Generator</FooterLink>
             </FooterColumn>
 
             <FooterColumn title="Product">
