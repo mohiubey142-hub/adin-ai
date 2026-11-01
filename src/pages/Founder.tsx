@@ -8,10 +8,9 @@ import { generatePageSchemas, generateJSONLDScript } from "../utils/seo";
 import { getSEOConfig } from "../utils/seoPages";
 import HeroSection from "../components/founder/HeroSection";
 import AboutSection from "../components/founder/AboutSection";
-import SkillsSection from "../components/founder/SkillsSection";
+import AdinIntroSection from "../components/founder/AdinIntroSection";
+import AboutLinksSection from "../components/founder/AboutLinksSection";
 import TimelineSection from "../components/founder/TimelineSection";
-import QuoteSection from "../components/founder/QuoteSection";
-import VisionSection from "../components/founder/VisionSection";
 import FAQSection from "../components/founder/FAQSection";
 import { ArrowLeft } from "lucide-react";
 import { SITE_URL } from "../config/site";
@@ -65,7 +64,7 @@ export default function Founder({ onBack }: FounderProps) {
         {/* Header — Privacy/Terms jaisa: in-app aaye to Back, seedha open par logo.
             -mb-16 = header content ke upar overlay hota hai (jagah nahi gherta), isliye Hero ka glow
             header ke peeche se guzarta hai aur upar "kati hui patti" nahi dikhti. */}
-        <header className={`sticky top-0 z-50 -mb-16 transition-all duration-300 ${scrolled ? 'bg-white/85 backdrop-blur-xl border-b border-slate-200 shadow-sm' : 'bg-transparent border-b border-transparent'}`}>
+        <header className={`sticky top-0 z-50 -mb-16 transition-all duration-300 ${scrolled ? 'bg-white/95 backdrop-blur-xl border-b border-slate-200 shadow-sm' : 'bg-transparent border-b border-transparent'}`}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
             {showBack ? (
               <button
@@ -95,12 +94,11 @@ export default function Founder({ onBack }: FounderProps) {
 
         {/* Sections */}
         <HeroSection />
+        <AdinIntroSection />
         <AboutSection />
-        <VisionSection />
-        <SkillsSection />
         <TimelineSection />
-        <QuoteSection />
         <FAQSection />
+        <AboutLinksSection />
       </div>
 
       {/* ✅ Neutral gray scrollbar — matches app UI */}

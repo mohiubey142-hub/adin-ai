@@ -338,7 +338,7 @@ export default function LandingPage({
             <NavLink href="/cover-templates" onClick={handleNavCoverTemplates}>Cover Templates</NavLink>
             <NavLink onClick={() => scrollToSection('features')}>Features</NavLink>
             <NavLink href="/blog" onClick={handleNavBlog}>Blog</NavLink>
-            <NavLink href="/founder" onClick={handleNavFounder}>Founder</NavLink>
+            <NavLink href="/founder" onClick={handleNavFounder}>About</NavLink>
           </nav>
 
           <div className="flex items-center gap-2 shrink-0">
@@ -391,7 +391,7 @@ export default function LandingPage({
               >
                 Features
               </MobileNavItem>
-              <MobileNavItem href="/founder" onClick={handleNavFounder} icon={<User size={17} />}>Founder</MobileNavItem>
+              <MobileNavItem href="/founder" onClick={handleNavFounder} icon={<User size={17} />}>About</MobileNavItem>
               <MobileNavItem href="/blog" onClick={handleNavBlog} icon={<FileText size={17} />}>Blog</MobileNavItem>
               <MobileNavItem href="/privacy-policy" onClick={handleNavPrivacy} icon={<Shield size={17} />}>Privacy Policy</MobileNavItem>
               <MobileNavItem href="/terms-of-service" onClick={handleNavTerms} icon={<FileText size={17} />}>Terms of Service</MobileNavItem>
@@ -880,7 +880,7 @@ export default function LandingPage({
             </FooterColumn>
 
             <FooterColumn title="Company">
-              <FooterLink href="/founder" onClick={handleNavFounder}>Founder</FooterLink>
+              <FooterLink href="/founder" onClick={handleNavFounder}>About Us</FooterLink>
               <FooterLink href="/contact" onClick={handleNavContact}>Contact Us</FooterLink>
             </FooterColumn>
 
@@ -909,7 +909,7 @@ export default function LandingPage({
         <a href="/free-cover-letter-generator" tabIndex={-1}>Free Cover Letter Generator</a>
         <a href="/cover-templates" tabIndex={-1}>Free Cover Letter Templates</a>
         <a href="/blog" tabIndex={-1}>Career Tips, CV &amp; Cover Letter Blog</a>
-        <a href="/founder" tabIndex={-1}>Founder</a>
+        <a href="/founder" tabIndex={-1}>About Adin AI &amp; Founder</a>
         <a href="/contact" tabIndex={-1}>Contact</a>
         <a href="/privacy-policy" tabIndex={-1}>Privacy Policy</a>
         <a href="/terms-of-service" tabIndex={-1}>Terms of Service</a>

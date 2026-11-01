@@ -60,7 +60,7 @@ export const TOOL_LANDING_CONTENT: Record<
     path: '/free-cv-builder',
     seoKey: 'free-cv-builder',
     ctaTarget: 'cv',
-    breadcrumb: 'Free CV Builder',
+    breadcrumb: 'CV Builder',
     eyebrow: '100% free · No signup',
     h1: 'Free CV Builder: Create a Professional, ATS-Friendly CV Online',
     intro:
@@ -192,7 +192,7 @@ export const TOOL_LANDING_CONTENT: Record<
     path: '/free-cover-letter-generator',
     seoKey: 'free-cover-letter-generator',
     ctaTarget: 'cover-letter',
-    breadcrumb: 'Free Cover Letter Generator',
+    breadcrumb: 'Cover Letter',
     eyebrow: '100% free · No signup',
     h1: 'Free Cover Letter Generator: Write a Professional Cover Letter in Seconds',
     intro:

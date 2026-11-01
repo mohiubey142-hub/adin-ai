@@ -171,8 +171,8 @@ export default function ToolLandingPage({ content, onStart }: ToolLandingPagePro
                     Adin AI
                   </span>
                 </a>
-                <span className="mx-2 text-slate-400">/</span>
-                <span className="text-slate-700 font-medium">{content.breadcrumb}</span>
+                <span className="mx-2 text-slate-400" aria-hidden="true">/</span>
+                <span className="text-slate-700 font-medium" aria-current="page">{content.breadcrumb}</span>
               </nav>
 
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/80 border border-purple-200 text-purple-700 text-xs font-semibold shadow-sm mb-5">

@@ -103,11 +103,8 @@ async function main() {
           <a href="/free-cv-builder">Free CV Builder</a>
           <a href="/free-cover-letter-generator">Free Cover Letter Generator</a>
           <a href="/cover-templates">Free Cover Letter Templates</a>
-          <a href="/cv-builder">Free AI CV Builder</a>
-          <a href="/cover-letter">Free AI Cover Letter Generator</a>
-          <a href="/my-documents">My Documents</a>
           <a href="/blog">Career Tips, CV &amp; Cover Letter Blog</a>
-          <a href="/founder">Founder</a>
+          <a href="/founder">About Adin AI &amp; Founder</a>
           <a href="/contact">Contact</a>
           <a href="/privacy-policy">Privacy Policy</a>
           <a href="/terms-of-service">Terms of Service</a>

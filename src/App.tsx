@@ -1726,7 +1726,7 @@ Adin AI
           title={seoConfig.title}
           description={seoConfig.description}
           keywords={seoConfig.keywords}
-          canonicalUrl={seoConfig.canonicalUrl}
+          canonicalUrl={seoConfig.canonicalUrl} noIndex={seoConfig.noIndex} noFollow={seoConfig.noFollow}
           ogType="website"
         />
 
@@ -1775,7 +1775,7 @@ Adin AI
     return (
       <NavigationProvider onNavigate={handleGlobalNavigate} currentRoute={currentRoute}>
         <>
-          <SEOHead title={seoConfig.title} description={seoConfig.description} keywords={seoConfig.keywords} canonicalUrl={seoConfig.canonicalUrl} ogType="website" />
+          <SEOHead title={seoConfig.title} description={seoConfig.description} keywords={seoConfig.keywords} canonicalUrl={seoConfig.canonicalUrl} noIndex={seoConfig.noIndex} noFollow={seoConfig.noFollow} ogType="website" />
           <AdinToaster />
 
           <div className="w-full min-h-screen flex flex-col bg-slate-100">
@@ -1802,7 +1802,7 @@ Adin AI
   if (currentPage === 'blog') {
     return (
       <>
-        <SEOHead title={seoConfig.title} description={seoConfig.description} keywords={seoConfig.keywords} canonicalUrl={seoConfig.canonicalUrl} />
+        <SEOHead title={seoConfig.title} description={seoConfig.description} keywords={seoConfig.keywords} canonicalUrl={seoConfig.canonicalUrl} noIndex={seoConfig.noIndex} noFollow={seoConfig.noFollow} />
         <style>{buildScrollbarCss(true)}</style>
         <AdinToaster />
         <Suspense fallback={<LoadingScreen />}>
@@ -1863,7 +1863,7 @@ Adin AI
   if (!isOnboardingComplete && !isPublicPageForSEO) {
     return (
       <>
-        <SEOHead title={seoConfig.title} description={seoConfig.description} keywords={seoConfig.keywords} canonicalUrl={seoConfig.canonicalUrl} ogType="website" />
+        <SEOHead title={seoConfig.title} description={seoConfig.description} keywords={seoConfig.keywords} canonicalUrl={seoConfig.canonicalUrl} noIndex={seoConfig.noIndex} noFollow={seoConfig.noFollow} ogType="website" />
         <Onboarding
           onComplete={handleOnboardingComplete}
           onRestoreClick={() => setShowRestoreModal(true)}
@@ -1884,7 +1884,7 @@ Adin AI
   return (
     <NavigationProvider onNavigate={handleGlobalNavigate} currentRoute={currentRoute}>
       <>
-        <SEOHead title={seoConfig.title} description={seoConfig.description} keywords={seoConfig.keywords} canonicalUrl={seoConfig.canonicalUrl} ogType="website" />
+        <SEOHead title={seoConfig.title} description={seoConfig.description} keywords={seoConfig.keywords} canonicalUrl={seoConfig.canonicalUrl} noIndex={seoConfig.noIndex} noFollow={seoConfig.noFollow} ogType="website" />
         <AdinToaster />
 
         <div className="app-guest-root w-screen min-h-screen flex bg-slate-100 text-slate-900">

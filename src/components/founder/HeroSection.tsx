@@ -79,6 +79,9 @@ export default function HeroSection() {
 
             {/* Info */}
             <div className="flex-1 text-center md:text-left">
+              <span className="inline-flex items-center text-[11px] font-semibold tracking-[0.2em] uppercase text-purple-600 mb-2">
+                About Adin AI &amp; Its Founder
+              </span>
               <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-slate-900">
                 Kian{' '}
                 <span className="bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">

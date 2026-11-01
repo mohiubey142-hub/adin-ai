@@ -163,7 +163,8 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
   },
 
   // ══════════════════════════════════════════════
-  // CV BUILDER (editor — indexed)
+  // CV BUILDER (editor — NOT indexed: new visitors/Googlebot see the onboarding screen here;
+  // the indexable page for this topic is /free-cv-builder)
   // ══════════════════════════════════════════════
   'cv-builder': {
     title: 'Free AI CV Builder — Create a Professional CV in Minutes',
@@ -182,10 +183,11 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
     ].join(', '),
     canonicalUrl: canonicalFor('/cv-builder'),
     ...DEFAULTS,
+    noIndex: true,
   },
 
   // ══════════════════════════════════════════════
-  // COVER LETTER (editor — indexed)
+  // COVER LETTER (editor — NOT indexed; the indexable page is /free-cover-letter-generator)
   // ══════════════════════════════════════════════
   'cover-letter': {
     title: 'Free AI Cover Letter Generator',
@@ -199,10 +201,11 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
     ].join(', '),
     canonicalUrl: canonicalFor('/cover-letter'),
     ...DEFAULTS,
+    noIndex: true,
   },
 
   // ══════════════════════════════════════════════
-  // MY DOCUMENTS (indexed — shows onboarding to first-time visitors)
+  // MY DOCUMENTS (private user page — NOT indexed; also sent as X-Robots-Tag header via vercel.json)
   // ══════════════════════════════════════════════
   'my-documents': {
     title: 'My Documents',
@@ -210,16 +213,18 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
     keywords: 'my documents, my cvs, my cover letters',
     canonicalUrl: canonicalFor('/my-documents'),
     ...DEFAULTS,
+    noIndex: true,
   },
 
   // ══════════════════════════════════════════════
   // FOUNDER
   // ══════════════════════════════════════════════
   founder: {
-    title: 'Founder — Kian Mercer | Adin AI',
+    title: 'About Adin AI & Its Founder — Kian Mercer',
     description:
-      'Meet Kian Mercer, founder of Adin AI — a free AI-powered career platform helping job seekers build professional CVs and cover letters.',
+      'Learn what Adin AI is, why it was built and who is behind it. Meet Kian Mercer, founder of Adin AI — a free AI-powered career platform for professional CVs and cover letters.',
     keywords: [
+      'about adin ai',
       'adin ai founder',
       'kian mercer',
       'adin ai team',
@@ -331,9 +336,6 @@ export const SITEMAP_PAGES = [
   { path: '/free-cover-letter-generator', priority: '0.95', changefreq: 'monthly' },
   { path: '/templates',       priority: '0.95', changefreq: 'weekly'  },
   { path: '/cover-templates', priority: '0.95', changefreq: 'weekly'  },
-  { path: '/cv-builder',       priority: '0.90', changefreq: 'monthly' },
-  { path: '/cover-letter',    priority: '0.90', changefreq: 'monthly' },
-  { path: '/my-documents',    priority: '0.50', changefreq: 'monthly' },
   { path: '/blog',            priority: '0.90', changefreq: 'weekly'  },
   { path: '/founder',         priority: '0.70', changefreq: 'monthly' },
   { path: '/privacy-policy',  priority: '0.40', changefreq: 'monthly' },
