@@ -73,13 +73,6 @@ export const softwareAppSchema = () => ({
     price: '0',
     priceCurrency: 'USD',
   },
-  aggregateRating: {
-    '@type': 'AggregateRating',
-    ratingValue: '4.9',
-    ratingCount: '1240',
-    bestRating: '5',
-    worstRating: '1',
-  },
   description: SITE_CONFIG.description,
   url: SITE_URL,
   screenshot: OG_IMAGE,
@@ -137,6 +130,10 @@ export const personSchema = () => ({
     url: SITE_URL,
   },
   url: `${SITE_URL}/founder`,
+  sameAs: [
+    SITE_CONFIG.founder.social.x,
+    SITE_CONFIG.founder.social.instagram,
+  ],
 });
 
 // ═══════════════════════════════════════════════

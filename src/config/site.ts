@@ -45,6 +45,11 @@ export const SITE_CONFIG = {
   founder: {
     name: 'Kian Mercer',
     title: 'Founder',
+    // Founder's public accounts (used for sameAs in the Person schema)
+    social: {
+      x: 'https://x.com/kiansovereign',
+      instagram: 'https://www.instagram.com/kiansovereign',
+    },
   },
 
   // ─────────────────────────────────────────────

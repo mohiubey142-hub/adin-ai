@@ -2,6 +2,40 @@
 // Closing CTA band (real <a href> links: visitors get a next step, crawlers get internal links).
 import { ArrowRight, FileText, Mail } from "lucide-react";
 
+// Founder's public accounts (also listed as sameAs in the founder Person schema in utils/seo.ts)
+const SOCIAL_LINKS = [
+  {
+    label: "X",
+    href: "https://x.com/kiansovereign",
+    ariaLabel: "Kian Mercer on X (Twitter)",
+    icon: (
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="#000000" aria-hidden="true">
+        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+      </svg>
+    ),
+  },
+  {
+    label: "Instagram",
+    href: "https://www.instagram.com/kiansovereign",
+    ariaLabel: "Kian Mercer on Instagram",
+    icon: (
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="url(#ig-grad-about)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <defs>
+          <linearGradient id="ig-grad-about" gradientUnits="userSpaceOnUse" x1="2" y1="22" x2="22" y2="2">
+            <stop offset="0" stopColor="#F58529" />
+            <stop offset="0.4" stopColor="#DD2A7B" />
+            <stop offset="0.75" stopColor="#8134AF" />
+            <stop offset="1" stopColor="#515BD4" />
+          </linearGradient>
+        </defs>
+        <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+        <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+        <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+      </svg>
+    ),
+  },
+];
+
 export default function AboutLinksSection() {
   return (
     <section className="relative py-16 sm:py-24 px-4 sm:px-6 border-t border-slate-200 bg-slate-50">
@@ -39,6 +73,25 @@ export default function AboutLinksSection() {
                 Write a cover letter
               </a>
             </div>
+          </div>
+        </div>
+
+        <div className="mt-8 text-center">
+          <p className="text-[11px] font-semibold tracking-[0.2em] uppercase text-purple-600">Connect with Kian</p>
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
+            {SOCIAL_LINKS.map((l) => (
+              <a
+                key={l.label}
+                href={l.href}
+                target="_blank"
+                rel="me noopener noreferrer"
+                aria-label={l.ariaLabel}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-slate-200 shadow-sm text-sm font-medium text-slate-600 hover:text-purple-700 hover:border-purple-200 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300"
+              >
+                {l.icon}
+                {l.label}
+              </a>
+            ))}
           </div>
         </div>
 
