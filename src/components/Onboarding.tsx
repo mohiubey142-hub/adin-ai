@@ -230,9 +230,11 @@ export const Onboarding = ({ onComplete, onBack }: OnboardingProps) => {
 
           {/* Logo */}
           <div className="flex justify-center mb-8">
-            <div className="p-2.5 rounded-2xl bg-white/80 backdrop-blur-xl border border-white shadow-lg shadow-purple-900/10">
-              <img src="/icon-1024x1024.png" alt="Adin AI" className="w-16 h-16 rounded-xl" />
-            </div>
+            <img
+              src="/icon-1024x1024.png"
+              alt="Adin AI"
+              className="w-20 h-20 rounded-2xl shadow-lg shadow-purple-600/20"
+            />
           </div>
 
           {/* Heading */}

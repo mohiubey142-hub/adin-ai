@@ -1775,7 +1775,10 @@ Adin AI
     return (
       <NavigationProvider onNavigate={handleGlobalNavigate} currentRoute={currentRoute}>
         <>
-          <SEOHead title={seoConfig.title} description={seoConfig.description} keywords={seoConfig.keywords} canonicalUrl={seoConfig.canonicalUrl} noIndex={seoConfig.noIndex} noFollow={seoConfig.noFollow} ogType="website" />
+          {/* Founder page apna SEOHead khud lagata hai (founder-og.jpg ke saath) — dobara mat lagao */}
+          {currentPage !== 'founder' && (
+            <SEOHead title={seoConfig.title} description={seoConfig.description} keywords={seoConfig.keywords} canonicalUrl={seoConfig.canonicalUrl} noIndex={seoConfig.noIndex} noFollow={seoConfig.noFollow} ogType="website" />
+          )}
           <AdinToaster />
 
           <div className="w-full min-h-screen flex flex-col bg-slate-100">

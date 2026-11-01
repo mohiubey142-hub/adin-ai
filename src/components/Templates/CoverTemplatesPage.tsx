@@ -11,9 +11,7 @@ import {
   ZoomIn, ZoomOut, Maximize, X,
 } from "lucide-react";
 
-import { SEOHead } from "../SEO/SEOHead";
 import { generatePageSchemas, generateJSONLDScript } from "../../utils/seo";
-import { getSEOConfig } from "../../utils/seoPages";
 
 interface Template {
   id: string;
@@ -271,18 +269,9 @@ const CoverTemplatesPage = ({
     return out;
   };
 
-  const seoConfig = getSEOConfig("cover-templates");
-
   return (
     <>
-      <SEOHead
-        title={seoConfig.title}
-        description={seoConfig.description}
-        keywords={seoConfig.keywords}
-        canonicalUrl={seoConfig.canonicalUrl}
-        ogType={seoConfig.ogType || "website"}
-      />
-
+      {/* SEO tags (title/description/canonical) App.tsx ke SEOHead se aate hain — yahan dobara SEOHead mat lagana, warna har tag do baar banta hai */}
       <script type="application/ld+json">
         {generateJSONLDScript(generatePageSchemas("cover-templates"))}
       </script>
@@ -296,9 +285,9 @@ const CoverTemplatesPage = ({
           {/* HERO — ✅ Search bar removed */}
           <section className="bg-white border-b border-slate-200">
             <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 sm:py-8 md:py-10 text-center">
-              <h2 className="text-xl sm:text-2xl md:text-4xl font-bold tracking-tight text-slate-900">
+              <h1 className="text-xl sm:text-2xl md:text-4xl font-bold tracking-tight text-slate-900">
                 Choose Your Cover Letter Template
-              </h2>
+              </h1>
               <p className="text-xs sm:text-sm md:text-base text-slate-500 mt-2 max-w-2xl mx-auto">
                 Professional cover letter templates designed to help you make a strong first impression.
               </p>

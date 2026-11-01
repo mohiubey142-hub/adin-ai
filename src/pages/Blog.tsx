@@ -1,8 +1,6 @@
 // src/pages/Blog.tsx
 import React from 'react';
 import { ARTICLES } from '../config/articles';
-import { SEOHead } from '../components/SEO/SEOHead';
-import { getSEOConfig } from '../utils/seoPages';
 import { cameFromApp, markLandingIntent } from '../utils/inAppNav';
 import { Clock, ArrowRight, User, FileText } from 'lucide-react';
 
@@ -12,19 +10,11 @@ interface BlogProps {
 }
 
 export default function Blog({ onOpenArticle, onBackToLanding }: BlogProps) {
-  const seo = getSEOConfig('blog');
   // ✅ Back sirf tab jab user app ke andar se aaya; seedha khulne par Adin AI home link
   const showBack = cameFromApp();
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <SEOHead
-        title={seo.title}
-        description={seo.description}
-        keywords={seo.keywords}
-        canonicalUrl={seo.canonicalUrl}
-      />
-      
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-16">
         {/* Header */}
         <div className="text-center mb-12">

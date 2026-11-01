@@ -7,8 +7,6 @@
 // ✅ Contact form → backend proxy /api/sync (action: submit_contact)
 
 import { useEffect, useState } from "react";
-import { SEOHead } from "../components/SEO/SEOHead";
-import { getSEOConfig } from "../utils/seoPages";
 import { cameFromApp, markLandingIntent } from "../utils/inAppNav";
 import {
   ArrowLeft, Mail, MapPin, MessageSquare, Send, User, Clock,
@@ -62,8 +60,6 @@ export default function Contact({ onBack }: ContactProps) {
     window.history.back();
   };
 
-  const seoConfig = getSEOConfig('contact');
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -115,14 +111,6 @@ export default function Contact({ onBack }: ContactProps) {
 
   return (
     <>
-      <SEOHead
-        title={seoConfig.title}
-        description={seoConfig.description}
-        keywords={seoConfig.keywords}
-        canonicalUrl={seoConfig.canonicalUrl}
-        ogType="website"
-      />
-
       <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 text-slate-900">
         {/* Sticky Header */}
         <header className={`sticky top-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/85 backdrop-blur-xl border-b border-slate-200 shadow-sm' : 'bg-transparent border-b border-transparent'}`}>

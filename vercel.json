@@ -7,6 +7,12 @@
       "has": [{ "type": "host", "value": "www.getadinai.com" }],
       "destination": "https://getadinai.com/$1",
       "permanent": true
+    },
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "adin-ai-gray.vercel.app" }],
+      "destination": "https://getadinai.com/$1",
+      "permanent": true
     }
   ],
   "rewrites": [

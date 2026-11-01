@@ -235,7 +235,7 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({
 
                     {/* Row 3 — Straighten (FULL PURPLE TRACK) */}
                     <div className="flex items-center gap-2">
-                        <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 w-14 shrink-0">
+                        <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 shrink-0 whitespace-nowrap">
                             Straighten
                         </span>
                         <input
@@ -245,7 +245,7 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({
                             step="1"
                             value={rotation}
                             onChange={e => setRotation(parseInt(e.target.value))}
-                            className="flex-1 h-1 rounded-full appearance-none cursor-pointer"
+                            className="flex-1 min-w-0 h-1 rounded-full appearance-none cursor-pointer"
                             style={straightenFillStyle}
                         />
                         <span className="text-[10px] font-semibold text-purple-600 w-9 text-right tabular-nums shrink-0">

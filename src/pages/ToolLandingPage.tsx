@@ -106,7 +106,7 @@ export default function ToolLandingPage({ content, onStart }: ToolLandingPagePro
   const h1Rest = colonAt > 0 ? content.h1.slice(colonAt + 2) : content.h1;
 
   return (
-    <div className="tlp-page relative min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 text-slate-900 overflow-x-hidden pb-24 md:pb-0"
+    <div className="tlp-page relative min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 text-slate-900 overflow-x-hidden"
       style={{ '--tlp-pull-up': SECTION_PULL_UP } as CSSProperties}>
       <style>{PAGE_CSS}</style>
       <SEOHead
@@ -503,9 +503,7 @@ export default function ToolLandingPage({ content, onStart }: ToolLandingPagePro
                 onClick={onStart}
                 className="tlp-final-btn group inline-flex items-center justify-center rounded-full bg-white text-slate-900 font-bold shadow-lg hover:scale-[1.03] active:scale-[0.97] transition-transform"
               >
-                <CtaIcon size="1.125em" />
                 <span>{content.ctaLabel}</span>
-                <ArrowRight size="1em" className="transition-transform group-hover:translate-x-1" />
               </button>
             </div>
           </div>
@@ -522,18 +520,6 @@ export default function ToolLandingPage({ content, onStart }: ToolLandingPagePro
           </div>
         </footer>
       </main>
-
-      {/* Sticky mobile CTA */}
-      <div className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-slate-200 bg-white/90 backdrop-blur-xl px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
-        <button
-          onClick={onStart}
-          className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full text-white text-base font-semibold shadow-lg shadow-purple-600/25 active:scale-[0.98] transition-transform"
-          style={{ background: CTA_GRADIENT }}
-        >
-          <CtaIcon size={18} />
-          {content.ctaLabel}
-        </button>
-      </div>
     </div>
   );
 }

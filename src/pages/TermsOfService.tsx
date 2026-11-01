@@ -14,8 +14,6 @@
 //             notice fixed for Guest Accounts (no email on file).
 
 import { useEffect, useState } from "react";
-import { SEOHead } from "../components/SEO/SEOHead";
-import { getSEOConfig } from "../utils/seoPages";
 import { cameFromApp, markLandingIntent } from "../utils/inAppNav";
 import {
   ArrowLeft, FileText, CheckCircle, Lock, AlertCircle,
@@ -62,18 +60,8 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
     window.open('/contact', '_blank', 'noopener,noreferrer');
   };
 
-  const seoConfig = getSEOConfig('terms-of-service');
-
   return (
     <>
-      <SEOHead
-        title={seoConfig.title}
-        description={seoConfig.description}
-        keywords={seoConfig.keywords}
-        canonicalUrl={seoConfig.canonicalUrl}
-        ogType="website"
-      />
-
       <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 text-slate-900">
         <header className={`sticky top-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/85 backdrop-blur-xl border-b border-slate-200 shadow-sm' : 'bg-transparent border-b border-transparent'}`}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
