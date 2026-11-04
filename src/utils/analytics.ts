@@ -3,12 +3,25 @@
 // ✅ No User ID / personal data is ever sent to Google Analytics
 // ✅ Query strings & hashes are stripped from page paths
 // ✅ No console logs of IDs in production
+// ✅ Internal (developer/test) sessions are tagged with traffic_type=internal
+//    so they can be excluded via a GA4 Data Filter
 // ✅ Same exports as before (setUserID is kept as a harmless no-op so nothing breaks)
 
 import ReactGA from 'react-ga4';
 
 const GA_MEASUREMENT_ID = import.meta.env.VITE_GA_MEASUREMENT_ID as string | undefined;
 const CONSENT_KEY = 'adin_analytics_consent';
+const CONSENT_GRANTED_VALUE = 'granted';
+
+// ---- Internal traffic (developer / test sessions) ----
+// Open the site once with  https://your-site/?internal=1  to tag the whole session.
+const INTERNAL_URL_PARAM = 'internal';
+const INTERNAL_URL_PARAM_ON_VALUE = '1';
+const INTERNAL_STORAGE_KEY = 'adin_internal_traffic';
+const INTERNAL_STORAGE_ON_VALUE = '1';
+// Must match the value set in GA4 → Admin → Data Settings → Data Filters → Internal Traffic
+const TRAFFIC_TYPE_PARAM = 'traffic_type';
+const TRAFFIC_TYPE_INTERNAL_VALUE = 'internal';
 
 let initialized = false;
 
@@ -16,7 +29,7 @@ const isEnabled = (): boolean => Boolean(GA_MEASUREMENT_ID) && import.meta.env.P
 
 const readConsent = (): boolean => {
   try {
-    return localStorage.getItem(CONSENT_KEY) === 'granted';
+    return localStorage.getItem(CONSENT_KEY) === CONSENT_GRANTED_VALUE;
   } catch {
     return false;
   }
@@ -24,10 +37,36 @@ const readConsent = (): boolean => {
 
 const writeConsent = (granted: boolean): void => {
   try {
-    if (granted) localStorage.setItem(CONSENT_KEY, 'granted');
+    if (granted) localStorage.setItem(CONSENT_KEY, CONSENT_GRANTED_VALUE);
     else localStorage.removeItem(CONSENT_KEY);
   } catch {
     /* storage unavailable — ignore */
+  }
+};
+
+/**
+ * Remembers (in localStorage, so it survives new tabs) that this browser is an internal/test one.
+ * Incognito: lasts until the incognito window is closed. Normal browser: stays until site data is cleared.
+ * Runs before the consent check so the flag survives the onboarding flow and
+ * any router that strips the query string.
+ */
+const captureInternalFlag = (): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get(INTERNAL_URL_PARAM) === INTERNAL_URL_PARAM_ON_VALUE) {
+      localStorage.setItem(INTERNAL_STORAGE_KEY, INTERNAL_STORAGE_ON_VALUE);
+    }
+  } catch {
+    /* storage unavailable — ignore */
+  }
+};
+
+const isInternalSession = (): boolean => {
+  try {
+    return localStorage.getItem(INTERNAL_STORAGE_KEY) === INTERNAL_STORAGE_ON_VALUE;
+  } catch {
+    return false;
   }
 };
 
@@ -47,6 +86,8 @@ const cleanPath = (path: string): string => (path || '/').split(/[?#]/)[0] || '/
  * (returning users who already accepted are initialized automatically).
  */
 export const initializeGA = (): void => {
+  captureInternalFlag();
+
   if (!isEnabled() || initialized || !readConsent()) return;
 
   setOptOutFlag(false);
@@ -54,6 +95,8 @@ export const initializeGA = (): void => {
     gtagOptions: {
       allow_google_signals: false,
       allow_ad_personalization_signals: false,
+      // Added to every event of this session only when the internal flag is set
+      ...(isInternalSession() ? { [TRAFFIC_TYPE_PARAM]: TRAFFIC_TYPE_INTERNAL_VALUE } : {}),
     },
   });
   initialized = true;
