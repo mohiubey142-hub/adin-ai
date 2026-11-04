@@ -22,6 +22,9 @@ const INTERNAL_STORAGE_ON_VALUE = '1';
 // Must match the value set in GA4 → Admin → Data Settings → Data Filters → Internal Traffic
 const TRAFFIC_TYPE_PARAM = 'traffic_type';
 const TRAFFIC_TYPE_INTERNAL_VALUE = 'internal';
+// Internal sessions also turn on GA4 DebugView so test events show up there instantly
+const DEBUG_MODE_PARAM = 'debug_mode';
+const DEBUG_MODE_ON = true;
 
 let initialized = false;
 
@@ -96,7 +99,12 @@ export const initializeGA = (): void => {
       allow_google_signals: false,
       allow_ad_personalization_signals: false,
       // Added to every event of this session only when the internal flag is set
-      ...(isInternalSession() ? { [TRAFFIC_TYPE_PARAM]: TRAFFIC_TYPE_INTERNAL_VALUE } : {}),
+      ...(isInternalSession()
+        ? {
+            [TRAFFIC_TYPE_PARAM]: TRAFFIC_TYPE_INTERNAL_VALUE,
+            [DEBUG_MODE_PARAM]: DEBUG_MODE_ON,
+          }
+        : {}),
     },
   });
   initialized = true;
