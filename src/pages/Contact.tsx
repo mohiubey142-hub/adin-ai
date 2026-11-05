@@ -274,7 +274,7 @@ export default function Contact({ onBack }: ContactProps) {
                       Location
                     </p>
                     <p className="text-sm text-slate-900 font-medium">
-                      Punjab, Pakistan
+                      Pakistan
                     </p>
                   </div>
                 </div>

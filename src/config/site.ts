@@ -19,7 +19,7 @@ export const SITE_CONFIG = {
   shortName: 'Adin AI',
   tagline: 'Free CV Builder, Cover Letter & Career Assistant',
   description:
-    'Adin AI is a 100% free AI-powered career platform. Build professional CVs, generate cover letters, and get career help — no signup, no credit card, no ads.',
+    'Adin AI is a 100% free AI-powered career platform. Build professional CVs, generate cover letters, and get career help — no signup, no credit card.',
   locale: 'en_US',
   language: 'en',
   country: 'PK',
@@ -56,8 +56,6 @@ export const SITE_CONFIG = {
   // CONTACT
   // ─────────────────────────────────────────────
   contact: {
-    city: 'Mananwala',
-    region: 'Sheikhupura',
     country: 'Pakistan',
     countryCode: 'PK',
   },

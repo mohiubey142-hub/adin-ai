@@ -1,6 +1,6 @@
 # Adin AI
 
-> Adin AI is a 100% free AI-powered career platform. Build professional, ATS-friendly CVs, generate tailored cover letters and get career help — no signup, no credit card, no ads. Download as PDF, PNG or TXT.
+> Adin AI is a 100% free AI-powered career platform. Build professional, ATS-friendly CVs, generate tailored cover letters and get career help — no signup, no credit card. Download as PDF, PNG or TXT.
 
 Website: https://getadinai.com
 

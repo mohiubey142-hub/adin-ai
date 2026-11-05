@@ -29,8 +29,6 @@ export const organizationSchema = () => ({
   },
   address: {
     '@type': 'PostalAddress',
-    addressLocality: SITE_CONFIG.contact.city,
-    addressRegion: SITE_CONFIG.contact.region,
     addressCountry: SITE_CONFIG.contact.countryCode,
   },
   sameAs: [
@@ -151,7 +149,7 @@ export const generatePageSchemas = (pageKey: string): any[] => {
         faqSchema([
           {
             q: 'Is Adin AI really free?',
-            a: 'Yes. Adin AI is 100% free — no credit card, no premium tiers, no ads. Every feature you see is included.',
+            a: 'Yes. Adin AI is 100% free — no credit card and no premium tiers. Every feature you see is included.',
           },
           {
             q: 'Do I need to sign up to build a CV?',
