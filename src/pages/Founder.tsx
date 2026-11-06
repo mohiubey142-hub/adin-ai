@@ -99,6 +99,45 @@ export default function Founder({ onBack }: FounderProps) {
         <TimelineSection />
         <FAQSection />
         <AboutLinksSection />
+
+        {/* Crawlable footer links — real <a href> so Google can discover these pages from /founder */}
+        <footer className="border-t border-slate-200 bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
+            <nav aria-label="Footer" className="grid grid-cols-2 sm:grid-cols-4 gap-8 text-sm">
+              <div>
+                <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wide mb-3">Free Tools</h4>
+                <ul className="space-y-2 text-slate-600">
+                  <li><a href="/free-cv-builder" className="hover:text-purple-700 transition-colors">Free CV Builder</a></li>
+                  <li><a href="/free-cover-letter-generator" className="hover:text-purple-700 transition-colors">Free Cover Letter Generator</a></li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wide mb-3">Templates</h4>
+                <ul className="space-y-2 text-slate-600">
+                  <li><a href="/templates" className="hover:text-purple-700 transition-colors">CV Templates</a></li>
+                  <li><a href="/cover-templates" className="hover:text-purple-700 transition-colors">Cover Letter Templates</a></li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wide mb-3">Company</h4>
+                <ul className="space-y-2 text-slate-600">
+                  <li><a href="/blog" className="hover:text-purple-700 transition-colors">Blog</a></li>
+                  <li><a href="/contact" className="hover:text-purple-700 transition-colors">Contact</a></li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wide mb-3">Legal</h4>
+                <ul className="space-y-2 text-slate-600">
+                  <li><a href="/privacy-policy" className="hover:text-purple-700 transition-colors">Privacy Policy</a></li>
+                  <li><a href="/terms-of-service" className="hover:text-purple-700 transition-colors">Terms of Service</a></li>
+                </ul>
+              </div>
+            </nav>
+            <p className="mt-8 pt-6 border-t border-slate-200 text-xs text-slate-500">
+              &copy; {new Date().getFullYear()} Adin AI. All rights reserved.
+            </p>
+          </div>
+        </footer>
       </div>
 
       {/* ✅ Neutral gray scrollbar — matches app UI */}
