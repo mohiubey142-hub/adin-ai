@@ -6,7 +6,7 @@ import { ArrowRight, FileText, Mail } from "lucide-react";
 const SOCIAL_LINKS = [
   {
     label: "X",
-    href: "https://x.com/kiansovereign",
+    href: "https://x.com/itxkian",
     ariaLabel: "Kian Mercer on X (Twitter)",
     icon: (
       <svg viewBox="0 0 24 24" width="16" height="16" fill="#000000" aria-hidden="true">
