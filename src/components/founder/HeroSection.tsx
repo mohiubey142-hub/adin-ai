@@ -6,7 +6,7 @@ import { MapPin, Calendar, X, ZoomIn } from "lucide-react";
 const SOCIAL_LINKS = [
   {
     label: "X",
-    href: "https://x.com/kiansovereign",
+    href: "https://x.com/itxkian", // ✅ UPDATED: New X link
     ariaLabel: "Follow Kian Mercer on X (Twitter)",
     icon: (
       <svg viewBox="0 0 24 24" width="15" height="15" fill="#000000" aria-hidden="true">
