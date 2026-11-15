@@ -55,6 +55,25 @@
  */
 
 import { jsPDF } from 'jspdf';
+import {
+  getDescriptionAlign,
+  getDescriptionFormat,
+  getLineMarker,
+  getMarkerIndent,
+  parseDescriptionLines,
+} from '../descriptionFormat';
+import { drawJustifiedLine } from './pdfDescription';
+import type { DescriptionAlign, DescriptionFormat } from '../../types/cvExtraTypes';
+import {
+  buildExtrasPlan,
+  getPersonalCustomContactParts,
+  getItemCustomLines,
+  renderReferencesPdf,
+  renderSectionsInOrder,
+  type ExtrasPdfCtx,
+  type NormalizedEntry,
+  type PdfExtrasData,
+} from './extrasPdfShared';
 
 // ====================================================================
 // PAGE LAYOUT CONSTANTS
@@ -482,8 +501,15 @@ let BULLET_TEXT_EXTRA_GAP_PT = BASE_BULLET_TEXT_EXTRA_GAP_PT;
 // and any future change to it) is guaranteed identical everywhere it's
 // used, and the
 // dot's own position is never touched by it.
-function computeBulletTextIndent(doc: jsPDF): number {
-  return doc.getTextWidth(`${BULLET_MARKER} `) + BULLET_TEXT_EXTRA_GAP_PT;
+function computeBulletTextIndent(doc: jsPDF, format: DescriptionFormat = 'bullets', description = ''): number {
+  const base = doc.getTextWidth(`${BULLET_MARKER} `) + BULLET_TEXT_EXTRA_GAP_PT;
+  if (format === 'bullets') return base; // original value, byte-for-byte
+  return getMarkerIndent(format, parseDescriptionLines(description).length, BODY_SIZE, base);
+}
+
+// Rows of a description box: bullets keep the original raw split; numbered / paragraph use the shared parser.
+function descriptionRows(description: string, format: DescriptionFormat): string[] {
+  return format === 'bullets' ? description.split('\n') : parseDescriptionLines(description);
 }
 
 // Extra horizontal clearance added ONLY between Experience's date
@@ -639,6 +665,7 @@ const CLASSIC_LINK_COLOR = [37, 99, 235] as const; // #2563eb
 // exact shape instead of guessing with fallbacks.
 // ====================================================================
 export interface ClassicPdfPersonalInfo {
+  customFields?: { id?: string; label?: string; value?: string }[];
   name?: string;
   title?: string;
   jobTitle?: string;
@@ -666,7 +693,7 @@ export interface ClassicPdfPersonalInfo {
   photo?: string;
 }
 
-export interface ClassicPdfData {
+export interface ClassicPdfData extends PdfExtrasData {
   personalInfo: ClassicPdfPersonalInfo;
   phoneNumber: string;
   selectedCountryCode: string;
@@ -749,6 +776,9 @@ export interface ClassicPdfData {
 // state, not CV content, so the PDF does not render them.
 // ------------------------------------------------------------------
 export interface ClassicPdfExperience {
+  descriptionFormat?: DescriptionFormat;
+  descriptionAlign?: DescriptionAlign;
+  customFields?: { id?: string; label?: string; value?: string }[];
   title?: string;
   company?: string;
   startDate?: string;
@@ -771,6 +801,7 @@ export interface ClassicPdfExperience {
 // education entry in the actual data, so none is rendered.
 // ------------------------------------------------------------------
 export interface ClassicPdfEducation {
+  customFields?: { id?: string; label?: string; value?: string }[];
   degree?: string;
   institution?: string;
   year?: string;
@@ -789,6 +820,7 @@ export interface ClassicPdfEducation {
 // the actual data, so none is rendered.
 // ------------------------------------------------------------------
 export interface ClassicPdfLanguage {
+  customFields?: { id?: string; label?: string; value?: string }[];
   language?: string;
   proficiency?: string;
 }
@@ -801,6 +833,9 @@ export interface ClassicPdfLanguage {
 // All fields are optional and rendered only when present.
 // ------------------------------------------------------------------
 export interface ClassicPdfAchievement {
+  descriptionFormat?: DescriptionFormat;
+  descriptionAlign?: DescriptionAlign;
+  customFields?: { id?: string; label?: string; value?: string }[];
   title?: string;
   date?: string;
   description?: string;
@@ -814,6 +849,7 @@ export interface ClassicPdfAchievement {
 // All fields are optional and rendered only when present.
 // ------------------------------------------------------------------
 export interface ClassicPdfCertification {
+  customFields?: { id?: string; label?: string; value?: string }[];
   name?: string;
   date?: string;
   credentialId?: string;
@@ -828,6 +864,9 @@ export interface ClassicPdfCertification {
 // All fields are optional and rendered only when present.
 // ------------------------------------------------------------------
 export interface ClassicPdfProject {
+  descriptionFormat?: DescriptionFormat;
+  descriptionAlign?: DescriptionAlign;
+  customFields?: { id?: string; label?: string; value?: string }[];
   name?: string;
   tech?: string;
   description?: string;
@@ -1042,21 +1081,29 @@ function renderClassicPDFOnce(data: ClassicPdfData): {
   let y = TOP_MARGIN + (hasPhoto ? PHOTO_TOP_SPACING_PT : 0);
 
   y = addHeader(doc, data, y);
-  y = addSummary(doc, data, y);
-  y = addExperience(doc, data, y);
-  y = addEducation(doc, data, y);
-  // SECTION ORDER (requested): Summary → Experience → Education →
-  // Certifications → Skills → Languages → Achievements → Projects.
-  // Each add*() function only reads the running `y` cursor it's handed
-  // and returns the next one (skipping its own heading/divider/gap
-  // entirely when its data is empty), so reordering these calls is
-  // the complete change — no other section's own logic depends on
-  // which section runs before or after it.
-  y = addCertifications(doc, data, y);
-  y = addSkills(doc, data, y);
-  y = addLanguages(doc, data, y);
-  y = addAchievements(doc, data, y);
-  y = addProjects(doc, data, y);
+  // SECTION ORDER: the user's Section Order panel decides (default = Summary → Experience →
+  // Education → Certifications → Skills → Languages → Achievements → Projects → Interests →
+  // References, then custom sections). Each add*() reads/returns the running `y` cursor and
+  // skips itself when empty, so reordering the calls is the whole change.
+  const extrasCtx = makeExtrasCtx(doc);
+  y = renderSectionsInOrder(
+    data,
+    'classic',
+    extrasCtx,
+    {
+      summary: (yy) => addSummary(doc, data, yy),
+      experience: (yy) => addExperience(doc, data, yy),
+      education: (yy) => addEducation(doc, data, yy),
+      certifications: (yy) => addCertifications(doc, data, yy),
+      skills: (yy) => addSkills(doc, data, yy),
+      languages: (yy) => addLanguages(doc, data, yy),
+      achievements: (yy) => addAchievements(doc, data, yy),
+      projects: (yy) => addProjects(doc, data, yy),
+      interests: (yy) => addListSection(doc, buildExtrasPlan('classic', data).interests, yy, 'INTERESTS'),
+      references: (yy) => renderReferencesPdf(extrasCtx, buildExtrasPlan('classic', data), yy),
+    },
+    y
+  );
 
   return {
     doc,
@@ -1365,6 +1412,9 @@ function buildContactParts(
     parts.push(`${CONTACT_LABELS.github}${githubUrl.trim()}`);
   }
 
+  // Personal Info custom fields ("Label: Value"), after the standard contact items.
+  parts.push(...getPersonalCustomContactParts(personalInfo));
+
   return parts;
 }
 
@@ -1507,6 +1557,7 @@ function addExperience(doc: jsPDF, data: ClassicPdfData, startY: number): number
       y += EXPERIENCE_ENTRY_GAP;
     }
     y = addExperienceEntry(doc, exp, y, contentX, contentWidth);
+    y = renderMetaLinesClassic(doc, exp, y, contentX, contentWidth);
   });
 
   return y;
@@ -1528,6 +1579,12 @@ function hasUsableExperienceContent(exp: ClassicPdfExperience | null | undefined
   );
 }
 
+// Custom-field lines belong to the entry: they are part of what must stay together (and of what a
+// section heading must keep company with), so every caller of this estimate sees them automatically.
+function estimateExperienceEntryMinimumHeight(doc: jsPDF, item: any, ...rest: any[]): number {
+  return (estimateExperienceEntryMinimumHeightBase as any)(doc, item, ...rest) + getItemCustomLines(item).length * BODY_LINE_HEIGHT;
+}
+
 // Computes the exact minimum vertical space one Experience entry needs
 // (title + company + FULL wrapped bulleted description; the date sits
 // in its own column on the entry's first line and adds no height),
@@ -1546,7 +1603,7 @@ function hasUsableExperienceContent(exp: ClassicPdfExperience | null | undefined
 // WHOLE; an entry taller than a full page can never do that, so it is
 // reserved only up to its header plus first description line and its
 // remaining lines flow across pages (see keepTogetherHeight()).
-function estimateExperienceEntryMinimumHeight(
+function estimateExperienceEntryMinimumHeightBase(
   doc: jsPDF,
   exp: ClassicPdfExperience,
   contentWidth: number
@@ -1557,11 +1614,10 @@ function estimateExperienceEntryMinimumHeight(
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(BODY_SIZE);
-  const bulletIndent = computeBulletTextIndent(doc);
+  const bulletIndent = computeBulletTextIndent(doc, getDescriptionFormat(exp), description);
   const bulletWrapWidth = Math.max(MIN_WRAP_WIDTH_PT, contentWidth - bulletIndent);
   const descriptionLineCount = description
-    ? description
-        .split('\n')
+    ? descriptionRows(description, getDescriptionFormat(exp))
         .flatMap((rawLine) => {
           const trimmedLine = rawLine.trim().replace(/^[•\-*]\s*/, '');
           return trimmedLine ? doc.splitTextToSize(trimmedLine, bulletWrapWidth) : [];
@@ -1647,7 +1703,7 @@ function addExperienceEntry(
   // its marker regardless of font metrics.
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(BODY_SIZE);
-  const bulletIndent = computeBulletTextIndent(doc);
+  const bulletIndent = computeBulletTextIndent(doc, getDescriptionFormat(exp), description);
   const bulletWrapWidth = Math.max(MIN_WRAP_WIDTH_PT, contentWidth - bulletIndent);
 
   // The description textarea allows the user to type their own line
@@ -1658,8 +1714,7 @@ function addExperienceEntry(
   // isn't doubled. Continuation lines produced by wrapping keep the
   // marker's hanging indent but get no marker of their own.
   const descriptionBulletLines: { text: string; isStart: boolean }[] = description
-    ? description
-        .split('\n')
+    ? descriptionRows(description, getDescriptionFormat(exp))
         .flatMap((rawLine) => {
           const trimmedLine = rawLine.trim().replace(/^[•\-*]\s*/, '');
           if (!trimmedLine) {
@@ -1728,7 +1783,12 @@ function addExperienceEntry(
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(BODY_SIZE);
 
-    for (const item of descriptionBulletLines) {
+    const descFmt = getDescriptionFormat(exp);
+    const descJustify = descFmt === 'paragraph' && getDescriptionAlign(exp) === 'justify';
+    let descItemNo = 0;
+    for (let li = 0; li < descriptionBulletLines.length; li++) {
+      const item = descriptionBulletLines[li];
+      const isItemLast = li === descriptionBulletLines.length - 1 || descriptionBulletLines[li + 1].isStart;
       y = checkPageBreakClassic(doc, y, lineInkHeight(BODY_SIZE));
       if (item.isStart) {
         // BULLET DOT COLOR FIX: the dot reuses the same centralized
@@ -1740,10 +1800,17 @@ function addExperienceEntry(
         // color changes here; the bullet TEXT right after it keeps
         // COLOR_BODY on the very next line, unchanged.
         doc.setTextColor(...CLASSIC_SECTION_HEADING_COLOR);
-        doc.text(BULLET_MARKER, contentX, y);
+        {
+          const mk = getLineMarker(descFmt, descItemNo++);
+          if (mk) doc.text(mk, contentX, y);
+        }
       }
       doc.setTextColor(...COLOR_BODY);
-      doc.text(item.text, contentX + bulletIndent, y);
+      if (descJustify && !isItemLast) {
+        drawJustifiedLine(doc, item.text, contentX + bulletIndent, y, bulletWrapWidth);
+      } else {
+        doc.text(item.text, contentX + bulletIndent, y);
+      }
       y += BODY_LINE_HEIGHT;
     }
   }
@@ -1841,6 +1908,7 @@ function addEducation(doc: jsPDF, data: ClassicPdfData, startY: number): number 
       y += EXPERIENCE_ENTRY_GAP;
     }
     y = addEducationEntry(doc, edu, y);
+    y = renderMetaLinesClassic(doc, edu, y);
   });
 
   return y;
@@ -1860,6 +1928,12 @@ function hasUsableEducationContent(edu: ClassicPdfEducation | null | undefined):
   );
 }
 
+// Custom-field lines belong to the entry: they are part of what must stay together (and of what a
+// section heading must keep company with), so every caller of this estimate sees them automatically.
+function estimateEducationEntryMinimumHeight(doc: jsPDF, item: any, ...rest: any[]): number {
+  return (estimateEducationEntryMinimumHeightBase as any)(doc, item, ...rest) + getItemCustomLines(item).length * BODY_LINE_HEIGHT;
+}
+
 // Computes the exact minimum vertical space one Education entry needs
 // (degree + institution + year + FULL wrapped grade), without drawing
 // anything, measured from the entry's first baseline down to the ink
@@ -1871,7 +1945,7 @@ function hasUsableEducationContent(edu: ClassicPdfEducation | null | undefined):
 // the entry's own render can never disagree: it wraps every field at
 // the same width the render uses and mirrors, step for step, the
 // advances addEducationEntry() applies.
-function estimateEducationEntryMinimumHeight(doc: jsPDF, edu: ClassicPdfEducation): number {
+function estimateEducationEntryMinimumHeightBase(doc: jsPDF, edu: ClassicPdfEducation): number {
   const degree = (edu.degree || '').trim();
   const institution = (edu.institution || '').trim();
   const year = (edu.year || '').trim();
@@ -2160,7 +2234,11 @@ function addEducationEntry(
 // Returns the new Y position for whatever gets rendered next.
 // ====================================================================
 function addSkills(doc: jsPDF, data: ClassicPdfData, startY: number): number {
-  const skillsList = parseSkillsList(data.skills);
+  return addListSection(doc, parseSkillsList(data.skills), startY, 'SKILLS');
+}
+
+// Inline bullet-separated list section — Skills and Interests share it (only the heading differs).
+function addListSection(doc: jsPDF, skillsList: string[], startY: number, headingText: string): number {
 
   // Nothing to render — skip the section entirely rather than leaving
   // an empty heading or a blank gap.
@@ -2189,7 +2267,7 @@ function addSkills(doc: jsPDF, data: ClassicPdfData, startY: number): number {
   y = checkPageBreakClassic(doc, y, minimumSpaceNeeded);
 
   // --- Heading + divider (single source of truth, see renderSectionHeading()) ---
-  y = renderSectionHeading(doc, 'SKILLS', y, BODY_SIZE);
+  y = renderSectionHeading(doc, headingText, y, BODY_SIZE);
 
   // --- Wrapped skill list ---
   // Rendered one line at a time (same pattern as addSummary()) so a
@@ -2375,6 +2453,7 @@ function addLanguages(doc: jsPDF, data: ClassicPdfData, startY: number): number 
   // into the next language. ---
   languages.forEach((lang) => {
     y = addLanguageEntry(doc, lang, y);
+    y = renderMetaLinesClassic(doc, lang, y);
   });
 
   return y;
@@ -2416,6 +2495,12 @@ function getProficiencyDisplayLabel(proficiency: string): string {
 // layout math, gap, or coordinate elsewhere in this file.
 const LANGUAGE_NAME_LEVEL_SEPARATOR = ' — ';
 
+// Custom-field lines belong to the entry: they are part of what must stay together (and of what a
+// section heading must keep company with), so every caller of this estimate sees them automatically.
+function estimateLanguageEntryMinimumHeight(doc: jsPDF, item: any, ...rest: any[]): number {
+  return (estimateLanguageEntryMinimumHeightBase as any)(doc, item, ...rest) + getItemCustomLines(item).length * BODY_LINE_HEIGHT;
+}
+
 // Computes the exact minimum vertical space one Language entry needs
 // (the combined "Name — Level" line(s)), without drawing anything,
 // measured from the entry's first baseline down to the ink bottom of
@@ -2425,7 +2510,7 @@ const LANGUAGE_NAME_LEVEL_SEPARATOR = ' — ';
 // entry instead of a generic one-line guess — see the ROOT-CAUSE FIX
 // note on that guard. Single source of truth, so the estimate and the
 // entry's own render can never disagree.
-function estimateLanguageEntryMinimumHeight(doc: jsPDF, lang: ClassicPdfLanguage): number {
+function estimateLanguageEntryMinimumHeightBase(doc: jsPDF, lang: ClassicPdfLanguage): number {
   const language = (lang.language || '').trim();
   const proficiencyRaw = (lang.proficiency || '').trim();
   const proficiencyLabel = proficiencyRaw ? getProficiencyDisplayLabel(proficiencyRaw) : '';
@@ -2593,6 +2678,7 @@ function addAchievements(doc: jsPDF, data: ClassicPdfData, startY: number): numb
       y += EXPERIENCE_ENTRY_GAP;
     }
     y = addAchievementEntry(doc, ach, y);
+    y = renderMetaLinesClassic(doc, ach, y);
   });
 
   return y;
@@ -2626,6 +2712,12 @@ function hasUsableAchievementContent(ach: ClassicPdfAchievement | null | undefin
 // alongside the dot this file draws.
 const ACHIEVEMENT_BULLET_MARKER_PATTERN = /^[•\-*]\s*/;
 
+// Custom-field lines belong to the entry: they are part of what must stay together (and of what a
+// section heading must keep company with), so every caller of this estimate sees them automatically.
+function estimateAchievementEntryMinimumHeight(doc: jsPDF, item: any, ...rest: any[]): number {
+  return (estimateAchievementEntryMinimumHeightBase as any)(doc, item, ...rest) + getItemCustomLines(item).length * BODY_LINE_HEIGHT;
+}
+
 // Computes the exact minimum vertical space one Achievement entry
 // needs (title/date header + FULL wrapped bulleted description),
 // without drawing anything, measured from the entry's first baseline
@@ -2642,7 +2734,7 @@ const ACHIEVEMENT_BULLET_MARKER_PATTERN = /^[•\-*]\s*/;
 // WHOLE; an entry taller than a full page is reserved only up to its
 // header plus first description line and flows across pages (see
 // keepTogetherHeight()).
-function estimateAchievementEntryMinimumHeight(doc: jsPDF, ach: ClassicPdfAchievement): number {
+function estimateAchievementEntryMinimumHeightBase(doc: jsPDF, ach: ClassicPdfAchievement): number {
   const title = (ach.title || '').trim();
   const date = (ach.date || '').trim();
   const description = (ach.description || '').trim();
@@ -2672,11 +2764,10 @@ function estimateAchievementEntryMinimumHeight(doc: jsPDF, ach: ClassicPdfAchiev
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(BODY_SIZE);
-  const bulletIndent = computeBulletTextIndent(doc);
+  const bulletIndent = computeBulletTextIndent(doc, getDescriptionFormat(ach), description);
   const bulletWrapWidth = Math.max(MIN_WRAP_WIDTH_PT, CONTENT_WIDTH - bulletIndent);
   const descriptionLineCount = description
-    ? description
-        .split('\n')
+    ? descriptionRows(description, getDescriptionFormat(ach))
         .flatMap((rawLine) => {
           const trimmedLine = rawLine.trim().replace(ACHIEVEMENT_BULLET_MARKER_PATTERN, '');
           return trimmedLine ? doc.splitTextToSize(trimmedLine, bulletWrapWidth) : [];
@@ -2838,11 +2929,10 @@ function addAchievementEntry(
   // draws.
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(BODY_SIZE);
-  const bulletIndent = computeBulletTextIndent(doc);
+  const bulletIndent = computeBulletTextIndent(doc, getDescriptionFormat(ach), description);
   const bulletWrapWidth = Math.max(MIN_WRAP_WIDTH_PT, CONTENT_WIDTH - bulletIndent);
   const descriptionLines: { text: string; isStart: boolean }[] = description
-    ? description
-        .split('\n')
+    ? descriptionRows(description, getDescriptionFormat(ach))
         .flatMap((rawLine) => {
           const trimmedLine = rawLine.trim().replace(ACHIEVEMENT_BULLET_MARKER_PATTERN, '');
           if (!trimmedLine) {
@@ -2921,7 +3011,12 @@ function addAchievementEntry(
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(BODY_SIZE);
 
-    for (const item of descriptionLines) {
+    const descFmt = getDescriptionFormat(ach);
+    const descJustify = descFmt === 'paragraph' && getDescriptionAlign(ach) === 'justify';
+    let descItemNo = 0;
+    for (let li = 0; li < descriptionLines.length; li++) {
+      const item = descriptionLines[li];
+      const isItemLast = li === descriptionLines.length - 1 || descriptionLines[li + 1].isStart;
       y = checkPageBreakClassic(doc, y, lineInkHeight(BODY_SIZE));
       if (item.isStart) {
         // BULLET DOT COLOR: reuses the same centralized heading/accent
@@ -2930,12 +3025,19 @@ function addAchievementEntry(
         // renderSectionHeading()) — only the dot's color changes here;
         // the bullet text right after it keeps COLOR_BODY, unchanged.
         doc.setTextColor(...CLASSIC_SECTION_HEADING_COLOR);
-        doc.text(BULLET_MARKER, LEFT_MARGIN, y);
+        {
+          const mk = getLineMarker(descFmt, descItemNo++);
+          if (mk) doc.text(mk, LEFT_MARGIN, y);
+        }
       }
       doc.setTextColor(...COLOR_BODY);
       // Every item is a bullet now, so its text always sits past the
       // dot's hanging indent, exactly like Experience/Projects.
-      doc.text(item.text, LEFT_MARGIN + bulletIndent, y);
+      if (descJustify && !isItemLast) {
+        drawJustifiedLine(doc, item.text, LEFT_MARGIN + bulletIndent, y, bulletWrapWidth);
+      } else {
+        doc.text(item.text, LEFT_MARGIN + bulletIndent, y);
+      }
       y += BODY_LINE_HEIGHT;
     }
   }
@@ -3033,6 +3135,7 @@ function addCertifications(doc: jsPDF, data: ClassicPdfData, startY: number): nu
       y += EXPERIENCE_ENTRY_GAP;
     }
     y = addCertificationEntry(doc, cert, y);
+    y = renderMetaLinesClassic(doc, cert, y);
   });
 
   return y;
@@ -3109,6 +3212,12 @@ function layoutTitleWithRightAlignedDate(doc: jsPDF, title: string, date: string
   return { titleLines, dateLines, dateLineWidths, dateFirstLineWidth, dateSharesTitleLine, dateOnOwnLine };
 }
 
+// Custom-field lines belong to the entry: they are part of what must stay together (and of what a
+// section heading must keep company with), so every caller of this estimate sees them automatically.
+function estimateCertificationEntryMinimumHeight(doc: jsPDF, item: any, ...rest: any[]): number {
+  return (estimateCertificationEntryMinimumHeightBase as any)(doc, item, ...rest) + getItemCustomLines(item).length * BODY_LINE_HEIGHT;
+}
+
 // Computes the exact minimum vertical space one Certification entry
 // needs (name/date header + credential ID), without drawing anything,
 // measured from the entry's first baseline down to the ink bottom of
@@ -3119,7 +3228,7 @@ function layoutTitleWithRightAlignedDate(doc: jsPDF, title: string, date: string
 // ROOT-CAUSE FIX note on that guard. Single source of truth, so the
 // estimate and the entry's own render can never disagree: it mirrors,
 // step for step, the advances addCertificationEntry() applies.
-function estimateCertificationEntryMinimumHeight(doc: jsPDF, cert: ClassicPdfCertification): number {
+function estimateCertificationEntryMinimumHeightBase(doc: jsPDF, cert: ClassicPdfCertification): number {
   const name = (cert.name || '').trim();
   const date = (cert.date || '').trim();
   const credentialId = (cert.credentialId || '').trim();
@@ -3314,6 +3423,7 @@ function addProjects(doc: jsPDF, data: ClassicPdfData, startY: number): number {
       y += EXPERIENCE_ENTRY_GAP;
     }
     y = addProjectEntry(doc, project, y);
+    y = renderMetaLinesClassic(doc, project, y);
   });
 
   return y;
@@ -3333,6 +3443,12 @@ function hasUsableProjectContent(project: ClassicPdfProject | null | undefined):
   );
 }
 
+// Custom-field lines belong to the entry: they are part of what must stay together (and of what a
+// section heading must keep company with), so every caller of this estimate sees them automatically.
+function estimateProjectEntryMinimumHeight(doc: jsPDF, item: any, ...rest: any[]): number {
+  return (estimateProjectEntryMinimumHeightBase as any)(doc, item, ...rest) + getItemCustomLines(item).length * BODY_LINE_HEIGHT;
+}
+
 // Computes the exact minimum vertical space one Project entry needs
 // (name + tech + FULL wrapped bulleted description + github), without
 // drawing anything, measured from the entry's first baseline down to
@@ -3347,7 +3463,7 @@ function hasUsableProjectContent(project: ClassicPdfProject | null | undefined):
 // WHOLE; an entry taller than a full page is reserved only up to its
 // header plus first description line and flows across pages (see
 // keepTogetherHeight()).
-function estimateProjectEntryMinimumHeight(doc: jsPDF, project: ClassicPdfProject): number {
+function estimateProjectEntryMinimumHeightBase(doc: jsPDF, project: ClassicPdfProject): number {
   const name = (project.name || '').trim();
   const tech = (project.tech || '').trim();
   const description = (project.description || '').trim();
@@ -3363,11 +3479,10 @@ function estimateProjectEntryMinimumHeight(doc: jsPDF, project: ClassicPdfProjec
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(BODY_SIZE);
-  const bulletIndent = computeBulletTextIndent(doc);
+  const bulletIndent = computeBulletTextIndent(doc, getDescriptionFormat(project), description);
   const bulletWrapWidth = Math.max(MIN_WRAP_WIDTH_PT, CONTENT_WIDTH - bulletIndent);
   const descriptionLineCount = description
-    ? description
-        .split('\n')
+    ? descriptionRows(description, getDescriptionFormat(project))
         .flatMap((rawLine) => {
           const trimmedLine = rawLine.trim().replace(/^[•\-*]\s*/, '');
           return trimmedLine ? doc.splitTextToSize(trimmedLine, bulletWrapWidth) : [];
@@ -3469,11 +3584,10 @@ function addProjectEntry(
   // right margin.
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(BODY_SIZE);
-  const bulletIndent = computeBulletTextIndent(doc);
+  const bulletIndent = computeBulletTextIndent(doc, getDescriptionFormat(project), description);
   const bulletWrapWidth = Math.max(MIN_WRAP_WIDTH_PT, CONTENT_WIDTH - bulletIndent);
   const descriptionLines: { text: string; isStart: boolean }[] = description
-    ? description
-        .split('\n')
+    ? descriptionRows(description, getDescriptionFormat(project))
         .flatMap((rawLine) => {
           const trimmedLine = rawLine.trim().replace(/^[•\-*]\s*/, '');
           if (!trimmedLine) {
@@ -3553,7 +3667,12 @@ function addProjectEntry(
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(BODY_SIZE);
 
-    for (const item of descriptionLines) {
+    const descFmt = getDescriptionFormat(project);
+    const descJustify = descFmt === 'paragraph' && getDescriptionAlign(project) === 'justify';
+    let descItemNo = 0;
+    for (let li = 0; li < descriptionLines.length; li++) {
+      const item = descriptionLines[li];
+      const isItemLast = li === descriptionLines.length - 1 || descriptionLines[li + 1].isStart;
       y = checkPageBreakClassic(doc, y, lineInkHeight(BODY_SIZE));
       if (item.isStart) {
         // BULLET DOT COLOR: reuses the same centralized heading/accent
@@ -3562,10 +3681,17 @@ function addProjectEntry(
         // renderSectionHeading()) — only the dot's color changes here;
         // the bullet text right after it keeps COLOR_BODY, unchanged.
         doc.setTextColor(...CLASSIC_SECTION_HEADING_COLOR);
-        doc.text(BULLET_MARKER, LEFT_MARGIN, y);
+        {
+          const mk = getLineMarker(descFmt, descItemNo++);
+          if (mk) doc.text(mk, LEFT_MARGIN, y);
+        }
       }
       doc.setTextColor(...COLOR_BODY);
-      doc.text(item.text, LEFT_MARGIN + bulletIndent, y);
+      if (descJustify && !isItemLast) {
+        drawJustifiedLine(doc, item.text, LEFT_MARGIN + bulletIndent, y, bulletWrapWidth);
+      } else {
+        doc.text(item.text, LEFT_MARGIN + bulletIndent, y);
+      }
       y += BODY_LINE_HEIGHT;
     }
 
@@ -3603,6 +3729,90 @@ function addProjectEntry(
   y = topUpToLineHeight(y, lastLineFontSize);
 
   return y;
+}
+
+// ====================================================================
+// EXTRAS (custom sections / references / custom fields) — Classic look.
+// A custom entry is drawn like an Achievement / Certification entry: title + right-aligned
+// date, optional subtitle line, bullet description, then "Label: Value" lines.
+// ====================================================================
+function renderMetaLinesClassic(
+  doc: jsPDF,
+  item: { customFields?: any[] } | null | undefined,
+  startY: number,
+  x: number = LEFT_MARGIN,
+  width: number = CONTENT_WIDTH
+): number {
+  const lines = getItemCustomLines(item);
+  return lines.length === 0 ? startY : drawMetaLines(doc, lines, startY, x, width);
+}
+
+function drawMetaLines(doc: jsPDF, lines: string[], startY: number, x: number, width: number): number {
+  let y = startY;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(EXPERIENCE_SUBTITLE_SIZE);
+  doc.setTextColor(...COLOR_METADATA);
+  for (const raw of lines) {
+    const wrapped: string[] = doc.splitTextToSize(raw, Math.max(MIN_WRAP_WIDTH_PT, width));
+    for (const line of wrapped) {
+      y = checkPageBreakClassic(doc, y, lineInkHeight(EXPERIENCE_SUBTITLE_SIZE));
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(EXPERIENCE_SUBTITLE_SIZE);
+      doc.setTextColor(...COLOR_METADATA);
+      doc.text(line, x, y);
+      y += BODY_LINE_HEIGHT;
+    }
+  }
+  return y;
+}
+
+function makeExtrasCtx(doc: jsPDF): ExtrasPdfCtx {
+  const hasHeader = (e: NormalizedEntry) => !!(e.title || e.date);
+  return {
+    beginSection(title, startY, firstEntry) {
+      let y = startY + SECTION_GAP;
+      const firstHBase = firstEntry
+        ? estimateAchievementEntryMinimumHeight(doc, {
+            title: firstEntry.title,
+            date: firstEntry.date,
+            description: firstEntry.subtitle ? '' : firstEntry.description,
+            descriptionFormat: firstEntry.descriptionFormat,
+            descriptionAlign: firstEntry.descriptionAlign,
+          })
+        : lineInkHeight(BODY_SIZE);
+      const firstH = firstHBase + (firstEntry ? firstEntry.metaLines.length * BODY_LINE_HEIGHT : 0);
+      y = checkPageBreakClassic(doc, y, sectionHeadingToContentOffset(EXPERIENCE_TITLE_SIZE) + firstH);
+      return renderSectionHeading(doc, title.toUpperCase(), y, EXPERIENCE_TITLE_SIZE);
+    },
+    entryGap: () => EXPERIENCE_ENTRY_GAP,
+    renderEntry(entry, startY) {
+      let y = startY;
+      if (entry.subtitle) {
+        y = addCertificationEntry(doc, { name: entry.title, date: entry.date, credentialId: entry.subtitle }, y);
+        if (entry.description) y = addAchievementEntry(doc, { title: '', date: '', description: entry.description, descriptionFormat: entry.descriptionFormat, descriptionAlign: entry.descriptionAlign }, y);
+      } else if (hasHeader(entry) || entry.description) {
+        y = addAchievementEntry(doc, { title: entry.title, date: entry.date, description: entry.description, descriptionFormat: entry.descriptionFormat, descriptionAlign: entry.descriptionAlign }, y);
+      }
+      if (entry.metaLines.length > 0) y = drawMetaLines(doc, entry.metaLines, y, LEFT_MARGIN, CONTENT_WIDTH);
+      return y;
+    },
+    renderParagraph(text, startY) {
+      let y = startY;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(BODY_SIZE);
+      doc.setTextColor(...COLOR_BODY);
+      const lines: string[] = doc.splitTextToSize(text, CONTENT_WIDTH);
+      for (const line of lines) {
+        y = checkPageBreakClassic(doc, y, lineInkHeight(BODY_SIZE));
+        doc.text(line, LEFT_MARGIN, y);
+        y += BODY_LINE_HEIGHT;
+      }
+      return y;
+    },
+    renderMetaLines(lines, startY) {
+      return drawMetaLines(doc, lines, startY, LEFT_MARGIN, CONTENT_WIDTH);
+    },
+  };
 }
 
 // ====================================================================

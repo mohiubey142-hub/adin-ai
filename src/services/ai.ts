@@ -3,14 +3,10 @@
 // COMPLETE CODING ASSISTANT + TEACHER + MENTOR
 // ============================================
 
-import { createClient } from '@supabase/supabase-js';
-
-// ============================================
-// SUPABASE INITIALIZATION (Optional - for caching)
-// ============================================
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
+// ✅ SINGLE SUPABASE CLIENT (fix): pehle yeh file apna `createClient()` banati thi →
+//    ek aur GoTrueClient → token refresh 429 → automatic logout.
+//    Ab `services/sync/supabaseClient.ts` ka singleton use hota hai. Koi naya client nahi banta.
+import { supabase } from './sync/supabaseClient';
 
 // ============================================
 // API KEYS FROM .ENV

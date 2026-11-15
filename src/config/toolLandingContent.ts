@@ -3,13 +3,6 @@
 // toolLandingContent.ts — PUBLIC SEO LANDING PAGES (content only)
 //   /free-cv-builder
 //   /free-cover-letter-generator
-//
-// ⚠️ Yeh sirf DATA hai (koi JSX/React nahi) — taake
-//    1) src/pages/ToolLandingPage.tsx isse render kare, aur
-//    2) scripts/prerender.mjs build ke waqt isi se static HTML bana sake.
-//
-// Text sirf wahi claims karta hai jo site par pehle se hain
-// (free, no signup, PDF/PNG/TXT, ATS-friendly templates, AI writing help).
 // ============================================================
 
 import { canonicalFor } from './site';
@@ -17,9 +10,7 @@ import { canonicalFor } from './site';
 export interface ToolLandingContent {
   slug: 'free-cv-builder' | 'free-cover-letter-generator';
   path: string;
-  /** key in SEO_PAGES (seoPages.ts) */
   seoKey: string;
-  /** primary CTA: CV flow ya Cover Letter flow */
   ctaTarget: 'cv' | 'cover-letter';
   breadcrumb: string;
   eyebrow: string;
@@ -28,7 +19,6 @@ export interface ToolLandingContent {
   ctaLabel: string;
   ctaNote: string;
   highlights: string[];
-  /** Hero fan: 5 template previews [leftBack, rightBack, midLeft, midRight, center] */
   fan: { src: string; alt: string; pill?: string }[];
   galleryTitle: string;
   gallerySubtitle: string;
@@ -61,15 +51,14 @@ export const TOOL_LANDING_CONTENT: Record<
     seoKey: 'free-cv-builder',
     ctaTarget: 'cv',
     breadcrumb: 'CV Builder',
-    eyebrow: '100% free · No signup',
+    eyebrow: 'Completely free to use', // ✅ UPDATED
     h1: 'Free CV Builder: Create a Professional, ATS-Friendly CV Online',
     intro:
-      'Adin AI is a 100% free CV builder with AI-powered writing help and a growing library of professional templates. Choose a design, fill in your details and download your CV as PDF, PNG or TXT — no signup and no credit card.',
+      'Adin AI is a free CV builder with AI-powered writing help and a growing library of professional templates. Choose a design, fill in your details and download your CV as PDF, PNG or TXT.',
     ctaLabel: 'Build My CV',
-    ctaNote: 'Free · No credit card · No watermark',
+    ctaNote: 'It\'s completely free · No watermark',
     highlights: [
-      '100% free',
-      'No signup',
+      'Completely free', // ✅ UPDATED
       'ATS-friendly templates',
       'PDF, PNG & TXT download',
       'AI writing help',
@@ -117,8 +106,8 @@ export const TOOL_LANDING_CONTENT: Record<
         text: 'Export your finished CV as a PDF, PNG or TXT file in one click.',
       },
       {
-        title: 'No signup, no hidden charges',
-        text: 'Start building right away. All features are free — no credit card and no watermark on your CV.',
+        title: 'Completely free to use', // ✅ UPDATED
+        text: 'Start building right away. 100% free with no watermark on your CV.', // ✅ UPDATED
       },
       {
         title: 'Secure and private',
@@ -148,11 +137,7 @@ export const TOOL_LANDING_CONTENT: Record<
     faqs: [
       {
         q: 'Is the Adin AI CV builder really free?',
-        a: 'Yes. Adin AI is 100% free — there is no credit card, no hidden charges and no watermark.',
-      },
-      {
-        q: 'Do I need to sign up to build a CV?',
-        a: 'No signup is required to start building your CV.',
+        a: 'Yes. You can build your CV for free right now — there are no hidden charges and no watermark.',
       },
       {
         q: 'Are the CV templates ATS-friendly?',
@@ -193,15 +178,14 @@ export const TOOL_LANDING_CONTENT: Record<
     seoKey: 'free-cover-letter-generator',
     ctaTarget: 'cover-letter',
     breadcrumb: 'Cover Letter',
-    eyebrow: '100% free · No signup',
+    eyebrow: 'Completely free to use', // ✅ UPDATED
     h1: 'Free Cover Letter Generator: Write a Professional Cover Letter in Seconds',
     intro:
-      'Adin AI is a free AI cover letter generator. Add your details, get a clear and professional draft in seconds, then edit it so it sounds like you. No signup and no credit card.',
+      'Adin AI is a free AI cover letter generator. Add your details, get a clear and professional draft in seconds, then edit it so it sounds like you.',
     ctaLabel: 'Write My Cover Letter',
-    ctaNote: 'Free · No credit card · No watermark',
+    ctaNote: 'It\'s completely free · No watermark',
     highlights: [
-      '100% free',
-      'No signup',
+      'Completely free', // ✅ UPDATED
       'Editable AI draft',
       'Professional designs',
       'Instant download',
@@ -249,8 +233,8 @@ export const TOOL_LANDING_CONTENT: Record<
         text: 'A good cover letter has a clear introduction, a body about the value you bring and a polite closing, kept to one page.',
       },
       {
-        title: 'Free to use',
-        text: 'No signup, no credit card and no watermark on your cover letter.',
+        title: 'Completely free to use', // ✅ UPDATED
+        text: 'Start writing instantly with no watermark on your cover letter.', // ✅ UPDATED
       },
       {
         title: 'Works with your CV',
@@ -280,11 +264,7 @@ export const TOOL_LANDING_CONTENT: Record<
     faqs: [
       {
         q: 'Is the cover letter generator free?',
-        a: 'Yes. It is 100% free — there is no credit card, no hidden charges and no watermark.',
-      },
-      {
-        q: 'Do I need an account to use it?',
-        a: 'No signup is required to start writing your cover letter.',
+        a: 'Yes. You can write your cover letter for free right now — there are no hidden charges and no watermark.',
       },
       {
         q: 'Can I edit the cover letter the AI writes?',
@@ -317,7 +297,7 @@ export const TOOL_LANDING_CONTENT: Record<
 };
 
 // ─────────────────────────────────────────────
-// JSON-LD (FAQPage + BreadcrumbList) — component aur prerender dono use karte hain
+// JSON-LD (FAQPage + BreadcrumbList)
 // ─────────────────────────────────────────────
 export const buildToolLandingSchema = (c: ToolLandingContent) => ({
   '@context': 'https://schema.org',

@@ -17,6 +17,15 @@
 import React, { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { CVPreviewProps } from '../types/previewTypes';
 import { safeText } from '../utils/renderHelpers';
+import {
+    buildExtrasPlan,
+    getItemCustomLines,
+    getPersonalCustomContactParts,
+    REFERENCES_ON_REQUEST_TEXT,
+    type NormalizedEntry,
+} from '../../utils/extrasModel';
+import { getDescriptionAlign, getDescriptionFormat, getMarkerIndent, parseDescriptionLines } from '../../utils/descriptionFormat';
+import type { DescriptionFormat } from '../../types/cvExtraTypes';
 
 // ====================================================================
 // PAGE (A4, same numbers as atsProPdf.ts)
@@ -509,6 +518,12 @@ const parseBulletLines = (text?: string): string[] =>
         })
         .filter(Boolean);
 
+// Description format helpers (bullets = original behaviour; numbered / paragraph via the shared helper).
+const parseDescription = (text: string | undefined, fmt: DescriptionFormat): string[] =>
+    fmt === 'bullets' ? parseBulletLines(text) : parseDescriptionLines(text).map((l) => txt(l)).filter(Boolean);
+const descIndent = (fmt: DescriptionFormat, count: number) =>
+    getMarkerIndent(fmt, count, BODY_SIZE, BULLET_DOT_TO_TEXT_GAP);
+
 interface EntryDef {
     first: M;
     last: M;
@@ -688,7 +703,9 @@ const Section: React.FC<{
     );
 };
 
-const BulletList: React.FC<{ lines: string[] }> = ({ lines }) => (
+const BulletList: React.FC<{ lines: string[]; format?: DescriptionFormat; align?: 'left' | 'justify' }> = ({ lines, format = 'bullets', align = 'left' }) => {
+    const indent = descIndent(format, lines.length);
+    return (
     <div>
         {lines.map((line, i) => (
             <div
@@ -700,14 +717,17 @@ const BulletList: React.FC<{ lines: string[] }> = ({ lines }) => (
                     color: COLOR_BODY
                 }}
             >
-                <span style={{ flexShrink: 0, width: pt(BULLET_DOT_TO_TEXT_GAP), color: COLOR_BULLET }}>
-                    {BULLET_MARKER}
-                </span>
-                <span style={{ minWidth: 0, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{line}</span>
+                {format !== 'paragraph' && (
+                    <span style={{ flexShrink: 0, width: pt(indent), color: COLOR_BULLET }}>
+                        {format === 'numbered' ? `${i + 1}.` : BULLET_MARKER}
+                    </span>
+                )}
+                <span style={{ minWidth: 0, wordBreak: 'break-word', overflowWrap: 'anywhere', ...(align === 'justify' ? { textAlign: 'justify' as const } : {}) }}>{line}</span>
             </div>
         ))}
     </div>
-);
+    );
+};
 
 const TitleDateRow: React.FC<{ title?: string; date?: string }> = ({ title, date }) => (
     <div
@@ -858,6 +878,7 @@ const ATSProTemplate: React.FC<CVPreviewProps> = (props) => {
     if (clean(pi?.github)) contactParts.push(`GitHub: ${clean(pi.github)}`);
     const webLink = clean(pi?.website) || clean(pi?.portfolio);
     if (webLink) contactParts.push(`Portfolio URL: ${webLink}`);
+    getPersonalCustomContactParts(pi).forEach((p) => contactParts.push(p));
     const contactItems = contactParts.map((p) => stripEmojis(safeText(p))).filter(Boolean);
 
     const layout = getHeaderLayout(hasPhoto, hasTitle);
@@ -874,6 +895,35 @@ const ATSProTemplate: React.FC<CVPreviewProps> = (props) => {
         body: React.ReactNode;
     }
     const sections: SectionDef[] = [];
+    const plan = buildExtrasPlan('ats-pro', props);
+
+    // Custom fields of an item: one "Label: Value" line each, body-line spaced, printed after the entry.
+    const withMeta = (e: EntryDef, lines: string[]): EntryDef => {
+        if (!lines || lines.length === 0) return e;
+        return {
+            first: e.first,
+            last: M_SUB,
+            pen: penalty(lastLineOf(lines[lines.length - 1], W, ENTRY_SUB_SIZE), ENTRY_SUB_SIZE),
+            content: (
+                <>
+                    {e.content}
+                    {lines.map((line, i) => (
+                        <div
+                            key={`m${i}`}
+                            style={{
+                                marginTop: pt(inner(i === 0 ? e.last : M_SUB, M_SUB, BODY_LINE_HEIGHT - (i === 0 ? e.last.F : M_SUB.F))),
+                                ...subLineStyle(COLOR_BODY)
+                            }}
+                        >
+                            {line}
+                        </div>
+                    ))}
+                </>
+            )
+        };
+    };
+    const withCustom = <T extends { custom?: string[] }>(fn: (e: T) => EntryDef) => (e: T): EntryDef =>
+        withMeta(fn(e), e.custom || []);
 
     const summaryText = (professionalSummary || '')
         .split('\n')
@@ -918,14 +968,16 @@ const ATSProTemplate: React.FC<CVPreviewProps> = (props) => {
     };
 
     const experienceEntries: EntryDef[] = (experiences || [])
-        .map((exp: any) => ({
+        .map((exp: any) => ({ custom: getItemCustomLines(exp),
             title: txt(exp?.title),
             company: txt(exp?.company),
             dateRange: [txt(exp?.startDate), txt(exp?.endDate)].filter(Boolean).join(DATE_RANGE_SEPARATOR),
-            bullets: parseBulletLines(exp?.description)
+            fmt: getDescriptionFormat(exp),
+            al: getDescriptionAlign(exp),
+            bullets: parseDescription(exp?.description, getDescriptionFormat(exp))
         }))
         .filter((e) => e.title || e.company || e.dateRange || e.bullets.length > 0)
-        .map((e) => {
+        .map(withCustom((e) => {
             const hasTitleRow = !!(e.title || e.dateRange);
             const rowM = e.title ? M_TITLE : M_SUB;
             const hasHeader = hasTitleRow || !!e.company;
@@ -935,7 +987,7 @@ const ATSProTemplate: React.FC<CVPreviewProps> = (props) => {
             let lastText: string;
             if (e.bullets.length > 0) {
                 last = M_BODY;
-                lastText = lastLineOf(e.bullets[e.bullets.length - 1], W - BULLET_DOT_TO_TEXT_GAP, BODY_SIZE);
+                lastText = lastLineOf(e.bullets[e.bullets.length - 1], W - descIndent(e.fmt, e.bullets.length), BODY_SIZE);
             } else if (e.company) {
                 last = M_SUB;
                 lastText = e.company;
@@ -972,13 +1024,13 @@ const ATSProTemplate: React.FC<CVPreviewProps> = (props) => {
                                     )
                                 }}
                             >
-                                <BulletList lines={e.bullets} />
+                                <BulletList lines={e.bullets} format={e.fmt} align={e.al} />
                             </div>
                         )}
                     </>
                 )
             };
-        });
+        }));
     if (experienceEntries.length > 0) {
         const lastE = experienceEntries[experienceEntries.length - 1];
         sections.push({
@@ -993,14 +1045,14 @@ const ATSProTemplate: React.FC<CVPreviewProps> = (props) => {
     }
 
     const educationEntries: EntryDef[] = (educations || [])
-        .map((edu: any) => ({
+        .map((edu: any) => ({ custom: getItemCustomLines(edu),
             degree: txt(edu?.degree),
             institution: txt(edu?.institution),
             year: txt(edu?.year),
             grade: txt(edu?.grade)
         }))
         .filter((e) => e.degree || e.institution || e.year || e.grade)
-        .map((e) => {
+        .map(withCustom((e) => {
             const hasRow = !!(e.degree || e.year);
             const rowM = e.degree ? M_TITLE : M_SUB;
             const first = hasRow ? rowM : M_SUB;
@@ -1050,7 +1102,7 @@ const ATSProTemplate: React.FC<CVPreviewProps> = (props) => {
                     </>
                 )
             };
-        });
+        }));
     if (educationEntries.length > 0) {
         const lastE = educationEntries[educationEntries.length - 1];
         sections.push({
@@ -1065,13 +1117,13 @@ const ATSProTemplate: React.FC<CVPreviewProps> = (props) => {
     }
 
     const certificationEntries: EntryDef[] = (certifications || [])
-        .map((c: any) => ({
+        .map((c: any) => ({ custom: getItemCustomLines(c),
             name: txt(c?.name),
             date: txt(c?.date),
             credentialId: txt(c?.credentialId)
         }))
         .filter((c) => c.name || c.date || c.credentialId)
-        .map((c) => {
+        .map(withCustom((c) => {
             const hasRow = !!(c.name || c.date);
             const rowM = c.name ? M_TITLE : M_SUB;
             const first = hasRow ? rowM : M_SUB;
@@ -1104,7 +1156,7 @@ const ATSProTemplate: React.FC<CVPreviewProps> = (props) => {
                     </>
                 )
             };
-        });
+        }));
     if (certificationEntries.length > 0) {
         const lastE = certificationEntries[certificationEntries.length - 1];
         sections.push({
@@ -1118,7 +1170,7 @@ const ATSProTemplate: React.FC<CVPreviewProps> = (props) => {
         });
     }
 
-    const skillsList = parseSkillsList(skills);
+    const pushListSection = (sectionKey: string, sectionTitle: string, skillsList: string[]) => {
     if (skillsList.length > 0) {
         const halfCount = Math.ceil(skillsList.length / 2);
         const leftSkills = skillsList.slice(0, halfCount);
@@ -1160,8 +1212,8 @@ const ATSProTemplate: React.FC<CVPreviewProps> = (props) => {
         );
 
         sections.push({
-            key: 'skills',
-            title: 'SKILLS',
+            key: sectionKey,
+            title: sectionTitle,
             offsetFont: BODY_SIZE,
             first: M_BODY,
             last: M_BODY,
@@ -1186,11 +1238,14 @@ const ATSProTemplate: React.FC<CVPreviewProps> = (props) => {
             )
         });
     }
+    };
+    pushListSection('skills', 'SKILLS', parseSkillsList(skills));
+    pushListSection('interests', 'INTERESTS', plan.interests.map((x) => txt(x)).filter(Boolean));
 
     const languageEntries: EntryDef[] = (languages || [])
-        .map((l: any) => ({ language: txt(l?.language), proficiency: txt(l?.proficiency) }))
+        .map((l: any) => ({ custom: getItemCustomLines(l), language: txt(l?.language), proficiency: txt(l?.proficiency) }))
         .filter((l) => l.language || l.proficiency)
-        .map((l) => {
+        .map(withCustom((l) => {
             const level = l.proficiency ? getProficiencyDisplayLabel(l.proficiency) : '';
             const levelPart = level ? `${LANGUAGE_NAME_LEVEL_SEPARATOR}${level}` : '';
             const combined = `${l.language}${levelPart}`;
@@ -1233,7 +1288,7 @@ const ATSProTemplate: React.FC<CVPreviewProps> = (props) => {
                     </div>
                 )
             };
-        });
+        }));
     if (languageEntries.length > 0) {
         const lastE = languageEntries[languageEntries.length - 1];
         sections.push({
@@ -1248,13 +1303,15 @@ const ATSProTemplate: React.FC<CVPreviewProps> = (props) => {
     }
 
     const achievementEntries: EntryDef[] = (achievements || [])
-        .map((a: any) => ({
+        .map((a: any) => ({ custom: getItemCustomLines(a),
             title: txt(a?.title),
             date: txt(a?.date),
-            bullets: parseBulletLines(a?.description)
+            fmt: getDescriptionFormat(a),
+            al: getDescriptionAlign(a),
+            bullets: parseDescription(a?.description, getDescriptionFormat(a))
         }))
         .filter((a) => a.title || a.date || a.bullets.length > 0)
-        .map((a) => {
+        .map(withCustom((a) => {
             const hasRow = !!(a.title || a.date);
             const rowM = a.title ? M_TITLE : M_SUB;
             const first = hasRow ? rowM : M_BODY;
@@ -1263,7 +1320,7 @@ const ATSProTemplate: React.FC<CVPreviewProps> = (props) => {
             let lastText: string | undefined;
             if (a.bullets.length > 0) {
                 last = M_BODY;
-                lastText = lastLineOf(a.bullets[a.bullets.length - 1], W - BULLET_DOT_TO_TEXT_GAP, BODY_SIZE);
+                lastText = lastLineOf(a.bullets[a.bullets.length - 1], W - descIndent(a.fmt, a.bullets.length), BODY_SIZE);
             } else if (hasRow) {
                 last = rowM;
                 lastText = a.title ? `${titleRowLastLine(a.title, a.date)}${a.date}` : a.date;
@@ -1281,13 +1338,13 @@ const ATSProTemplate: React.FC<CVPreviewProps> = (props) => {
                         {hasRow && <TitleDateRow title={a.title} date={a.date} />}
                         {a.bullets.length > 0 && (
                             <div style={{ marginTop: pt(hasRow ? inner(rowM, M_BODY, SUB_TO_DESC_GAP) : 0) }}>
-                                <BulletList lines={a.bullets} />
+                                <BulletList lines={a.bullets} format={a.fmt} align={a.al} />
                             </div>
                         )}
                     </>
                 )
             };
-        });
+        }));
     if (achievementEntries.length > 0) {
         const lastE = achievementEntries[achievementEntries.length - 1];
         sections.push({
@@ -1302,14 +1359,16 @@ const ATSProTemplate: React.FC<CVPreviewProps> = (props) => {
     }
 
     const projectEntries: EntryDef[] = (projects || [])
-        .map((p: any) => ({
+        .map((p: any) => ({ custom: getItemCustomLines(p),
             name: txt(p?.name),
             tech: txt(p?.tech),
-            bullets: parseBulletLines(p?.description),
+            fmt: getDescriptionFormat(p),
+            al: getDescriptionAlign(p),
+            bullets: parseDescription(p?.description, getDescriptionFormat(p)),
             github: clean(p?.github)
         }))
         .filter((p) => p.name || p.tech || p.bullets.length > 0 || p.github)
-        .map((p) => {
+        .map(withCustom((p) => {
             type Block = { m: M; node: React.ReactNode; kind: 'name' | 'tech' | 'desc' | 'github' };
             const blocks: Block[] = [];
             if (p.name) {
@@ -1336,7 +1395,7 @@ const ATSProTemplate: React.FC<CVPreviewProps> = (props) => {
                 blocks.push({ kind: 'tech', m: M_SUB, node: <div style={subLineStyle(COLOR_BODY)}>{p.tech}</div> });
             }
             if (p.bullets.length > 0) {
-                blocks.push({ kind: 'desc', m: M_BODY, node: <BulletList lines={p.bullets} /> });
+                blocks.push({ kind: 'desc', m: M_BODY, node: <BulletList lines={p.bullets} format={p.fmt} align={p.al} /> });
             }
             if (p.github) {
                 const isUrl = /^https?:\/\//i.test(p.github);
@@ -1362,7 +1421,7 @@ const ATSProTemplate: React.FC<CVPreviewProps> = (props) => {
             let lastText: string;
             if (lastBlock.kind === 'github') lastText = lastLineOf(p.github, W, ENTRY_SUB_SIZE);
             else if (lastBlock.kind === 'desc')
-                lastText = lastLineOf(p.bullets[p.bullets.length - 1], W - BULLET_DOT_TO_TEXT_GAP, BODY_SIZE);
+                lastText = lastLineOf(p.bullets[p.bullets.length - 1], W - descIndent(p.fmt, p.bullets.length), BODY_SIZE);
             else if (lastBlock.kind === 'tech') lastText = lastLineOf(p.tech, W, ENTRY_SUB_SIZE);
             else lastText = lastLineOf(p.name, W, ENTRY_TITLE_SIZE, true);
 
@@ -1383,7 +1442,7 @@ const ATSProTemplate: React.FC<CVPreviewProps> = (props) => {
                     </>
                 )
             };
-        });
+        }));
     if (projectEntries.length > 0) {
         const lastE = projectEntries[projectEntries.length - 1];
         sections.push({
@@ -1396,6 +1455,123 @@ const ATSProTemplate: React.FC<CVPreviewProps> = (props) => {
             body: <div>{renderEntryList(projectEntries, ENTRY_GAP)}</div>
         });
     }
+
+    // ---- Custom sections + References (same entry look as Achievements, plus subtitle / custom-field lines) ----
+    const normalizedEntryDef = (e: NormalizedEntry): EntryDef => {
+        const title = txt(e.title);
+        const date = txt(e.date);
+        const subtitle = txt(e.subtitle);
+        const fmt = getDescriptionFormat(e);
+        const al = getDescriptionAlign(e);
+        const bullets = parseDescription(e.description, fmt);
+        const meta = e.metaLines.map((l) => txt(l)).filter(Boolean);
+        const hasRow = !!(title || date);
+        const rowM = title ? M_TITLE : M_SUB;
+
+        type Blk = { m: M; node: React.ReactNode; last: string; lastF: number };
+        const blocks: Blk[] = [];
+        let gaps: number[] = [];
+        if (hasRow) {
+            blocks.push({ m: rowM, node: <TitleDateRow title={title} date={date} />, last: title ? `${titleRowLastLine(title, date)}${date}` : date, lastF: rowM.F });
+            gaps.push(0);
+        }
+        if (subtitle) {
+            blocks.push({ m: M_SUB, node: <div style={subLineStyle(COLOR_BODY)}>{subtitle}</div>, last: lastLineOf(subtitle, W, ENTRY_SUB_SIZE), lastF: ENTRY_SUB_SIZE });
+            gaps.push(hasRow ? TITLE_TO_SUB_GAP : 0);
+        }
+        if (bullets.length > 0) {
+            blocks.push({ m: M_BODY, node: <BulletList lines={bullets} format={fmt} align={al} />, last: lastLineOf(bullets[bullets.length - 1], W - descIndent(fmt, bullets.length), BODY_SIZE), lastF: BODY_SIZE });
+            gaps.push(blocks.length > 1 ? SUB_TO_DESC_GAP : 0);
+        }
+        meta.forEach((line) => {
+            const prev = blocks[blocks.length - 1];
+            blocks.push({ m: M_SUB, node: <div style={subLineStyle(COLOR_BODY)}>{line}</div>, last: lastLineOf(line, W, ENTRY_SUB_SIZE), lastF: ENTRY_SUB_SIZE });
+            gaps.push(prev ? BODY_LINE_HEIGHT - prev.m.F : 0);
+        });
+        if (blocks.length === 0) {
+            return { first: M_BODY, last: M_BODY, pen: penalty(undefined, BODY_SIZE), content: null };
+        }
+        const lastB = blocks[blocks.length - 1];
+        return {
+            first: blocks[0].m,
+            last: lastB.m,
+            pen: penalty(lastB.last, lastB.lastF),
+            content: (
+                <>
+                    {blocks.map((b, i) => (
+                        <div key={i} style={{ marginTop: pt(i === 0 ? 0 : inner(blocks[i - 1].m, b.m, gaps[i])) }}>
+                            {b.node}
+                        </div>
+                    ))}
+                </>
+            )
+        };
+    };
+
+    const pushEntrySection = (sectionKey: string, sectionTitle: string, entries: NormalizedEntry[]) => {
+        const defs = entries.map(normalizedEntryDef);
+        if (defs.length === 0) return;
+        const lastE = defs[defs.length - 1];
+        sections.push({
+            key: sectionKey,
+            title: sectionTitle.toUpperCase(),
+            offsetFont: ENTRY_TITLE_SIZE,
+            first: defs[0].first,
+            last: lastE.last,
+            pen: lastE.pen,
+            body: <div>{renderEntryList(defs, ENTRY_GAP)}</div>
+        });
+    };
+
+    plan.customSections.forEach((cs) => {
+        pushEntrySection(
+            `custom:${cs.id}`,
+            cs.title,
+            cs.entries.map((e) => ({
+                title: e.title || '',
+                subtitle: e.subtitle || '',
+                date: e.date || '',
+                description: e.description || '',
+                descriptionFormat: getDescriptionFormat(e),
+                descriptionAlign: getDescriptionAlign(e),
+                metaLines: getItemCustomLines(e)
+            }))
+        );
+    });
+
+    if (plan.referenceEntries.length > 0) {
+        pushEntrySection('references', 'References', plan.referenceEntries);
+    } else if (plan.references.availableOnRequest) {
+        sections.push({
+            key: 'references',
+            title: 'REFERENCES',
+            offsetFont: BODY_SIZE,
+            first: M_BODY,
+            last: M_BODY,
+            pen: penalty(REFERENCES_ON_REQUEST_TEXT, BODY_SIZE),
+            body: (
+                <p
+                    {...unit('flow', M_BODY)}
+                    style={{
+                        margin: 0,
+                        padding: 0,
+                        width: '100%',
+                        fontSize: pt(BODY_SIZE),
+                        lineHeight: pt(BODY_LINE_HEIGHT),
+                        color: COLOR_BODY
+                    }}
+                >
+                    {REFERENCES_ON_REQUEST_TEXT}
+                </p>
+            )
+        });
+    }
+
+    // ---- Order + hide/show (from the Section Order panel; default = this template's own order) ----
+    const orderIndex = new Map(plan.order.map((id, i) => [id, i] as const));
+    const orderedSections = sections
+        .filter((s) => orderIndex.has(s.key))
+        .sort((x, y) => orderIndex.get(x.key)! - orderIndex.get(y.key)!);
 
     useEffect(() => {
         let alive = true;
@@ -1622,11 +1798,11 @@ const ATSProTemplate: React.FC<CVPreviewProps> = (props) => {
                     transformOrigin: 'top left'
                 }}
             >
-                {sections.map((s, i) => {
+                {orderedSections.map((s, i) => {
                     const marginTop =
                         i === 0
                             ? headerRuleToFirstSectionMargin(!!s.isSummary)
-                            : endToNext(sections[i - 1].last, sections[i - 1].pen, M_HEAD, SECTION_GAP);
+                            : endToNext(orderedSections[i - 1].last, orderedSections[i - 1].pen, M_HEAD, SECTION_GAP);
                     return (
                         <Section
                             key={s.key}

@@ -5,12 +5,15 @@
 import React from 'react';
 import { GraduationCap, BookOpen, Building2, Calendar, Award, Trash2, Plus } from 'lucide-react';
 import { EducationItem } from '../types/cvTypes';
+import CustomFieldsEditor from './CustomFieldsEditor';
+import type { CustomField } from '../types/cvExtraTypes';
 
 interface EducationSectionProps {
     educations: EducationItem[];
     addEducation: () => void;
     removeEducation: (i: number) => void;
     updateEducation: (i: number, field: keyof EducationItem, value: string) => void;
+    onCustomFieldsChange?: (i: number, fields: CustomField[]) => void;
 }
 
 const baseInput =
@@ -19,7 +22,7 @@ const normalInput =
     'border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 hover:border-slate-300';
 
 const EducationSection: React.FC<EducationSectionProps> = ({
-    educations, addEducation, removeEducation, updateEducation,
+    educations, addEducation, removeEducation, updateEducation, onCustomFieldsChange,
 }) => {
     return (
         <div className="space-y-4">
@@ -122,6 +125,13 @@ const EducationSection: React.FC<EducationSectionProps> = ({
                                     className={`${baseInput} ${normalInput}`}
                                 />
                             </div>
+
+                            {onCustomFieldsChange && (
+                                <CustomFieldsEditor
+                                    fields={edu.customFields}
+                                    onChange={(f: CustomField[]) => onCustomFieldsChange(idx, f)}
+                                />
+                            )}
                         </div>
                     </div>
                 ))}

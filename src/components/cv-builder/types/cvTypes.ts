@@ -3,6 +3,11 @@
 import React from 'react';
 import { countryCodes } from '../constants/cvDefaults';
 import { getFullPhoneNumber } from '../utils/phoneValidation';
+import type { CustomField, CustomSection, DescriptionAlign, DescriptionFormat, ReferencesData, SectionLayout } from './cvExtraTypes';
+
+export type {
+    CustomField, CustomSection, CustomSectionEntry, DescriptionAlign, DescriptionFormat, ReferenceItem, ReferencesData, SectionLayout, CVExtras,
+} from './cvExtraTypes';
 
 // ✅ EXPANDED: Template type with all 11 templates
 export type TemplateType = 'modern' | 'classic' | 'minimal' | 'executive' | 'creative' | 'academic' | 'teal-curve' | 'standard' | 'corporate' | 'ats-pro';
@@ -37,6 +42,7 @@ export interface PersonalInfo {
     portfolio: string;
     jobLevel?: string;
     photo?: string;
+    customFields?: CustomField[];
 }
 
 // ✅ Experience with validation fields
@@ -47,12 +53,15 @@ export interface ExperienceItem {
     startDate: string;
     endDate: string;
     description: string;
+    descriptionFormat?: DescriptionFormat;
+    descriptionAlign?: DescriptionAlign;
     location?: string;
     currentlyWorking?: boolean;
     highlights?: string[];
     jobLevel?: string;
     isValid?: boolean;
     yearsOfExperience?: number;
+    customFields?: CustomField[];
 }
 
 export interface EducationItem {
@@ -62,16 +71,21 @@ export interface EducationItem {
     startDate: string;
     endDate: string;
     description: string;
+    descriptionFormat?: DescriptionFormat;
+    descriptionAlign?: DescriptionAlign;
     location?: string;
     currentlyStudying?: boolean;
     grade?: string;
     year?: string;
+    customFields?: CustomField[];
 }
 
 export interface ProjectItem {
     id?: string;
     name: string;
     description: string;
+    descriptionFormat?: DescriptionFormat;
+    descriptionAlign?: DescriptionAlign;
     technologies: string[];
     link?: string;
     github?: string;
@@ -87,6 +101,7 @@ export interface ProjectItem {
      * Optional for backward compatibility — old saved projects default to "".
      */
     details?: string;
+    customFields?: CustomField[];
 }
 
 export interface CertificationItem {
@@ -96,12 +111,14 @@ export interface CertificationItem {
     date: string;
     link?: string;
     credentialId?: string;
+    customFields?: CustomField[];
 }
 
 export interface LanguageItem {
     id?: string;
     language: string;
     proficiency: string;
+    customFields?: CustomField[];
 }
 
 // ✅ UPDATED: AchievementItem with shortDescription (AI context only)
@@ -113,6 +130,9 @@ export interface AchievementItem {
     shortDescription?: string;
     /** ✅ Rendered in CV/PDF/TXT (AI-generated bullets) */
     description: string;
+    descriptionFormat?: DescriptionFormat;
+    descriptionAlign?: DescriptionAlign;
+    customFields?: CustomField[];
 }
 
 export interface SectionStatus {
@@ -179,6 +199,11 @@ export interface CVPreviewProps {
     strength: { text: string; color: string; bg: string; icon: string };
     completionPercentage?: number;
     sectionStatuses?: Record<number, SectionStatus>;
+    // ✅ Extra sections (all optional → old callers / old saved CVs keep working)
+    customSections?: CustomSection[];
+    interests?: string[];
+    references?: ReferencesData;
+    sectionLayout?: SectionLayout;
 }
 
 export interface PDFParams {
@@ -196,4 +221,9 @@ export interface PDFParams {
     template: TemplateType;
     theme?: TemplateType;
     profilePhoto?: string | null;
-}
+    // ✅ Extra sections (all optional → old callers / old saved CVs keep working)
+    customSections?: CustomSection[];
+    interests?: string[];
+    references?: ReferencesData;
+    sectionLayout?: SectionLayout;
+}

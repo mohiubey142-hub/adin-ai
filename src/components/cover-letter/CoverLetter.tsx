@@ -55,6 +55,7 @@ import { CVDocumentMeta } from '../cv-builder/types/documentTypes';
 // ✅ NEW: same country list that Step1Details uses (for CV phone -> country code mapping)
 import { countryCodes } from './constants/cvDefaults';
 import { syncService } from '../../services/sync/syncService';
+import { setActiveDoc } from '../../services/sync/docsync/syncEngine';
 import { SYNC_CONFIG } from '../../services/sync/config';
 
 // ✅ NEW: FeedbackFullScreen (single-screen feedback)
@@ -72,15 +73,11 @@ import {
   bumpPdfDownloadCount,
   FEEDBACK_AUTO_DELAY_MS,
 } from '../../services/feedbackAutoPrompt';
-import PinPromptModal, { canShowPinPrompt, recordPinPromptShown } from '../../components/PinPromptModal';
 
 const STORAGE_KEY = 'cover_letter_data';
 // ✅ FIX: draft ab user-scoped hai, taake accounts ka data mix na ho
 const getStorageKey = (userId: string) => `${STORAGE_KEY}_${userId}`;
 const TEMPLATE_STORAGE_KEY = 'adin-selected-cover-template';
-
-// ✅ PIN prompt — letter generate hone ke baad, sirf jab PIN set na ho (sirf 1 baar)
-const PIN_PROMPT_DELAY_MS = 500;
 
 const isRealPhoto = (p: string | null | undefined): boolean => {
   return !!p && typeof p === 'string' && p.length > 500;
@@ -324,8 +321,6 @@ interface CoverLetterProps {
   onBackToDocuments?: () => void;
   onDocumentCreated?: (documentId: string) => void;
   onTemplateChange?: (template: CoverLetterTemplateId) => void;
-  onSetPin?: () => void;
-  hasPinSet?: boolean;
 }
 
 type TabType = 'edit' | 'preview';
@@ -415,8 +410,6 @@ const CoverLetter = ({
   onBackToDocuments,
   onDocumentCreated,
   onTemplateChange,
-  onSetPin,
-  hasPinSet = false,
 }: CoverLetterProps) => {
   const { isOpen: isSidebarOpen, open: openSidebar, close: closeSidebar } = useSidebar();
 
@@ -587,20 +580,15 @@ const CoverLetter = ({
   // ✅ Single feedback modal state (no widget)
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedbackSourceKey, setFeedbackSourceKey] = useState('cover-letter');
-  const [showPinPrompt, setShowPinPrompt] = useState(false);
-  // ✅ Refs: setTimeout ke andar latest values chahiye
-  const hasPinSetRef = useRef(hasPinSet);
-  hasPinSetRef.current = hasPinSet;
+  // ✅ Ref: setTimeout ke andar latest value chahiye
   const feedbackOpenRef = useRef(false);
   feedbackOpenRef.current = showFeedbackModal;
-  const pinPromptOpenRef = useRef(false);
-  pinPromptOpenRef.current = showPinPrompt;
 
-  // ✅ Auto feedback: 24h mein 1 baar; PIN popup ya feedback khula ho to skip
+  // ✅ Auto feedback: 24h mein 1 baar; feedback khula ho to skip
   const maybeOpenFeedback = useCallback(() => {
     if (!canAutoShowFeedback()) return;
     setTimeout(() => {
-      if (!canAutoShowFeedback() || feedbackOpenRef.current || pinPromptOpenRef.current) return;
+      if (!canAutoShowFeedback() || feedbackOpenRef.current) return;
       setShowFeedbackModal(true);
     }, FEEDBACK_AUTO_DELAY_MS);
   }, []);
@@ -1191,6 +1179,13 @@ const CoverLetter = ({
     };
   }, []);
 
+  // ✅ Sync engine ko batao ke ye document abhi khula hai (uske neeche se data replace nahi hoga)
+  useEffect(() => {
+    if (!internalDocumentId) return;
+    setActiveDoc('cl', internalDocumentId);
+    return () => setActiveDoc('cl', null);
+  }, [internalDocumentId]);
+
   useEffect(() => {
     if (isInitialLoad) return;
     const docId = internalDocumentIdRef.current;
@@ -1561,18 +1556,6 @@ const CoverLetter = ({
     document.head.appendChild(style);
     return () => { document.head.removeChild(style); };
   }, []);
-
-  useEffect(() => {
-    if (generatedLetter && !generating) {
-      if (!hasPinSetRef.current && canShowPinPrompt('cover-letter')) {
-        setTimeout(() => {
-          if (hasPinSetRef.current || feedbackOpenRef.current || !canShowPinPrompt('cover-letter')) return;
-          recordPinPromptShown('cover-letter');
-          setShowPinPrompt(true);
-        }, PIN_PROMPT_DELAY_MS);
-      }
-    }
-  }, [generatedLetter, generating]);
 
   // ✅ UPDATED: Feedback close handler — dispatches event for PIN education popup
   const handleFeedbackModalClose = useCallback(() => {
@@ -2150,15 +2133,6 @@ const CoverLetter = ({
             onClose={handleFeedbackModalClose}
             source="cover-letter"
           />
-
-          <PinPromptModal
-            isOpen={showPinPrompt}
-            onSetPin={() => {
-              setShowPinPrompt(false);
-              onSetPin?.(); // App.tsx wale SetPinModal ko open karega
-            }}
-            onSkip={() => setShowPinPrompt(false)}
-          />
         </div>
       </>
     );
@@ -2332,15 +2306,6 @@ const CoverLetter = ({
           isOpen={showFeedbackModal}
           onClose={handleFeedbackModalClose}
           source="cover-letter"
-        />
-
-        <PinPromptModal
-          isOpen={showPinPrompt}
-          onSetPin={() => {
-            setShowPinPrompt(false);
-            onSetPin?.(); // App.tsx wale SetPinModal ko open karega
-          }}
-          onSkip={() => setShowPinPrompt(false)}
         />
       </div>
     </>

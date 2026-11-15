@@ -34,9 +34,9 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
   // HOME
   // ══════════════════════════════════════════════
   home: {
-    title: 'Free CV Builder, Cover Letter & Career Assistant',
+    title: 'Adin AI — Free CV Builder, Cover Letter & Career Assistant',
     description:
-      'Adin AI is a 100% free AI CV builder, cover letter generator and career assistant. Build professional, ATS-friendly CVs in minutes — no signup, no credit card.',
+      'Adin AI is an AI-powered CV builder, cover letter generator and career assistant. Build professional, ATS-friendly CVs in minutes. Start for free.',
     keywords: [
       'free cv builder',
       'free cover letter generator',
@@ -82,7 +82,7 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
   templates: {
     title: 'Free CV Templates — Professional & ATS-Friendly Designs',
     description:
-      'Browse our growing library of free professional CV templates. Choose from modern, classic, minimal, executive, and ATS-friendly designs. Download instantly as PDF, PNG, or TXT — 100% free.',
+      'Browse our growing library of free professional CV templates. Choose from modern, classic, minimal, executive, and ATS-friendly designs. Download instantly as PDF, PNG, or TXT. Start for free.',
     keywords: [
       'free cv templates',
       'professional cv templates',
@@ -107,7 +107,7 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
   'cover-templates': {
     title: 'Free Cover Letter Templates — Professional Designs',
     description:
-      'Choose from our growing collection of free professional cover letter templates — classic, modern, minimal, executive, professional, and creative. Generate and download instantly. No signup required.',
+      'Choose from our growing collection of free professional cover letter templates — classic, modern, minimal, executive, professional, and creative. Generate and download instantly. Start for free.',
     keywords: [
       'free cover letter templates',
       'professional cover letter template',
@@ -129,7 +129,7 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
   'free-cv-builder': {
     title: 'Free CV Builder Online — AI-Powered & ATS-Friendly',
     description:
-      'Build a professional, ATS-friendly CV online for free with Adin AI. Pick a template, get AI help with your summary and experience, and download as PDF, PNG or TXT. No signup.',
+      'Build a professional, ATS-friendly CV online with Adin AI. Pick a template, get AI help with your summary and experience, and download as PDF, PNG or TXT. Start for free.',
     keywords: [
       'free cv builder',
       'cv builder online free',
@@ -147,13 +147,12 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
   // PUBLIC SEO LANDING — FREE COVER LETTER GENERATOR
   // ══════════════════════════════════════════════
   'free-cover-letter-generator': {
-    title: 'Free Cover Letter Generator — AI-Powered, No Signup',
+    title: 'Free Cover Letter Generator — AI-Powered & Tailored',
     description:
-      'Generate a professional, tailored cover letter for free with Adin AI. Add your details and get an editable draft in seconds. No signup, no credit card.',
+      'Generate a professional, tailored cover letter with Adin AI. Add your details and get an editable draft in seconds. Start for free.',
     keywords: [
       'free cover letter generator',
       'ai cover letter generator',
-      'cover letter generator no signup',
       'free cover letter writer',
       'professional cover letter generator',
       'adin ai',
@@ -192,7 +191,7 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
   'cover-letter': {
     title: 'Free AI Cover Letter Generator',
     description:
-      'Generate a tailored, professional cover letter in seconds with Adin AI. Powered by advanced AI — free, no signup required.',
+      'Generate a tailored, professional cover letter in seconds with Adin AI. Powered by advanced AI. Start for free.',
     keywords: [
       'free cover letter generator',
       'ai cover letter writer',
@@ -222,7 +221,7 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
   founder: {
     title: 'About Adin AI & Its Founder — Kian Mercer',
     description:
-      'Learn what Adin AI is, why it was built and who is behind it. Meet Kian Mercer, founder of Adin AI — a free AI-powered career platform for professional CVs and cover letters.',
+      'Learn what Adin AI is, why it was built and who is behind it. Meet Kian Mercer, founder of Adin AI — an AI-powered career platform for professional CVs and cover letters.',
     keywords: [
       'about adin ai',
       'adin ai founder',
@@ -290,7 +289,7 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
   'terms-of-service': {
     title: 'Terms of Service',
     description:
-      'Read the Terms of Service for Adin AI — a free AI-powered CV builder, cover letter generator, and career assistant.',
+      'Read the Terms of Service for Adin AI — an AI-powered CV builder, cover letter generator, and career assistant.',
     keywords: [
       'adin ai terms',
       'terms of service',

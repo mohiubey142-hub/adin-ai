@@ -230,6 +230,10 @@ const CVPreviewInner = forwardRef<CVPreviewHandle, CVPreviewProps>((props, ref) 
             strength: props.strength,
             completionPercentage: props.completionPercentage,
             sectionStatuses: props.sectionStatuses,
+            customSections: props.customSections,
+            interests: props.interests,
+            references: props.references,
+            sectionLayout: props.sectionLayout,
             onCopyCV: props.onCopyCV,
             onDownloadPDF: props.onDownloadPDF,
             onDownloadTXT: props.onDownloadTXT,
@@ -366,6 +370,10 @@ const CVPreview = React.memo(CVPreviewInner, (prevProps, nextProps) => {
     if (prevProps.strength !== nextProps.strength) return false;
     if (prevProps.completionPercentage !== nextProps.completionPercentage) return false;
     if (prevProps.sectionStatuses !== nextProps.sectionStatuses) return false;
+    if (prevProps.customSections !== nextProps.customSections) return false;
+    if (prevProps.interests !== nextProps.interests) return false;
+    if (prevProps.references !== nextProps.references) return false;
+    if (prevProps.sectionLayout !== nextProps.sectionLayout) return false;
     if (prevProps.activeSection !== nextProps.activeSection) return false;
 
     // ✅ All data props are equal → skip re-render

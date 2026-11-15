@@ -149,15 +149,11 @@ export const generatePageSchemas = (pageKey: string): any[] => {
         faqSchema([
           {
             q: 'Is Adin AI really free?',
-            a: 'Yes. Adin AI is 100% free — no credit card and no premium tiers. Every feature you see is included.',
-          },
-          {
-            q: 'Do I need to sign up to build a CV?',
-            a: 'No. You get a private Guest Account automatically — no email, no password, no signup required.',
+            a: 'Yes, you can start using Adin AI for free, with no hidden charges. We may introduce optional paid features in the future. If we do, we will announce them in advance and you will not be charged without your clear consent.',
           },
           {
             q: 'Can I download my CV as PDF?',
-            a: 'Yes. You can export your CV as PDF, PNG, or TXT — free, anytime.',
+            a: 'Yes. You can export your CV as PDF, PNG, or TXT anytime.',
           },
           {
             q: 'Are the CV templates ATS-friendly?',
@@ -165,7 +161,7 @@ export const generatePageSchemas = (pageKey: string): any[] => {
           },
           {
             q: 'Can I restore my CV on another device?',
-            a: 'Yes. Use your User ID and optional 4-digit PIN to restore all documents on any device.',
+            a: 'Yes. Log in to your Adin AI account on any device to access all your documents.',
           },
         ]),
       ];

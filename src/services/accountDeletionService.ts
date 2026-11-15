@@ -1,23 +1,14 @@
 // src/services/accountDeletionService.ts
 // ============================================
-// Account Deletion Service
+// Account Deletion Service (Supabase + Vercel API)
 // ============================================
-// 1. Collects anonymized stats (before anything is removed)
-// 2. Deletes the account from the cloud FIRST (server needs token + PIN step-up)
-//      → if that fails, NOTHING local is touched and the user can simply retry
-// 3. Sends an anonymized deletion log via Web3Forms (only after the cloud delete worked)
-// 4. Clears the sync queue + local data (localStorage, sessionStorage, IndexedDB)
-//
-// ✅ FIXED: it used to report "deleted permanently" even when the cloud delete failed,
-//           and then wiped the local ID/token → the cloud data stayed forever (privacy risk).
-// ✅ FIXED: the full User ID is no longer written to the console.
-// ============================================
+// 1. Collects anonymized stats
+// 2. Calls /api/delete-user (Server-side deletion)
+// 3. Sends anonymized log
+// 4. Clears local data & queue
 
-import type { SyncResult } from './sync/types';
-import { clearAuthToken } from './sync/authToken';
+import { supabase } from './sync/supabaseClient';
 
-// Web3Forms keys are public by design. Set VITE_WEB3FORMS_ACCESS_KEY to override the default,
-// and restrict the key to your domain in the Web3Forms dashboard.
 const DEFAULT_WEB3FORMS_ACCESS_KEY = '09b309f7-48d9-433d-8836-457d9b7ca708';
 const WEB3FORMS_ACCESS_KEY: string =
   (import.meta.env.VITE_WEB3FORMS_ACCESS_KEY as string | undefined) || DEFAULT_WEB3FORMS_ACCESS_KEY;
@@ -28,7 +19,6 @@ const HASHED_ID_LENGTH = 16;
 const LOCAL_KEY_PREFIXES = ['adin', 'adin_', 'adin-'];
 const COVER_LETTER_DRAFT_KEY = 'cover_letter_data';
 const IMAGE_DB_NAME = 'adin_cv_images';
-const DELETE_USER_QUEUE_TYPE = 'delete_user';
 
 const DELETE_FAILED_DEFAULT = 'Could not delete your cloud data. Please try again.';
 const DELETE_SUCCESS_MESSAGE = 'Account and all data deleted permanently.';
@@ -53,7 +43,6 @@ async function hashUserId(userId: string): Promise<string> {
       .join('')
       .slice(0, HASHED_ID_LENGTH);
   } catch (e) {
-    // Fallback if crypto.subtle not available
     let hash = 0;
     const str = userId + USER_ID_HASH_SALT;
     for (let i = 0; i < str.length; i++) {
@@ -73,7 +62,6 @@ function collectLocalStats(userId: string): DeletionStats {
   let hadPhoto = false;
 
   try {
-    // Count CVs
     const cvIndexKey = `adin_cv_documents_index_${userId}`;
     const cvRaw = localStorage.getItem(cvIndexKey);
     if (cvRaw) {
@@ -81,7 +69,6 @@ function collectLocalStats(userId: string): DeletionStats {
       if (Array.isArray(cvIndex)) cvCount = cvIndex.length;
     }
 
-    // Count Cover Letters
     const clIndexKey = `adin_cover_letter_documents_index_${userId}`;
     const clRaw = localStorage.getItem(clIndexKey);
     if (clRaw) {
@@ -89,7 +76,6 @@ function collectLocalStats(userId: string): DeletionStats {
       if (Array.isArray(clIndex)) coverLetterCount = clIndex.length;
     }
 
-    // Check for photos
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (!key) continue;
@@ -139,7 +125,7 @@ async function sendAnonymizedBackup(
       stats_cover_letter_count: stats.coverLetterCount,
       stats_had_photo: stats.hadPhoto,
       stats_total_documents: stats.totalDocuments,
-      note: 'Full personal data deleted from Sheet. This is anonymized stats only.',
+      note: 'Full personal data deleted from database. This is anonymized stats only.',
     };
 
     const response = await fetch(WEB3FORMS_ENDPOINT, {
@@ -163,10 +149,6 @@ async function sendAnonymizedBackup(
 // Clear Local Data
 // ============================================
 function clearLocalData(): void {
-  // 0. Auth tokens — also the in-memory copy, so nothing survives until the next page reload
-  clearAuthToken();
-
-  // 1. localStorage — all adin* keys (includes the auth token store) + cover letter draft
   try {
     const keysToRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -179,12 +161,8 @@ function clearLocalData(): void {
     keysToRemove.forEach(k => {
       try { localStorage.removeItem(k); } catch (e) {}
     });
-    console.log(`[accountDeletion] Removed ${keysToRemove.length} localStorage keys`);
-  } catch (e) {
-    console.warn('[accountDeletion] localStorage clear failed');
-  }
+  } catch (e) {}
 
-  // 2. sessionStorage
   try {
     const sessionKeys: string[] = [];
     for (let i = 0; i < sessionStorage.length; i++) {
@@ -197,38 +175,11 @@ function clearLocalData(): void {
     sessionKeys.forEach(k => {
       try { sessionStorage.removeItem(k); } catch (e) {}
     });
-    console.log(`[accountDeletion] Removed ${sessionKeys.length} sessionStorage keys`);
-  } catch (e) {
-    console.warn('[accountDeletion] sessionStorage clear failed');
-  }
+  } catch (e) {}
 
-  // 3. IndexedDB
   try {
     indexedDB.deleteDatabase(IMAGE_DB_NAME);
-    console.log('[accountDeletion] IndexedDB delete requested');
-  } catch (e) {
-    console.warn('[accountDeletion] IndexedDB delete failed');
-  }
-}
-
-// ============================================
-// Friendly messages for a failed cloud delete
-// ============================================
-function describeCloudFailure(result: SyncResult): string {
-  switch (result.error) {
-    case 'pin_required':
-      return 'Please verify your PIN first, then try again.';
-    case 'auth_required':
-    case 'invalid_token':
-      return 'Please restore your account on this device (Profile → Restore) and try again.';
-    case 'sync_disabled':
-    case 'not_configured':
-      return 'Cloud deletion is not available right now. Please try again later.';
-    case 'network':
-      return 'Network error. Please check your internet and try again.';
-    default:
-      return result.message || DELETE_FAILED_DEFAULT;
-  }
+  } catch (e) {}
 }
 
 // ============================================
@@ -249,53 +200,49 @@ export const accountDeletionService = {
     }
 
     console.log('[accountDeletion] Starting deletion');
-
-    // Step 1: Collect stats (BEFORE deletion)
     const stats = collectLocalStats(userId);
 
-    // Step 2: Delete from the cloud FIRST. Failure → stop here, nothing local is touched.
-    let cloudResult: SyncResult;
+    // ✅ Step 1: Server API call (permanent auth delete)
     try {
-      const { syncService } = await import('./sync/syncService');
-      cloudResult = await syncService.deleteUser(userId);
-    } catch (e) {
-      cloudResult = { ok: false, error: 'exception' };
-    }
-
-    if (!cloudResult.ok) {
-      // A failed delete is queued for retry by the sync layer → remove it so it can't run later by surprise
-      try {
-        const { syncQueue } = await import('./sync/queue');
-        syncQueue
-          .all()
-          .filter(item => item.type === DELETE_USER_QUEUE_TYPE && item.payload?.userId === userId)
-          .forEach(item => syncQueue.remove(item.id));
-      } catch (e) {}
-      console.warn('[accountDeletion] Cloud delete failed:', cloudResult.error);
+      const response = await fetch('/api/delete-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      });
+      
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || 'Server deletion failed');
+      }
+    } catch (e: any) {
+      console.warn('[accountDeletion] Cloud delete failed:', e.message);
       return {
         ok: false,
-        message: describeCloudFailure(cloudResult),
+        message: DELETE_FAILED_DEFAULT,
         stats,
         sheetDeleted: false,
       };
     }
 
-    // Step 3: Anonymized deletion log (never blocks the deletion)
+    // ✅ Step 2: Anonymized deletion log
     let backupSent = false;
     try {
       backupSent = await sendAnonymizedBackup(userId, stats);
     } catch (e) {}
 
-    // Step 4: Clear sync queue
+    // ✅ Step 3: Clear sync queue
     try {
       const { syncService } = await import('./sync/syncService');
       syncService.clearQueue();
-    } catch (e) {
-      console.warn('[accountDeletion] Queue clear failed');
-    }
+    } catch (e) {}
 
-    // Step 5: Clear local data (ID + auth token included)
+    // ✅ Step 4: Clear local data
     clearLocalData();
+    
+    // ✅ Step 5: Sign out from Supabase
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {}
 
     return {
       ok: true,

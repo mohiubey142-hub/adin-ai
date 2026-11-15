@@ -13,6 +13,8 @@ import {
     Camera, CheckCircle2, AlertCircle, Upload, Trash2, Loader2,
 } from 'lucide-react';
 import { PersonalInfo } from '../types/cvTypes';
+import CustomFieldsEditor from './CustomFieldsEditor';
+import type { CustomField } from '../types/cvExtraTypes';
 import { countryCodes } from '../constants/cvDefaults';
 import { formatPhoneNumber, getCountryFormat } from '../utils/phoneValidation';
 import { validateAndSuggestEmail } from '../utils/aiGenerators';
@@ -35,6 +37,7 @@ interface PersonalSectionProps {
     onRemovePhoto?: () => void;
     errors: { name: boolean; title: boolean; email: boolean; phone: boolean };
     phoneError: string;
+    onCustomFieldsChange?: (fields: CustomField[]) => void;
 }
 
 const PersonalSection: React.FC<PersonalSectionProps> = ({
@@ -51,6 +54,7 @@ const PersonalSection: React.FC<PersonalSectionProps> = ({
     onRemovePhoto,
     errors,
     phoneError,
+    onCustomFieldsChange,
 }) => {
     const currentCountry = countryCodes.find(c => c.code === selectedCountryCode);
     const dialCode = currentCountry ? getDialCode(currentCountry) : selectedCountryCode;
@@ -249,9 +253,6 @@ const PersonalSection: React.FC<PersonalSectionProps> = ({
                                     alt="Profile"
                                     className="w-full h-full rounded-full object-cover bg-white"
                                 />
-                            </div>
-                            <div className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center">
-                                <CheckCircle2 size={13} className="text-white" strokeWidth={3} />
                             </div>
                         </div>
                     ) : (
@@ -494,6 +495,15 @@ const PersonalSection: React.FC<PersonalSectionProps> = ({
                             className={`${baseInput} ${normalInput}`}
                         />
                     </div>
+
+                    {onCustomFieldsChange && (
+                        <CustomFieldsEditor
+                            fields={personalInfo.customFields}
+                            onChange={onCustomFieldsChange}
+                            labelPlaceholder="Label (e.g., Nationality)"
+                            valuePlaceholder="Value (e.g., Pakistani)"
+                        />
+                    )}
                 </div>
             </div>
 

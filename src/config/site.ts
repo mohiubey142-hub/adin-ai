@@ -19,7 +19,7 @@ export const SITE_CONFIG = {
   shortName: 'Adin AI',
   tagline: 'Free CV Builder, Cover Letter & Career Assistant',
   description:
-    'Adin AI is a 100% free AI-powered career platform. Build professional CVs, generate cover letters, and get career help — no signup, no credit card.',
+    'Adin AI is an AI-powered career platform. Build professional, ATS-friendly CVs, generate cover letters, and get career help. Start for free.',
   locale: 'en_US',
   language: 'en',
   country: 'PK',

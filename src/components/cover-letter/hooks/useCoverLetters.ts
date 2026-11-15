@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { CoverLetterMeta } from '../types/coverLetterTypes';
 import { localStorageCoverLetterService } from '../services/coverLetterService';
 import { syncService } from '../../../services/sync/syncService';
+import { EVENT_DOCS_UPDATED } from '../../../services/sync/docsync/constants';
 
 export const useCoverLetters = (userId: string) => {
     const [documents, setDocuments] = useState<CoverLetterMeta[]>([]);
@@ -35,6 +36,13 @@ export const useCoverLetters = (userId: string) => {
     useEffect(() => {
         refresh();
     }, [refresh, refreshKey]);
+
+    // ✅ Dusre device ka data pull hone par list khud refresh ho (page reload nahi)
+    useEffect(() => {
+        const onDocsUpdated = () => setRefreshKey((k) => k + 1);
+        window.addEventListener(EVENT_DOCS_UPDATED, onDocsUpdated);
+        return () => window.removeEventListener(EVENT_DOCS_UPDATED, onDocsUpdated);
+    }, []);
 
     const findDoc = useCallback(
         (documentId: string) => documents.find(d => d.id === documentId),

@@ -282,17 +282,6 @@ const CoverTemplatesPage = ({
         {/* ✅ Scrollable content — only this scrolls */}
         <div className="flex-1 overflow-y-auto min-h-0">
 
-          {/* HERO — ✅ Search bar removed */}
-          <section className="bg-white border-b border-slate-200">
-            <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 sm:py-8 md:py-10 text-center">
-              <h1 className="text-xl sm:text-2xl md:text-4xl font-bold tracking-tight text-slate-900">
-                Choose Your Cover Letter Template
-              </h1>
-              <p className="text-xs sm:text-sm md:text-base text-slate-500 mt-2 max-w-2xl mx-auto">
-                Professional cover letter templates designed to help you make a strong first impression.
-              </p>
-            </div>
-          </section>
 
           {/* FILTERS — scrollable, scrollbar hidden, pills never shrink */}
           <section className="bg-white border-b border-slate-200">

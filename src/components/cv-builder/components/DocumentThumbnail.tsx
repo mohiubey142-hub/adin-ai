@@ -20,6 +20,8 @@ import CreativeTemplate from '../preview/components/CreativeTemplate';
 import AcademicTemplate from '../preview/components/AcademicTemplate';
 import StandardTemplate from '../preview/components/StandardTemplate';
 import ATSProTemplate from '../preview/components/ATSProTemplate';
+// ✅ Extra sections (custom sections / interests / references / section order)
+import { normalizeExtras } from '../utils/cvExtras';
 
 import {
     ClassicPreview as ClassicCoverPreview,
@@ -93,6 +95,8 @@ const LiveResumePreview: React.FC<{ template: string; data: any }> = ({ template
         strength: { text: '', color: '', bg: '', icon: '' },
         onEditSection: undefined,
         activeSection: null,
+        // ✅ New sections: without this the thumbnail drew only the old sections
+        ...normalizeExtras(data),
     };
 
     switch (template) {

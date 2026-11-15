@@ -13,12 +13,12 @@ const NOTES = [
   {
     icon: <Users size={16} />,
     title: "Who it's for",
-    text: "Students, fresh graduates and job seekers who need a professional CV or cover letter without paying or signing up. Built with job seekers in Pakistan in mind, open to anyone.",
+    text: "Students, fresh graduates and job seekers who need a professional CV or cover letter quickly. Built with job seekers in Pakistan in mind, open to anyone.",
   },
   {
     icon: <Gift size={16} />,
     title: "What makes it different",
-    text: "Free to use, no signup (you start with a private guest account), no watermark, and your work can be restored on another device with your User ID and PIN.",
+    text: "Free to start, no watermark, and your work is saved to your account so you can log in and continue on any device.",
   },
   {
     icon: <Info size={16} />,
@@ -41,12 +41,12 @@ export default function AdinIntroSection() {
             About Adin AI
           </div>
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-slate-900">
-            A free AI career platform for <span className="bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">CVs and cover letters</span>
+            An AI career platform for <span className="bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">CVs and cover letters</span>
           </h2>
         </div>
         <p className="-mt-6 mb-10 max-w-2xl mx-auto text-center text-sm sm:text-base text-slate-600 leading-relaxed">
-          Build a professional, ATS-friendly CV and write a tailored cover letter in minutes. It is 100% free, with no
-          credit card and no hidden charges.
+          Build a professional, ATS-friendly CV and write a tailored cover letter in minutes. Start for free, with no
+          hidden charges.
         </p>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">

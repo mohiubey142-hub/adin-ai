@@ -24,11 +24,12 @@ export default function FAQSection() {
     },
     {
       question: "Is Adin AI really free?",
-      answer: "Yes. Adin AI is 100% free today: no credit card, no hidden charges and no premium tiers. We intend to keep the core features free. If we ever add optional paid features, we will announce them in advance and existing free features will stay free."
+      // ✅ UPDATED: Changed to "completely free to use right now" for consistency
+      answer: "Yes, Adin AI is completely free to use right now, with no hidden charges. We may introduce optional paid features in the future. If we do, we will announce them in advance and you will not be charged without your clear consent."
     },
     {
       question: "Where is my data stored?",
-      answer: "Your documents are saved in your browser and automatically synced over HTTPS to a private cloud database (a Google Sheet), so you can restore them on another device with your User ID and PIN. We never sell your data. You can read the details in our Privacy Policy."
+      answer: "Your documents are saved to your Adin AI account and automatically synced over HTTPS to a private cloud database, so you can log in on another device and continue where you left off. We never sell your data. You can read the details in our Privacy Policy."
     },
     {
       question: "How do you build products without being a traditional software engineer?",

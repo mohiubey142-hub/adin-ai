@@ -29,7 +29,9 @@ export const createCVActions = (
     setOriginalSummary: (summary: string) => void,
     professionalSummary: string,
     originalSummary: string,
-    isEnhancerUsed: boolean
+    isEnhancerUsed: boolean,
+    // ✅ Resets custom sections / interests / references / section layout on "Clear all"
+    resetExtras?: () => void
 ) => {
 
     const clearAllData = () => {
@@ -54,6 +56,7 @@ export const createCVActions = (
             setValidationErrors([]);
             setIsEnhancerUsed(false);
             setOriginalSummary('');
+            resetExtras?.();
             clearStorage(userId);
             
             toast.success('All CV data cleared successfully!', { 
@@ -136,4 +139,4 @@ export const createCVActions = (
         handlePhoneChange,
         handlePhotoUpload
     };
-};
+};

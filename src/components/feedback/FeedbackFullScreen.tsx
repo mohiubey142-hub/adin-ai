@@ -1,23 +1,21 @@
 // src/components/feedback/FeedbackFullScreen.tsx
-// ✅ Design C — Full-screen focused feedback
-// ✅ Single-screen: stars + optional message + send
-// ✅ No two-step flow — everything on one screen
-// ✅ "Add your thoughts" expands inline
-// ✅ Optional email only when reply requested
-// ✅ Auto-dismisses on success (fast: 1.2s)
-// ✅ Brand logo at top (icon-1024x1024.png) — matches LoadingScreen round shape & size
-// ✅ Pure CSS spinner — always smooth, never breaks
-// ✅ FIXED: Scrollbar hidden (content still scrolls, no visual scrollbar)
-// ✅ FIXED: Feedback UI stays centered on all screen sizes, no clipping
-// ✅ FIXED: Scroll works even when opened from workspace pages (body scroll lock)
-// ✅ FIXED: Removed the OLD non-working page scrollbar while modal is open
-// ✅ FIXED: Closing the modal (X / backdrop / ESC) no longer auto-submits.
-//           Feedback is ONLY sent when the user explicitly clicks Send.
+// ✅ v3 — Save-on-tap bottom sheet (same props + default export as before)
+// ✅ Star tap = rating is saved to Supabase instantly (one row, created right away).
+// ✅ Tags / note / email UPDATE that same row — no duplicates, no data lost.
+// ✅ Tags auto-save ~1.2s after the last tap; note/email save on Send or on close.
+// ✅ Button is visible right after the first star: "Done" (nothing to add) or
+//    "Send feedback" (tags/note added). Press it any time to finish early.
+// ✅ If the user does nothing more, the sheet closes by itself 6s after "Saved".
+//    Every tap restarts that 6s, and it is paused while the note is open.
+// ✅ Closing (X / backdrop / ESC) never loses the rating or unsaved tags.
+// ⚠️ Needs feedback_update_migration.sql to be run once in Supabase.
 
-import { useState, useEffect, useRef } from 'react';
-import { X, Star, Lock, Check, Plus } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { X, Star, Check, Plus } from 'lucide-react';
 import {
-  submitFeedback,
+  createFeedback,
+  updateFeedback,
+  generateFeedbackId,
   markFeedbackShown,
   recordFeedbackTier,
   type FeedbackSource,
@@ -25,9 +23,10 @@ import {
 import toast from 'react-hot-toast';
 
 // ═══════════════════════════════════════════════════════════════
-// TYPES
+// TYPES + CONSTANTS
 // ═══════════════════════════════════════════════════════════════
 type ScreenState = 'form' | 'success';
+type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
 interface FeedbackFullScreenProps {
   isOpen: boolean;
@@ -35,16 +34,64 @@ interface FeedbackFullScreenProps {
   source: FeedbackSource;
 }
 
-// ═══════════════════════════════════════════════════════════════
-// ADAPTIVE COPY
-// ═══════════════════════════════════════════════════════════════
-const getTitle = (rating: number): string => {
-  if (rating === 0) return "How's Adin AI?";
-  if (rating >= 4) return 'Thanks for the rating.';
-  return "We'd love to hear more.";
-};
+const AUTO_CLOSE_MS = 6000; // after "Saved", if the user does nothing more
+const CHIP_SAVE_DEBOUNCE_MS = 1200; // wait for the last tag tap before saving
+const SPIN_MS = 700; // one full spinner rotation
+const SUCCESS_MS = 1200;
+const CLOSE_MS = 250;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const RATING_LABELS = ['', 'Poor', 'Fair', 'Okay', 'Good', 'Loved it'];
+
+const HAPPY_CHIPS = ['Easy to use', 'Fast', 'Great templates', 'Good AI writing', 'Nice design'];
+const UNHAPPY_CHIPS = ['Slow', 'Poor output', 'Hard to use', 'Bug / error', 'Missing feature'];
 
 const isUnhappy = (rating: number): boolean => rating > 0 && rating <= 3;
+
+const getTitle = (rating: number): string => {
+  if (rating === 0) return 'How’s Adin AI?';
+  if (rating >= 4) return 'Glad you like it!';
+  return 'Sorry about that.';
+};
+
+const getSubtitle = (rating: number): string => {
+  if (rating === 0) return 'Tap a star — it saves instantly.';
+  if (isUnhappy(rating)) return 'What went wrong? Tap all that apply.';
+  return 'What did you like? Tap all that apply.';
+};
+
+const sleep = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+
+// Resolves after the browser has painted (so the spinner has really started turning)
+const afterPaint = () =>
+  new Promise<void>((resolve) => {
+    let done = false;
+    const fin = () => {
+      if (!done) {
+        done = true;
+        resolve();
+      }
+    };
+    requestAnimationFrame(() => requestAnimationFrame(fin));
+    window.setTimeout(fin, 120); // fallback if the tab is hidden and rAF is paused
+  });
+
+// Pure-CSS ring spinner: fixed size, compositor-only rotation, no layout shift
+function Spinner() {
+  return (
+    <span
+      aria-hidden="true"
+      className="inline-block h-[18px] w-[18px] shrink-0 rounded-full border-2"
+      style={{
+        borderColor: 'rgba(255,255,255,0.35)',
+        borderTopColor: '#ffffff',
+        animation: `fbSpin ${SPIN_MS}ms linear infinite`,
+        willChange: 'transform',
+        transform: 'translateZ(0)',
+      }}
+    />
+  );
+}
 
 // ═══════════════════════════════════════════════════════════════
 // COMPONENT
@@ -57,16 +104,39 @@ export default function FeedbackFullScreen({
   const [screen, setScreen] = useState<ScreenState>('form');
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
-  const [message, setMessage] = useState('');
+  const [chips, setChips] = useState<string[]>([]);
+  const [note, setNote] = useState('');
   const [expanded, setExpanded] = useState(false);
-  const [wantsReply, setWantsReply] = useState(false);
   const [email, setEmail] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isClosing, setIsClosing] = useState(false);
   const [emailError, setEmailError] = useState('');
-  const [showEmailField, setShowEmailField] = useState(false);
+  const [saveState, setSaveState] = useState<SaveState>('idle');
+  const [isClosing, setIsClosing] = useState(false);
+  const [tick, setTick] = useState(0); // bumps on every tap → restarts the 6s auto-close
+  const [finishing, setFinishing] = useState(false); // explicit Done/Send in progress (spinner)
+  const finishingRef = useRef(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const timersRef = useRef<number[]>([]);
+  const debounceRef = useRef<number | null>(null);
+
+  // Persistence bookkeeping (refs = always current inside async code)
+  const clientIdRef = useRef<string | null>(null); // id of the single feedback row
+  const createdRef = useRef(false); // row exists in Supabase
+  const dirtyRef = useRef(false); // local changes not yet saved
+  const queueRef = useRef<Promise<void>>(Promise.resolve()); // saves run one at a time, in order
+
+  // Latest values for timers / async callbacks (avoids stale closures)
+  const latest = useRef({ rating, chips, note, email });
+  latest.current = { rating, chips, note, email };
+
+  // Clear timers on unmount
+  useEffect(() => {
+    return () => {
+      timersRef.current.forEach((t) => window.clearTimeout(t));
+      timersRef.current = [];
+      if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    };
+  }, []);
 
   // Reset on open
   useEffect(() => {
@@ -74,197 +144,279 @@ export default function FeedbackFullScreen({
       setScreen('form');
       setRating(0);
       setHoverRating(0);
-      setMessage('');
+      setChips([]);
+      setNote('');
       setExpanded(false);
-      setWantsReply(false);
       setEmail('');
       setEmailError('');
-      setShowEmailField(false);
-      setIsSubmitting(false);
+      setSaveState('idle');
       setIsClosing(false);
+      setTick(0);
+      setFinishing(false);
+      finishingRef.current = false;
+      clientIdRef.current = null;
+      createdRef.current = false;
+      dirtyRef.current = false;
+      queueRef.current = Promise.resolve();
+      if (debounceRef.current) {
+        window.clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
       markFeedbackShown(source);
     }
   }, [isOpen, source]);
 
-  // Focus textarea when expanded
+  // Focus textarea when note opens
   useEffect(() => {
     if (expanded && textareaRef.current) {
-      const t = setTimeout(() => textareaRef.current?.focus(), 200);
-      return () => clearTimeout(t);
+      const t = window.setTimeout(() => textareaRef.current?.focus(), 150);
+      return () => window.clearTimeout(t);
     }
   }, [expanded]);
 
-  // Auto-show email field on unhappy ratings when expanded
-  useEffect(() => {
-    if (expanded && isUnhappy(rating)) {
-      setShowEmailField(true);
-    }
-  }, [expanded, rating]);
-
-  // ESC key
+  // Light body scroll lock while open
   useEffect(() => {
     if (!isOpen) return;
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') handleClose();
-    };
-    window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
-  }, [isOpen, rating]);
-
-  // ✅ Body scroll lock — safely preserves any existing overflow value
-  // and forces html+body lock so the fixed overlay's own scroll works
-  // regardless of which workspace page is underneath.
-  //
-  // 🆕 KILLS the OLD non-working page scrollbar (WorkspacePage injects
-  //    `overflow-y: auto !important` on html/body/* via a <style> tag).
-  //    We counteract it with an equally-important override while the modal
-  //    is open, and cleanly remove it on close.
-  useEffect(() => {
-    if (!isOpen) return;
-
     const html = document.documentElement;
     const body = document.body;
-
-    // Snapshot previous inline styles so we can restore them exactly
     const prev = {
       htmlOverflow: html.style.overflow,
       bodyOverflow: body.style.overflow,
-      htmlOverscroll: html.style.overscrollBehavior,
-      bodyOverscroll: body.style.overscrollBehavior,
-      htmlOverflowY: (html.style as any).overflowY,
-      bodyOverflowY: (body.style as any).overflowY,
     };
-
-    // ✅ Inline styles with !important via setProperty — these beat
-    //    WorkspacePage's <style> tag `overflow-y: auto !important` rules.
     html.style.setProperty('overflow', 'hidden', 'important');
-    html.style.setProperty('overflow-y', 'hidden', 'important');
     body.style.setProperty('overflow', 'hidden', 'important');
-    body.style.setProperty('overflow-y', 'hidden', 'important');
-    html.style.setProperty('overscroll-behavior', 'contain', 'important');
-    body.style.setProperty('overscroll-behavior', 'contain', 'important');
-
-    // ✅ Also neutralize the nested workspace elements that WorkspacePage
-    //    forces to `overflow-y: visible !important` — this kills the old
-    //    dead scrollbar that appears at the page level.
-    const oldStyleId = 'feedback-scroll-killswitch';
-    const killStyle = document.createElement('style');
-    killStyle.id = oldStyleId;
-    killStyle.textContent = `
-      html, body {
-        overflow: hidden !important;
-        overflow-y: hidden !important;
-        height: 100% !important;
-        max-height: 100% !important;
-        overscroll-behavior: contain !important;
-      }
-      html::-webkit-scrollbar,
-      body::-webkit-scrollbar {
-        display: none !important;
-        width: 0 !important;
-        height: 0 !important;
-      }
-      html, body {
-        scrollbar-width: none !important;
-        -ms-overflow-style: none !important;
-      }
-    `;
-    document.head.appendChild(killStyle);
-
     return () => {
-      // Restore inline styles
-      html.style.overflow = prev.htmlOverflow;
-      body.style.overflow = prev.bodyOverflow;
-      html.style.overscrollBehavior = prev.htmlOverscroll;
-      body.style.overscrollBehavior = prev.bodyOverscroll;
-      (html.style as any).overflowY = prev.htmlOverflowY || '';
-      (body.style as any).overflowY = prev.bodyOverflowY || '';
-
-      // Remove the override <style> so WorkspacePage's own rules re-take effect
-      const existing = document.getElementById(oldStyleId);
-      if (existing && existing.parentNode) {
-        existing.parentNode.removeChild(existing);
-      }
+      html.style.removeProperty('overflow');
+      body.style.removeProperty('overflow');
+      if (prev.htmlOverflow) html.style.overflow = prev.htmlOverflow;
+      if (prev.bodyOverflow) body.style.overflow = prev.bodyOverflow;
     };
   }, [isOpen]);
 
   // ═══════════════════════════════════════════════════════════════
-  // Handlers
+  // Core actions
   // ═══════════════════════════════════════════════════════════════
-  const handleStarClick = (value: number) => {
-    setRating(value);
-  };
-
-  // ✅ FIXED: Closing the modal NEVER submits feedback anymore.
-  //           Only `handleSend` submits — matches the intended UX.
-  const handleClose = () => {
+  const finishClose = useCallback(() => {
     setIsClosing(true);
-    setTimeout(() => {
+    const t = window.setTimeout(() => {
       setIsClosing(false);
       onClose();
-    }, 250);
-  };
+    }, CLOSE_MS);
+    timersRef.current.push(t);
+  }, [onClose]);
 
-  const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) handleClose();
-  };
+  // Saves the CURRENT state: first time = insert, afterwards = update of the same row.
+  // Calls are queued so an update can never overtake the insert.
+  // silent = no toast / no email validation message (auto-saves and close-saves)
+  const persist = useCallback(
+    (silent: boolean): Promise<boolean> => {
+      const run = async (): Promise<boolean> => {
+        const { rating: r, chips: c, note: n, email: e } = latest.current;
+        if (r === 0) return false;
 
-  const validateEmail = (): boolean => {
-    if (!wantsReply) return true;
-    const trimmed = email.trim();
-    if (!trimmed) {
-      setEmailError('Email is required if you want a reply');
-      return false;
+        let trimmedEmail = e.trim();
+        if (trimmedEmail && !EMAIL_RE.test(trimmedEmail)) {
+          if (!silent) {
+            setEmailError('Please enter a valid email');
+            return false;
+          }
+          trimmedEmail = ''; // silent save: drop a half-typed email rather than lose the rest
+        }
+        setEmailError('');
+
+        if (!clientIdRef.current) clientIdRef.current = generateFeedbackId();
+        const clientId = clientIdRef.current;
+        const message = n.trim();
+        const wantsReply = !!trimmedEmail;
+
+        dirtyRef.current = false;
+        setSaveState('saving');
+
+        const res = !createdRef.current
+          ? await createFeedback({
+              clientId,
+              rating: r,
+              tags: c,
+              message: message || undefined,
+              email: wantsReply ? trimmedEmail : undefined,
+              wantsReply,
+              source,
+              timestamp: new Date().toISOString(),
+            })
+          : await updateFeedback(clientId, {
+              rating: r,
+              tags: c,
+              message: message || undefined,
+              email: wantsReply ? trimmedEmail : undefined,
+              wantsReply,
+            });
+
+        if (res.success) {
+          if (!createdRef.current) {
+            createdRef.current = true;
+            recordFeedbackTier(source, false, false); // cooldown starts as soon as a rating exists
+          }
+          setSaveState(dirtyRef.current ? 'idle' : 'saved');
+          return true;
+        }
+
+        dirtyRef.current = true;
+        setSaveState('error');
+        if (!silent) toast.error(res.message || 'Could not save. Please try again.');
+        return false;
+      };
+
+      const p = queueRef.current.then(run, run);
+      queueRef.current = p.then(
+        () => undefined,
+        () => undefined
+      );
+      return p;
+    },
+    [source]
+  );
+
+  const recordFinalTier = useCallback(() => {
+    const { chips: c, note: n, email: e } = latest.current;
+    recordFeedbackTier(source, !!n.trim() || c.length > 0, EMAIL_RE.test(e.trim()));
+  }, [source]);
+
+  const finishWithSuccess = useCallback(() => {
+    recordFinalTier();
+    setScreen('success');
+    const t = window.setTimeout(() => finishClose(), SUCCESS_MS);
+    timersRef.current.push(t);
+  }, [recordFinalTier, finishClose]);
+
+  // "Done" / "Send feedback" / "Try again"
+  // The spinner is shown ONLY here (explicit press) and always ends on a full rotation.
+  const handleDone = async () => {
+    if (screen !== 'form' || latest.current.rating === 0 || finishingRef.current) return;
+    finishingRef.current = true;
+    if (debounceRef.current) {
+      window.clearTimeout(debounceRef.current);
+      debounceRef.current = null;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      setEmailError('Please enter a valid email');
-      return false;
-    }
-    setEmailError('');
-    return true;
-  };
+    await queueRef.current; // let any save that is already in flight finish first
 
-  const handleSend = async () => {
-    if (rating === 0) {
-      toast.error('Please rate first');
+    // Nothing left to save → finish instantly, no spinner
+    if (!dirtyRef.current && createdRef.current) {
+      finishWithSuccess();
       return;
     }
-    if (!validateEmail()) return;
 
-    setIsSubmitting(true);
-    await new Promise(r => setTimeout(r, 0));
+    setFinishing(true);
+    await afterPaint();
+    const t0 = performance.now();
+    const ok = await persist(false);
 
-    const hasMessage = !!message.trim();
-    const result = await submitFeedback({
-      rating,
-      message: message.trim() || undefined,
-      email: wantsReply ? email.trim() : undefined,
-      wantsReply,
-      source,
-      timestamp: new Date().toISOString(),
-    });
+    // Let the spinner finish its CURRENT full turn (at least one), then continue.
+    // So it never stops half-way: it completes a circle, and only then "Thank you" appears.
+    const elapsed = performance.now() - t0;
+    const turns = Math.max(1, Math.ceil(elapsed / SPIN_MS));
+    await sleep(turns * SPIN_MS - elapsed);
 
-    if (result.success) {
-      recordFeedbackTier(source, hasMessage, wantsReply);
-      setScreen('success');
-      setTimeout(() => {
-        setIsClosing(true);
-        setTimeout(() => {
-          setIsClosing(false);
-          onClose();
-        }, 250);
-      }, 1200);
-    } else {
-      toast.error(result.message || 'Failed to submit. Please try again.');
-      setIsSubmitting(false);
+    if (!ok) {
+      finishingRef.current = false;
+      setFinishing(false);
+      return;
     }
+    finishWithSuccess();
+  };
+
+  // Closing never loses the rating or unsaved tags/note
+  const handleClose = useCallback(() => {
+    if (debounceRef.current) {
+      window.clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    if (latest.current.rating > 0) {
+      if (dirtyRef.current || !createdRef.current) void persist(true);
+      recordFinalTier();
+    }
+    finishClose();
+  }, [persist, recordFinalTier, finishClose]);
+
+  // ESC key
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, handleClose]);
+
+  // Auto-close: 6s after "Saved" if the user does nothing more (paused while the note is open)
+  useEffect(() => {
+    if (!isOpen || screen !== 'form' || rating === 0 || expanded || saveState !== 'saved') return;
+    const t = window.setTimeout(() => finishWithSuccess(), AUTO_CLOSE_MS);
+    return () => window.clearTimeout(t);
+  }, [isOpen, screen, rating, expanded, saveState, tick, finishWithSuccess]);
+
+  // ═══════════════════════════════════════════════════════════════
+  // Handlers
+  // ═══════════════════════════════════════════════════════════════
+  const markChanged = () => {
+    dirtyRef.current = true;
+    setTick((t) => t + 1);
+    // keep "saving" / "error" visible; otherwise hide the old "Saved" until the new save lands
+    setSaveState((s) => (s === 'saving' || s === 'error' ? s : 'idle'));
+  };
+
+  const handleStarClick = (value: number) => {
+    if (screen !== 'form') return;
+    const prevRating = latest.current.rating;
+    const changed = value !== prevRating;
+    const moodChanged = isUnhappy(value) !== isUnhappy(prevRating);
+    const nextChips = moodChanged ? [] : latest.current.chips;
+
+    if (moodChanged) setChips([]); // tag set follows mood
+    setRating(value);
+    setTick((t) => t + 1);
+    try {
+      navigator.vibrate?.(8);
+    } catch {
+      /* haptics not supported */
+    }
+
+    // First tap creates the row right now; changing the star later updates it.
+    // (latest is patched here because React re-renders after this handler returns,
+    //  and the save must already see the new rating.)
+    if (changed || !createdRef.current) {
+      latest.current = { ...latest.current, rating: value, chips: nextChips };
+      dirtyRef.current = true;
+      if (debounceRef.current) {
+        window.clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
+      void persist(true);
+    }
+  };
+
+  const toggleChip = (chip: string) => {
+    if (screen !== 'form') return;
+    markChanged();
+    setChips((prev) => (prev.includes(chip) ? prev.filter((x) => x !== chip) : [...prev, chip]));
+    // Save once the user pauses (several quick taps = one save)
+    if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    debounceRef.current = window.setTimeout(() => {
+      debounceRef.current = null;
+      void persist(true);
+    }, CHIP_SAVE_DEBOUNCE_MS);
   };
 
   if (!isOpen && !isClosing) return null;
 
   const activeRating = hoverRating || rating;
-  const title = getTitle(rating);
   const unhappy = isUnhappy(rating);
+  const chipList = unhappy ? UNHAPPY_CHIPS : HAPPY_CHIPS;
+  const hasDetails = chips.length > 0 || !!note.trim() || !!email.trim();
+  const showAutoCloseBar = saveState === 'saved' && !expanded;
+
+  const buttonLabel =
+    saveState === 'error' ? 'Try again' : hasDetails ? 'Send feedback' : 'Done';
+  const buttonIsPrimary = hasDetails || saveState === 'error' || finishing;
 
   // ═══════════════════════════════════════════════════════════════
   // RENDER
@@ -272,296 +424,271 @@ export default function FeedbackFullScreen({
   return (
     <>
       <div
-        className={`fixed inset-0 z-[9999] transition-opacity duration-300 ${
-          isClosing ? 'opacity-0' : 'opacity-100'
-        }`}
-        style={{
-          background:
-            'radial-gradient(circle at 50% 0%, rgba(124,58,237,0.06) 0%, transparent 50%), ' +
-            'radial-gradient(circle at 50% 100%, rgba(59,130,246,0.06) 0%, transparent 50%), ' +
-            '#ffffff',
-        }}
-        onClick={handleBackdropClick}
+        className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center"
         role="dialog"
         aria-modal="true"
         aria-labelledby="feedback-title"
       >
-        {/* Close button */}
-        <button
-          onClick={handleClose}
-          className={`absolute top-5 right-5 sm:top-6 sm:right-6 w-9 h-9 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all duration-200 z-20 ${
+        {/* Backdrop */}
+        <div
+          className={`absolute inset-0 bg-slate-900/50 transition-opacity duration-300 ${
             isClosing ? 'opacity-0' : 'opacity-100'
           }`}
-          aria-label="Close feedback"
-        >
-          <X size={18} strokeWidth={2} />
-        </button>
+          onClick={handleClose}
+        />
 
-        {/* ✅ The ONLY scrollable element while the modal is open.
-            Uses touch-action + overscroll-behavior for reliable mobile scrolling. */}
+        {/* Sheet */}
         <div
-          className="feedback-scroll absolute inset-0 overflow-y-auto overflow-x-hidden"
+          className={`fb-enter relative w-full sm:max-w-md max-h-[92dvh] overflow-y-auto overflow-x-hidden bg-white rounded-t-[28px] sm:rounded-3xl shadow-2xl shadow-purple-900/20 px-5 sm:px-8 pt-3 sm:pt-8 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-8 transition-all duration-[250ms] ${
+            isClosing ? 'opacity-0 translate-y-6 sm:scale-95' : 'opacity-100 translate-y-0 sm:scale-100'
+          }`}
           style={{
-            WebkitOverflowScrolling: 'touch',
+            animation: 'fbSheetUp 380ms cubic-bezier(0.22, 1, 0.36, 1)',
             overscrollBehavior: 'contain',
-            touchAction: 'pan-y',
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div
-            className={`min-h-full flex flex-col items-center justify-center px-5 sm:px-8 py-16 sm:py-20 transition-all duration-300 ${
-              isClosing ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
-            }`}
+          {/* Drag handle (mobile look) */}
+          <div className="sm:hidden mx-auto mb-3 h-1 w-10 rounded-full bg-slate-200" aria-hidden="true" />
+
+          {/* Close */}
+          <button
+            onClick={handleClose}
+            className="absolute top-3 right-3 sm:top-4 sm:right-4 w-9 h-9 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            aria-label="Close feedback"
           >
-            <div className="w-full max-w-md">
+            <X size={18} strokeWidth={2} />
+          </button>
 
-              {/* SUCCESS SCREEN */}
-              {screen === 'success' && (
-                <div className="animate-[fadeUp_500ms_cubic-bezier(0.4,0,0.2,1)]">
-                  <div className="flex justify-center mb-8">
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-50 to-green-50 border border-emerald-100 flex items-center justify-center">
-                      <Check
-                        size={28}
-                        className="text-emerald-600 animate-[checkDraw_500ms_cubic-bezier(0.4,0,0.2,1)_200ms_both]"
-                        strokeWidth={2.5}
-                      />
-                    </div>
-                  </div>
-                  <h2 className="text-[26px] sm:text-[32px] font-bold text-slate-900 text-center tracking-[-0.02em] leading-[1.15] mb-3">
-                    Thank you.
-                  </h2>
-                  <p className="text-sm sm:text-base text-slate-500 text-center">
-                    Your feedback helps us grow.
-                  </p>
+          {/* SUCCESS */}
+          {screen === 'success' && (
+            <div className="fb-enter py-10 text-center" style={{ animation: 'fbFadeUp 400ms ease-out' }}>
+              <div className="mx-auto mb-5 w-16 h-16 rounded-full bg-gradient-to-br from-emerald-50 to-green-50 border border-emerald-100 flex items-center justify-center">
+                <Check
+                  size={28}
+                  className="text-emerald-600"
+                  strokeWidth={2.5}
+                  style={{ animation: 'fbPop 450ms cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+                />
+              </div>
+              <h2 className="text-2xl font-bold text-slate-900 tracking-tight mb-1">Thank you.</h2>
+              <p className="text-sm text-slate-500">Your feedback helps us grow.</p>
+            </div>
+          )}
+
+          {/* FORM */}
+          {screen === 'form' && (
+            <div className="fb-enter" style={{ animation: 'fbFadeUp 350ms ease-out' }}>
+              {/* Logo */}
+              <div className="flex justify-center mb-4 mt-1">
+                <div className="w-14 h-14 bg-white border border-slate-200/80 rounded-2xl flex items-center justify-center shadow-md shadow-purple-600/15 overflow-hidden">
+                  <img
+                    src="/icon-1024x1024.png"
+                    alt="Adin AI"
+                    className="w-full h-full object-contain"
+                    draggable={false}
+                  />
                 </div>
-              )}
+              </div>
 
-              {/* MAIN FORM */}
-              {screen === 'form' && (
-                <div className="animate-[fadeUp_500ms_cubic-bezier(0.4,0,0.2,1)]">
+              {/* Title */}
+              <h1
+                id="feedback-title"
+                className="text-2xl sm:text-[28px] font-bold text-slate-900 text-center tracking-[-0.02em] leading-tight"
+              >
+                {getTitle(rating)}
+              </h1>
+              <p className="mt-1.5 text-sm text-slate-500 text-center">{getSubtitle(rating)}</p>
 
-                  {/* Brand logo — matches LoadingScreen round shape & size */}
-                  <div className="flex flex-col items-center gap-3 mb-8">
-                    <div className="relative w-20 h-20">
-                      {/* Glow ring */}
-                      <div
-                        aria-hidden="true"
-                        className="absolute inset-0 rounded-2xl bg-purple-500 opacity-30 blur-xl animate-pulse"
-                      />
-                      {/* Logo image inside rounded square — same as LoadingScreen */}
-                      <div className="relative w-20 h-20 bg-white border border-slate-200/80 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-600/20 overflow-hidden">
-                        <img
-                          src="/icon-1024x1024.png"
-                          alt="Adin AI"
-                          className="w-full h-full object-contain"
-                          draggable={false}
-                        />
-                      </div>
-                    </div>
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400 font-semibold">
-                      Adin AI
-                    </p>
-                  </div>
-
-                  {/* Title */}
-                  <h1
-                    id="feedback-title"
-                    className="text-[26px] sm:text-[32px] font-bold text-slate-900 text-center tracking-[-0.02em] leading-[1.2] mb-8 transition-all duration-300"
+              {/* Stars */}
+              <div className="flex justify-center gap-2 sm:gap-3 mt-6">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => handleStarClick(star)}
+                    onMouseEnter={() => setHoverRating(star)}
+                    onMouseLeave={() => setHoverRating(0)}
+                    className="p-1 transition-transform duration-150 hover:scale-110 active:scale-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40 rounded-full"
+                    aria-label={`Rate ${star} star${star !== 1 ? 's' : ''}`}
                   >
-                    {title}
-                  </h1>
+                    <Star
+                      className={`w-10 h-10 sm:w-11 sm:h-11 transition-all duration-200 ${
+                        star <= activeRating
+                          ? 'fill-amber-400 text-amber-400 drop-shadow-[0_4px_12px_rgba(251,191,36,0.45)]'
+                          : 'text-slate-200'
+                      }`}
+                      strokeWidth={1.5}
+                    />
+                  </button>
+                ))}
+              </div>
 
-                  {/* Stars */}
-                  <div className="flex justify-center gap-3 sm:gap-4 mb-8">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button
-                        key={star}
-                        type="button"
-                        onClick={() => handleStarClick(star)}
-                        onMouseEnter={() => setHoverRating(star)}
-                        onMouseLeave={() => setHoverRating(0)}
-                        className="transition-all duration-200 hover:scale-110 hover:-translate-y-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40 rounded-full"
-                        aria-label={`Rate ${star} star${star !== 1 ? 's' : ''}`}
-                      >
-                        <Star
-                          className={`w-11 h-11 sm:w-12 sm:h-12 transition-all duration-200 ${
-                            star <= activeRating
-                              ? 'fill-amber-400 text-amber-400 drop-shadow-[0_4px_14px_rgba(251,191,36,0.4)]'
-                              : 'text-slate-200'
+              {/* Mood label (fixed height = no layout jump) */}
+              <p className="h-5 mt-1 text-center text-xs font-semibold tracking-wide text-slate-400 uppercase">
+                {RATING_LABELS[activeRating] || ''}
+              </p>
+
+              {/* Tags + note + button — appear after the first star tap */}
+              {rating > 0 && (
+                <div className="fb-enter mt-4" style={{ animation: 'fbFadeUp 300ms ease-out' }}>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {chipList.map((chip) => {
+                      const selected = chips.includes(chip);
+                      return (
+                        <button
+                          key={chip}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() => toggleChip(chip)}
+                          className={`px-3.5 py-2 rounded-full text-sm font-medium border transition-all duration-150 active:scale-95 ${
+                            selected
+                              ? 'bg-purple-600 border-purple-600 text-white shadow-md shadow-purple-600/25'
+                              : 'bg-white border-slate-200 text-slate-600 hover:border-purple-300 hover:text-purple-700'
                           }`}
-                          strokeWidth={1.5}
-                        />
-                      </button>
-                    ))}
+                        >
+                          {chip}
+                        </button>
+                      );
+                    })}
                   </div>
 
-                  {/* Message section */}
-                  <div className="mt-8">
-                    {!expanded ? (
+                  {/* Optional note */}
+                  {!expanded ? (
+                    <div className="mt-4 flex justify-center">
                       <button
                         type="button"
                         onClick={() => setExpanded(true)}
-                        className="w-full group flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl border-[1.5px] border-dashed border-slate-200 hover:border-purple-300 hover:bg-purple-50/50 text-slate-500 hover:text-purple-700 transition-all duration-200"
+                        className="group inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-purple-700 transition-colors"
                       >
-                        <Plus size={16} className="group-hover:rotate-90 transition-transform duration-300" />
-                        <span className="text-sm font-medium">Add your thoughts</span>
-                      </button>
-                    ) : (
-                      <div className="animate-[fadeUp_400ms_cubic-bezier(0.4,0,0.2,1)]">
-                        <textarea
-                          ref={textareaRef}
-                          value={message}
-                          onChange={(e) => setMessage(e.target.value)}
-                          placeholder={
-                            unhappy
-                              ? 'Tell us what went wrong...'
-                              : 'Share your thoughts... (optional)'
-                          }
-                          rows={5}
-                          maxLength={1000}
-                          className="w-full px-5 py-4 rounded-2xl bg-white border-[1.5px] border-slate-200 text-slate-900 placeholder-slate-400 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 outline-none transition-all duration-200 text-[15px] resize-none leading-relaxed"
+                        <Plus
+                          size={15}
+                          className="group-hover:rotate-90 transition-transform duration-300"
                         />
+                        Add a note
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="fb-enter mt-4 space-y-3" style={{ animation: 'fbFadeUp 300ms ease-out' }}>
+                      <textarea
+                        ref={textareaRef}
+                        value={note}
+                        onChange={(e) => {
+                          setNote(e.target.value);
+                          markChanged();
+                        }}
+                        maxLength={500}
+                        rows={3}
+                        placeholder={unhappy ? 'Tell us what happened…' : 'Anything else? (optional)'}
+                        className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50/60 px-4 py-3 text-[15px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-purple-400 focus:ring-4 focus:ring-purple-500/10 transition-all"
+                      />
+                      {unhappy && (
+                        <div>
+                          <input
+                            type="email"
+                            value={email}
+                            onChange={(e) => {
+                              setEmail(e.target.value);
+                              markChanged();
+                              if (emailError) setEmailError('');
+                            }}
+                            placeholder="Email — only if you’d like a reply (optional)"
+                            className={`w-full rounded-2xl border bg-slate-50/60 px-4 py-3 text-[15px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-4 transition-all ${
+                              emailError
+                                ? 'border-red-300 focus:border-red-400 focus:ring-red-500/10'
+                                : 'border-slate-200 focus:border-purple-400 focus:ring-purple-500/10'
+                            }`}
+                          />
+                          {emailError && <p className="mt-1.5 px-1 text-xs text-red-500">{emailError}</p>}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-                        {showEmailField && (
-                          <div className="mt-5 space-y-3 animate-[fadeUp_400ms_cubic-bezier(0.4,0,0.2,1)]">
-                            <label className="flex items-start gap-2.5 cursor-pointer group select-none">
-                              <input
-                                type="checkbox"
-                                checked={wantsReply}
-                                onChange={(e) => {
-                                  setWantsReply(e.target.checked);
-                                  if (!e.target.checked) {
-                                    setEmail('');
-                                    setEmailError('');
-                                  }
-                                }}
-                                className="mt-0.5 w-4 h-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
-                              />
-                              <span className="text-sm text-slate-600 group-hover:text-slate-800 transition-colors">
-                                I'd like a reply from the team
-                              </span>
-                            </label>
-
-                            <div
-                              className={`overflow-hidden transition-all duration-300 ease-out ${
-                                wantsReply ? 'max-h-24 opacity-100' : 'max-h-0 opacity-0'
-                              }`}
-                            >
-                              <input
-                                type="email"
-                                value={email}
-                                onChange={(e) => {
-                                  setEmail(e.target.value);
-                                  if (emailError) setEmailError('');
-                                }}
-                                placeholder="you@example.com"
-                                className={`w-full px-5 py-3 rounded-2xl bg-white border-[1.5px] text-slate-900 placeholder-slate-400 focus:ring-4 outline-none transition-all duration-200 text-[15px] ${
-                                  emailError
-                                    ? 'border-red-400 focus:border-red-500 focus:ring-red-500/10'
-                                    : 'border-slate-200 focus:border-purple-500 focus:ring-purple-500/10'
-                                }`}
-                              />
-                              {emailError && (
-                                <p className="text-xs text-red-500 mt-1.5 ml-1">
-                                  {emailError}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                  {/* Save status (fixed height = no layout jump) */}
+                  <p
+                    className={`mt-4 h-4 text-center text-xs font-medium ${
+                      saveState === 'error'
+                        ? 'text-red-500'
+                        : saveState === 'saved'
+                        ? 'text-emerald-600'
+                        : 'text-slate-400'
+                    }`}
+                    aria-live="polite"
+                  >
+                    {saveState === 'saved' && (
+                      <span key="saved" style={{ animation: 'fbFadeIn 250ms ease-out' }}>
+                        ✓ Saved
+                      </span>
                     )}
-                  </div>
+                    {saveState === 'error' && 'Couldn’t save — check your connection'}
+                  </p>
 
-                  {/* Send button */}
+                  {/* Done / Send — visible from the first star tap */}
                   <button
                     type="button"
-                    onClick={handleSend}
-                    disabled={isSubmitting || rating === 0}
-                    className="mt-7 w-full py-4 rounded-2xl text-white text-[15px] font-semibold flex items-center justify-center gap-2.5 transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg shadow-purple-600/25 hover:shadow-xl hover:shadow-purple-600/30"
-                    style={{
-                      background: 'linear-gradient(135deg, #7c3aed, #3b82f6)',
-                    }}
+                    onClick={() => void handleDone()}
+                    disabled={finishing}
+                    className={`mt-2 w-full h-12 rounded-2xl font-semibold active:scale-[0.98] transition-[transform,background-color,box-shadow] duration-150 flex items-center justify-center gap-2.5 ${
+                      buttonIsPrimary
+                        ? 'bg-gradient-to-r from-purple-600 to-purple-500 text-white shadow-lg shadow-purple-600/25 hover:shadow-purple-600/40'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
                   >
-                    {isSubmitting ? (
+                    {finishing ? (
                       <>
-                        {/* ✅ Pure CSS spinner — always smooth */}
-                        <span className="feedback-spinner-css" aria-hidden="true" />
-                        <span>Sending...</span>
+                        <Spinner />
+                        <span>Sending…</span>
                       </>
                     ) : (
-                      'Send'
+                      buttonLabel
                     )}
                   </button>
 
-                  {/* Trust badge */}
-                  <div className="flex items-center justify-center gap-1.5 text-xs text-slate-400 mt-5">
-                    <Lock size={12} strokeWidth={2} />
-                    <span>Anonymous · We never share your data</span>
+                  {/* Auto-close countdown (only while everything is saved) */}
+                  <div className="mt-4 h-[3px] w-full rounded-full bg-slate-100 overflow-hidden">
+                    {showAutoCloseBar && (
+                      <div
+                        key={`${tick}|${rating}`}
+                        className="h-full rounded-full bg-gradient-to-r from-purple-500 to-purple-400"
+                        style={{ animation: `fbProgress ${AUTO_CLOSE_MS}ms linear forwards` }}
+                      />
+                    )}
                   </div>
                 </div>
               )}
-
             </div>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* Keyframes + pure CSS spinner + hidden scrollbar */}
       <style>{`
-        /* ✅ Hide scrollbar visually but keep scrolling functional */
-        .feedback-scroll {
-          scrollbar-width: none;          /* Firefox */
-          -ms-overflow-style: none;       /* IE / Edge legacy */
-          -webkit-overflow-scrolling: touch;
+        @keyframes fbSheetUp {
+          from { opacity: 0; transform: translateY(40px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
-        .feedback-scroll::-webkit-scrollbar {
-          display: none;                  /* Chrome / Safari / Edge */
-          width: 0;
-          height: 0;
+        @keyframes fbFadeUp {
+          from { opacity: 0; transform: translateY(10px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
-
-        /* ✅ Pure CSS spinner — no SVG, no rotation bugs */
-        .feedback-spinner-css {
-          display: inline-block;
-          width: 16px;
-          height: 16px;
-          border: 2px solid rgba(255, 255, 255, 0.35);
-          border-top-color: #ffffff;
-          border-radius: 50%;
-          animation: feedbackSpin 0.6s linear infinite;
-          flex-shrink: 0;
-          box-sizing: border-box;
+        @keyframes fbProgress {
+          from { width: 0%; }
+          to   { width: 100%; }
         }
-
-        @keyframes feedbackSpin {
-          0% {
-            transform: rotate(0deg);
-          }
-          100% {
-            transform: rotate(360deg);
-          }
+        @keyframes fbPop {
+          0%   { transform: scale(0.4); opacity: 0; }
+          100% { transform: scale(1);   opacity: 1; }
         }
-
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(16px); }
-          to { opacity: 1; transform: translateY(0); }
+        @keyframes fbFadeIn {
+          from { opacity: 0; }
+          to   { opacity: 1; }
         }
-
-        @keyframes checkDraw {
-          0% { opacity: 0; transform: scale(0.5) rotate(-45deg); }
-          60% { opacity: 1; transform: scale(1.15) rotate(0deg); }
-          100% { opacity: 1; transform: scale(1) rotate(0deg); }
+        @keyframes fbSpin {
+          to { transform: rotate(360deg); }
         }
-
+        /* Reduced motion: only skip the entrance animations. The spinner must keep a normal speed. */
         @media (prefers-reduced-motion: reduce) {
-          * {
-            animation-duration: 0.01ms !important;
-            transition-duration: 0.01ms !important;
-          }
-          .feedback-spinner-css {
-            animation-duration: 0.6s !important;
-          }
+          .fb-enter { animation: none !important; }
         }
       `}</style>
     </>

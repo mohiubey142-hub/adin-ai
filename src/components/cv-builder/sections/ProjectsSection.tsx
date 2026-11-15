@@ -20,6 +20,10 @@ import React, { useState } from 'react';
 import toast from 'react-hot-toast';
 import { Trash2, Plus, Minus, X, FileText, Info } from 'lucide-react';
 import { ProjectItem } from '../types/cvTypes';
+import CustomFieldsEditor from './CustomFieldsEditor';
+import DescriptionFormatToggle from './DescriptionFormatToggle';
+import { applyDescriptionFormat } from '../utils/descriptionFormat';
+import type { CustomField } from '../types/cvExtraTypes';
 
 // Selection: user may pick ANY number from 0 up to MAX (minimum is up to the user).
 const MAX_AI_BULLETS = 3;
@@ -30,6 +34,7 @@ interface ProjectsSectionProps {
     addProject: () => void;
     removeProject: (i: number) => void;
     updateProject: (i: number, field: keyof ProjectItem, value: string) => void;
+    onCustomFieldsChange?: (i: number, fields: CustomField[]) => void;
     generateDescription: (index: number, proj: ProjectItem) => void;
     generateAI?: (index: number, proj: ProjectItem) => void | string[] | Promise<void | string[]>;
     generating: string | null;   // ✅ FIX: section-specific key
@@ -81,7 +86,7 @@ const stripBulletMarkers = (input: string): string => {
 
 const ProjectsSection: React.FC<ProjectsSectionProps> = ({
     projects, addProject, removeProject, updateProject,
-    generateDescription, generateAI, generating, aiGenerating,
+    generateDescription, generateAI, generating, aiGenerating, onCustomFieldsChange,
 }) => {
     const [isGenerating, setIsGenerating] = useState<number | null>(null);
     // ✅ ONE-AT-A-TIME: kisi bhi section mein generation chal rahi ho to naya start nahi hoga
@@ -98,6 +103,12 @@ const ProjectsSection: React.FC<ProjectsSectionProps> = ({
 
     // `description` is the OUTPUT field. `details` is the INPUT field for AI.
     const handleDescriptionChange = (idx: number, value: string) => {
+        // Numbering / Paragraph: keep the text exactly as typed (no forced "• " prefix).
+        const fmt = projects[idx]?.descriptionFormat;
+        if (fmt && fmt !== 'bullets') {
+            updateProject(idx, 'description', value);
+            return;
+        }
         const lines = value.split('\n');
         const hasBullets = lines.some(line => line.trim().startsWith('•'));
         if (hasBullets) {
@@ -376,6 +387,17 @@ const ProjectsSection: React.FC<ProjectsSectionProps> = ({
                                         <FileText size={14} className="text-purple-600" />
                                         Description <span className="text-slate-400 font-normal">(shown on CV)</span>
                                     </label>
+                                    <div className="mb-2">
+                                        <DescriptionFormatToggle
+                                            value={proj.descriptionFormat}
+                                            align={proj.descriptionAlign}
+                                            onAlignChange={a => updateProject(idx, 'descriptionAlign', a)}
+                                            onChange={f => {
+                                                updateProject(idx, 'descriptionFormat', f);
+                                                updateProject(idx, 'description', applyDescriptionFormat(proj.description, f));
+                                            }}
+                                        />
+                                    </div>
                                     <textarea
                                         placeholder="Your final project description for the CV. Use 'Generate with AI' to auto-fill with selected bullets, or type manually."
                                         value={proj.description || ''}
@@ -384,6 +406,13 @@ const ProjectsSection: React.FC<ProjectsSectionProps> = ({
                                         className={`${baseInput} ${normalInput} resize-none`}
                                     />
                                 </div>
+
+                                {onCustomFieldsChange && (
+                                    <CustomFieldsEditor
+                                        fields={proj.customFields}
+                                        onChange={(f: CustomField[]) => onCustomFieldsChange(idx, f)}
+                                    />
+                                )}
                             </div>
                         </div>
                     );

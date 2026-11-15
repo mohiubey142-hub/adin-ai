@@ -1,11 +1,10 @@
 // src/services/feedbackService.ts
-// ✅ Apps Script integration via our backend proxy (/api/sync) — no secret in the browser
-// ✅ Truly unlimited — no monthly quota
-// ✅ Data saved to Google Sheet "Feedback"
+// ✅ Supabase integration — direct insert into 'feedback' table
 // ✅ Smart cooldown based on user commitment
-// ✅ Email notification only for low ratings or reply requests
+// ✅ createFeedback/updateFeedback: tap-to-save flow (one row per feedback, updated in place)
+// ✅ Email notification only for low ratings or reply requests (abhi hum bas database mein save kar rahe hain, email baad mein add kar sakte hain)
 
-import { postToSyncProxy } from './sync/proxyClient';
+import { supabase } from './sync/supabaseClient';
 
 // ============================================
 // STORAGE KEYS (per source)
@@ -84,27 +83,123 @@ export const submitFeedback = async (
   data: FeedbackPayload,
 ): Promise<{ success: boolean; message: string }> => {
   try {
-    const { httpOk, status, json } = await postToSyncProxy('submit_feedback', {
+    // Ab direct Supabase ke 'feedback' table mein insert ho raha hai
+    const { error } = await supabase.from('feedback').insert({
       rating: data.rating,
       message: data.message || '',
       email: data.email || '',
       wants_reply: data.wantsReply === true,
       source: data.source,
-      timestamp: data.timestamp,
+      client_timestamp: data.timestamp,
     });
 
-    if (json?.ok) {
-      return { success: true, message: 'Thank you for your feedback!' };
+    if (error) {
+      console.error('[feedbackService] Supabase error:', error.message);
+      return { success: false, message: 'Failed to submit feedback. Please try again.' };
     }
-    if (json?.error === 'not_configured') {
-      return { success: false, message: 'Feedback service unavailable' };
-    }
-    if (!json && !httpOk) {
-      return { success: false, message: `HTTP ${status}` };
-    }
-    return { success: false, message: json?.message || 'Failed to submit feedback' };
+
+    return { success: true, message: 'Thank you for your feedback!' };
   } catch (error) {
-    console.error('[feedback] submission error');
+    console.error('[feedback] submission error', error);
+    return { success: false, message: 'Network error. Please try again.' };
+  }
+};
+
+// ============================================
+// CREATE + UPDATE  (tap-to-save flow)
+// ============================================
+// Star tap  -> createFeedback()  (one row, rating only, saved instantly)
+// Tags/note -> updateFeedback()  (same row, via the update_feedback RPC)
+// Needs the SQL in feedback_update_migration.sql to be run once in Supabase.
+
+export interface FeedbackCreatePayload extends FeedbackPayload {
+  clientId: string;
+  tags?: string[];
+}
+
+export interface FeedbackUpdatePayload {
+  rating: number;
+  tags?: string[];
+  message?: string;
+  email?: string;
+  wantsReply?: boolean;
+}
+
+type FeedbackResult = { success: boolean; message: string };
+
+export const generateFeedbackId = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = Math.floor(Math.random() * 16);
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
+export const updateFeedback = async (
+  clientId: string,
+  data: FeedbackUpdatePayload,
+): Promise<FeedbackResult> => {
+  try {
+    const { data: updated, error } = await supabase.rpc('update_feedback', {
+      p_client_id: clientId,
+      p_rating: data.rating,
+      p_tags: data.tags ?? [],
+      p_message: data.message ?? '',
+      p_email: data.email ?? '',
+      p_wants_reply: data.wantsReply === true,
+    });
+
+    if (error) {
+      console.error('[feedbackService] update error:', error.message);
+      return { success: false, message: 'Could not save. Please try again.' };
+    }
+    if (updated !== true) {
+      return { success: false, message: 'Could not save. Please try again.' };
+    }
+    return { success: true, message: 'Saved' };
+  } catch (error) {
+    console.error('[feedback] update error', error);
+    return { success: false, message: 'Network error. Please try again.' };
+  }
+};
+
+export const createFeedback = async (
+  data: FeedbackCreatePayload,
+): Promise<FeedbackResult> => {
+  try {
+    const { error } = await supabase.from('feedback').insert({
+      client_id: data.clientId,
+      rating: data.rating,
+      tags: data.tags ?? [],
+      message: data.message || '',
+      email: data.email || '',
+      wants_reply: data.wantsReply === true,
+      source: data.source,
+      client_timestamp: data.timestamp,
+    });
+
+    if (error) {
+      // 23505 = unique violation: an earlier attempt already created this row
+      // (response was lost). Just apply the latest values to it.
+      if (error.code === '23505') {
+        return updateFeedback(data.clientId, {
+          rating: data.rating,
+          tags: data.tags,
+          message: data.message,
+          email: data.email,
+          wantsReply: data.wantsReply,
+        });
+      }
+      console.error('[feedbackService] create error:', error.message);
+      return { success: false, message: 'Could not save. Please try again.' };
+    }
+
+    return { success: true, message: 'Saved' };
+  } catch (error) {
+    console.error('[feedback] create error', error);
     return { success: false, message: 'Network error. Please try again.' };
   }
 };
@@ -158,11 +253,6 @@ export const markFeedbackCompleted = (source: FeedbackSource): void => {
 
 const ALL_SOURCES: FeedbackSource[] = ['cv-builder', 'cover-letter', 'global'];
 
-/**
- * ✅ Auto-popup helpers (feedbackAutoPrompt.ts use karta ha)
- * User ne kisi bhi screen se feedback SUBMIT kiya ho (tier set ya completed) → true.
- * Sirf close/dismiss karne se tier set nahi hota, to wo yahan count nahi hota.
- */
 export const hasSubmittedAnyFeedback = (): boolean =>
   ALL_SOURCES.some((source) => {
     const keys = getKeys(source);
@@ -172,21 +262,12 @@ export const hasSubmittedAnyFeedback = (): boolean =>
     );
   });
 
-/** Kisi bhi screen pe feedback modal aakhri baar kab khula (ms timestamp, 0 = kabhi nahi) */
 export const getLastFeedbackShownAt = (): number =>
   ALL_SOURCES.reduce((latest, source) => {
     const t = parseInt(localStorage.getItem(getKeys(source).lastShown) || '0', 10);
     return Number.isFinite(t) && t > latest ? t : latest;
   }, 0);
 
-/**
- * Called after successful submission.
- * Determines whether this user should be asked again.
- *
- * - Rating + message + reply requested → permanent completion
- * - Rating + message → 30-day cooldown (tier: with-message)
- * - Rating only → 7-day cooldown (tier: rating-only)
- */
 export const recordFeedbackTier = (
   source: FeedbackSource,
   hasMessage: boolean,
@@ -194,19 +275,16 @@ export const recordFeedbackTier = (
 ): void => {
   const keys = getKeys(source);
 
-  // Full commitment → never ask again
   if (hasMessage && wantsReply) {
     markFeedbackCompleted(source);
     return;
   }
 
-  // Message but no reply → 30-day cooldown
   if (hasMessage) {
     localStorage.setItem(keys.tier, 'with-message');
     return;
   }
 
-  // Rating only → 7-day cooldown
   localStorage.setItem(keys.tier, 'rating-only');
 };
 
@@ -227,7 +305,6 @@ export const resetFeedback = (source?: FeedbackSource): void => {
   console.log('✅ All feedback keys reset');
 };
 
-// Dev console access
 if (typeof window !== 'undefined') {
   (window as any).resetFeedback = resetFeedback;
 }

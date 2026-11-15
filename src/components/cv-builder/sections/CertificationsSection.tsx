@@ -5,12 +5,15 @@
 import React from 'react';
 import { Award, Trash2, Plus } from 'lucide-react';
 import { CertificationItem } from '../types/cvTypes';
+import CustomFieldsEditor from './CustomFieldsEditor';
+import type { CustomField } from '../types/cvExtraTypes';
 
 interface CertificationsSectionProps {
     certifications: CertificationItem[];
     addCertification: () => void;
     removeCertification: (i: number) => void;
     updateCertification: (i: number, field: keyof CertificationItem, value: string) => void;
+    onCustomFieldsChange?: (i: number, fields: CustomField[]) => void;
 }
 
 const baseInput =
@@ -19,7 +22,7 @@ const normalInput =
     'border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 hover:border-slate-300';
 
 const CertificationsSection: React.FC<CertificationsSectionProps> = ({
-    certifications, addCertification, removeCertification, updateCertification,
+    certifications, addCertification, removeCertification, updateCertification, onCustomFieldsChange,
 }) => {
     return (
         <div className="space-y-4">
@@ -83,6 +86,13 @@ const CertificationsSection: React.FC<CertificationsSectionProps> = ({
                                     className={`${baseInput} ${normalInput}`}
                                 />
                             </div>
+
+                            {onCustomFieldsChange && (
+                                <CustomFieldsEditor
+                                    fields={cert.customFields}
+                                    onChange={(f: CustomField[]) => onCustomFieldsChange(idx, f)}
+                                />
+                            )}
                         </div>
                     </div>
                 ))}

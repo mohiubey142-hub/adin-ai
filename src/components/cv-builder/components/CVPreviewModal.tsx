@@ -16,6 +16,8 @@ import AcademicTemplate from '../preview/components/AcademicTemplate';
 import StandardTemplate from '../preview/components/StandardTemplate';
 import CorporateTemplate from '../preview/components/CorporateTemplate';
 import ATSProTemplate from '../preview/components/ATSProTemplate';
+// ✅ Extra sections (custom sections / interests / references / section order)
+import { normalizeExtras } from '../utils/cvExtras';
 
 interface CVPreviewModalProps {
     isOpen: boolean;
@@ -218,6 +220,8 @@ const CVPreviewModal: React.FC<CVPreviewModalProps> = ({
             strength: { text: '', color: '', bg: '', icon: '' },
             completionPercentage: 0,
             sectionStatuses: {},
+            // ✅ New sections in Quick View too
+            ...normalizeExtras(data),
         };
 
         switch (data.template) {

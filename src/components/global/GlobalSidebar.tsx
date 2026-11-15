@@ -1,15 +1,5 @@
 // src/components/global/GlobalSidebar.tsx
-// ✅ FULL PROFESSIONAL POLISH
-// ✅ UPDATED: Editors section labels → "CV Builder" + "Cover Letter"
-// ✅ UPDATED: Sidebar user ID shows only first 8 characters + "..." (truncated)
-//             Full ID is always visible in ProfilePage.
-// - Toggle drawer design (ChatGPT/DeepSeek style)
-// - Logo image from public/icon-1024x1024.png
-// - Clean header (no purple glow)
-// - Section labels: MAIN / TEMPLATES / EDITORS
-// - Hidden scrollbar on nav (still scrollable)
-
-import React from 'react';
+import React, { useState } from 'react';
 import {
     X, Home, FileText, Palette, Mail,
     ChevronRight,
@@ -21,8 +11,9 @@ interface GlobalSidebarProps {
     onClose: () => void;
     currentPage: AppRoute;
     userId?: string;
+    userEmail?: string;
     userName?: string;
-    hasPinSet?: boolean;
+    avatarUrl?: string | null;   // ✅ App.tsx se aata hai (login par save hoti hai) — ab Supabase se fetch nahi hota
     onOpenProfile?: () => void;
 }
 
@@ -67,17 +58,15 @@ const getAvatarLetter = (name: string): string => {
     return name.trim().charAt(0).toUpperCase();
 };
 
-const getAvatarGradient = (name: string): string => {
-    const gradients = [
-        'from-violet-500 via-purple-500 to-fuchsia-500',
-        'from-blue-500 via-cyan-500 to-teal-500',
-        'from-rose-500 via-pink-500 to-fuchsia-500',
-        'from-amber-500 via-orange-500 to-red-500',
-        'from-emerald-500 via-teal-500 to-cyan-500',
+// Google jaisa color generate karne ke liye (agar DP na ho)
+const getAvatarColor = (name: string): string => {
+    const colors = [
+        'bg-red-500', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 
+        'bg-purple-500', 'bg-pink-500', 'bg-indigo-500', 'bg-teal-500'
     ];
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    return gradients[Math.abs(hash) % gradients.length];
+    if (!name || name === 'User') return colors[0];
+    const charCode = name.trim().charAt(0).toUpperCase().charCodeAt(0);
+    return colors[charCode % colors.length];
 };
 
 const GlobalSidebar: React.FC<GlobalSidebarProps> = ({
@@ -85,10 +74,14 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({
     onClose,
     currentPage,
     userId,
+    userEmail,
     userName = 'User',
+    avatarUrl = null,
     onOpenProfile,
 }) => {
     const { navigate } = useNavigation();
+    // DP load na ho (link expire / Google ne rok diya) to letter wala avatar dikhao
+    const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null);
 
     const handleItemClick = (item: SidebarItem) => {
         if (item.comingSoon) return;
@@ -105,21 +98,16 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({
         setTimeout(() => onOpenProfile?.(), 150);
     };
 
-    // ✅ userId onboarding complete hone ke baad hi hota ha. Uske bina (landing → public page)
-    //    koi account nahi ha, to "Guest / Create account" card dikhao.
     const isSignedIn = !!userId;
     const displayName = isSignedIn ? (userName || 'User') : 'Guest';
     const avatarLetter = isSignedIn ? getAvatarLetter(userName) : 'G';
-    const avatarGradient = getAvatarGradient(displayName);
+    const avatarColor = getAvatarColor(displayName);
 
-    // ✅ Sidebar shows only the first 8 characters of the user ID, followed by
-    //    "..." to signal the rest is hidden. The full ID is always visible in
-    //    ProfilePage (where the user needs it for backup / restore).
-    const shortId = userId ? `${userId.slice(0, 8)}...` : null;
+    // Sidebar shows Email instead of ID
+    const displayEmail = userEmail ? (userEmail.length > 22 ? userEmail.slice(0, 22) + '...' : userEmail) : null;
 
     return (
         <>
-            {/* Backdrop */}
             <div
                 onClick={onClose}
                 aria-hidden="true"
@@ -128,7 +116,6 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({
                 }`}
             />
 
-            {/* Sidebar drawer */}
             <aside
                 role="dialog"
                 aria-modal="true"
@@ -137,11 +124,9 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({
                     isOpen ? 'translate-x-0' : '-translate-x-full'
                 }`}
             >
-                {/* ═══════ HEADER ═══════ */}
                 <div className="shrink-0 px-5 pt-5 pb-5">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 min-w-0">
-                            {/* Logo image */}
                             <div className="shrink-0 w-11 h-11 rounded-2xl bg-white border border-slate-200/80 shadow-md shadow-purple-900/5 overflow-hidden flex items-center justify-center">
                                 <img
                                     src="/icon-1024x1024.png"
@@ -161,7 +146,6 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({
                             </div>
                         </div>
 
-                        {/* Close button */}
                         <button
                             onClick={onClose}
                             aria-label="Close navigation"
@@ -172,14 +156,11 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({
                     </div>
                 </div>
 
-                {/* Divider */}
                 <div className="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent shrink-0" />
 
-                {/* ═══════ NAV ITEMS ═══════ */}
                 <nav className="sidebar-scroll-hide flex-1 overflow-y-auto overflow-x-hidden px-3 py-4">
                     {sidebarSections.map((section, sectionIndex) => (
                         <div key={section.title} className={sectionIndex > 0 ? 'mt-6' : ''}>
-                            {/* Section label */}
                             <div className="px-3 mb-2">
                                 <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
                                     {section.title}
@@ -205,7 +186,6 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({
                                                         : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900 active:bg-slate-100'
                                                 }`}
                                             >
-                                                {/* Icon chip */}
                                                 <span
                                                     className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 ${
                                                         isActive
@@ -218,17 +198,14 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({
                                                     <Icon size={15} strokeWidth={2.3} />
                                                 </span>
 
-                                                {/* Label */}
                                                 <span className="flex-1 truncate">{item.label}</span>
 
-                                                {/* Soon badge */}
                                                 {isDisabled && (
                                                     <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-400 shrink-0">
                                                         Soon
                                                     </span>
                                                 )}
 
-                                                {/* Active indicator dot */}
                                                 {isActive && (
                                                     <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-white/80" />
                                                 )}
@@ -241,53 +218,57 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({
                     ))}
                 </nav>
 
-                {/* ═══════ DIVIDER ═══════ */}
                 <div className="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent shrink-0" />
 
-                {/* ═══════ PROFILE SECTION ═══════ */}
                 <div className="shrink-0 p-3">
                     <button
                         onClick={handleProfileClick}
                         className="group relative w-full flex items-center gap-3 p-2.5 rounded-2xl bg-slate-50 hover:bg-white border border-slate-200/70 hover:border-purple-200 hover:shadow-md hover:shadow-purple-900/5 transition-all duration-200 active:scale-[0.98]"
                     >
-                        {/* Avatar with online dot */}
                         <div className="relative shrink-0">
-                            <div
-                                className={`w-11 h-11 rounded-full bg-gradient-to-br ${avatarGradient} flex items-center justify-center text-white font-bold text-base shadow-md`}
-                            >
-                                {avatarLetter}
-                            </div>
+                            {/* ✅ Google DP agar hai, warna letter wala color */}
+                            {isSignedIn && avatarUrl && avatarUrl !== failedAvatarUrl ? (
+                                <img 
+                                    src={avatarUrl} 
+                                    alt={displayName} 
+                                    className="w-11 h-11 rounded-full object-cover shadow-md border border-slate-200"
+                                    referrerPolicy="no-referrer"
+                                    onError={() => setFailedAvatarUrl(avatarUrl)}
+                                />
+                            ) : (
+                                <div
+                                    className={`w-11 h-11 rounded-full ${avatarColor} flex items-center justify-center text-white font-bold text-base shadow-md`}
+                                >
+                                    {avatarLetter}
+                                </div>
+                            )}
                             {isSignedIn && (
                                 <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white shadow-sm" />
                             )}
                         </div>
 
-                        {/* Name + ID (truncated) */}
                         <div className="min-w-0 flex-1 text-left">
                             <div className="text-[13.5px] font-bold text-slate-900 truncate leading-tight">
                                 {displayName}
                             </div>
-                            <div className={`text-[10.5px] text-slate-500 truncate mt-0.5 ${isSignedIn ? 'font-mono tracking-wide' : 'font-medium'}`}>
-                                {isSignedIn ? shortId : 'Tap to create your account'}
+                            <div className={`text-[10.5px] text-slate-500 truncate mt-0.5 ${isSignedIn ? 'font-medium' : 'font-medium'}`}>
+                                {isSignedIn ? displayEmail : 'Tap to create your account'}
                             </div>
                         </div>
 
-                        {/* Chevron */}
                         <ChevronRight
                             size={16}
                             className="shrink-0 text-slate-400 group-hover:text-purple-500 group-hover:translate-x-0.5 transition-all duration-200"
                         />
                     </button>
 
-                    {/* Hint */}
                     <div className="mt-2 px-1 flex items-center justify-center">
                         <span className="text-[10px] text-slate-400 font-medium">
-                            {isSignedIn ? 'Tap to manage account' : 'Your ID is created only when you get started'}
+                            {isSignedIn ? 'Tap to manage account' : 'Your account is created when you get started'}
                         </span>
                     </div>
                 </div>
 
-                {/* ═══════ FOOTER ═══════ */}
                 <div className="shrink-0 px-5 py-3 border-t border-slate-100 bg-gradient-to-t from-slate-50/50 to-transparent">
                     <div className="flex items-center justify-between gap-3">
                         <span className="text-[10px] text-slate-400 font-medium">
@@ -303,7 +284,6 @@ const GlobalSidebar: React.FC<GlobalSidebarProps> = ({
                 </div>
             </aside>
 
-            {/* Hidden scrollbar for nav */}
             <style>{`
                 .sidebar-scroll-hide::-webkit-scrollbar {
                     display: none;

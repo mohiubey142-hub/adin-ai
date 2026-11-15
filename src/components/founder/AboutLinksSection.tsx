@@ -54,7 +54,7 @@ export default function AboutLinksSection() {
               Ready to build your CV?
             </h2>
             <p className="mt-3 text-white/85 text-sm sm:text-base max-w-xl mx-auto">
-              No signup. No credit card. No watermark.
+              Start for free. No watermark.
             </p>
             <div className="mt-7 flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
               <a

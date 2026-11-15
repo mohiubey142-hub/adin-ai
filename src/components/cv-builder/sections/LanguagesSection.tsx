@@ -5,12 +5,15 @@
 import React, { useState } from 'react';
 import { Languages, AlertCircle, Trash2, Plus } from 'lucide-react';
 import { LanguageItem } from '../types/cvTypes';
+import CustomFieldsEditor from './CustomFieldsEditor';
+import type { CustomField } from '../types/cvExtraTypes';
 
 interface LanguagesSectionProps {
     languages: LanguageItem[];
     addLanguage: () => void;
     removeLanguage: (i: number) => void;
     updateLanguage: (i: number, field: keyof LanguageItem, value: string) => void;
+    onCustomFieldsChange?: (i: number, fields: CustomField[]) => void;
 }
 
 const capitalizeLanguage = (lang: string): string => {
@@ -65,7 +68,7 @@ const errorInput =
     'border-red-400 focus:border-red-500 focus:ring-4 focus:ring-red-500/10';
 
 const LanguagesSection: React.FC<LanguagesSectionProps> = ({
-    languages, addLanguage, removeLanguage, updateLanguage,
+    languages, addLanguage, removeLanguage, updateLanguage, onCustomFieldsChange,
 }) => {
     const [validationErrors, setValidationErrors] = useState<Record<number, string>>({});
 
@@ -153,6 +156,13 @@ const LanguagesSection: React.FC<LanguagesSectionProps> = ({
                                     </div>
                                 </div>
                             </div>
+
+                            {onCustomFieldsChange && (
+                                <CustomFieldsEditor
+                                    fields={lang.customFields}
+                                    onChange={(f: CustomField[]) => onCustomFieldsChange(idx, f)}
+                                />
+                            )}
                         </div>
                     </div>
                 ))}

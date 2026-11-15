@@ -13,6 +13,10 @@ import React, { useState } from 'react';
 import toast from 'react-hot-toast';
 import { Trophy, Trash2, Plus, Minus, X, AlertCircle, FileText, Info } from 'lucide-react';
 import { AchievementItem } from '../types/cvTypes';
+import CustomFieldsEditor from './CustomFieldsEditor';
+import DescriptionFormatToggle from './DescriptionFormatToggle';
+import { applyDescriptionFormat } from '../utils/descriptionFormat';
+import type { CustomField } from '../types/cvExtraTypes';
 
 // Max bullets a user is allowed to SELECT from the AI suggestions.
 // The AI/system can still generate any number of suggestions — this only caps selection.
@@ -23,6 +27,7 @@ interface AchievementsSectionProps {
     addAchievement: () => void;
     removeAchievement: (i: number) => void;
     updateAchievement: (i: number, field: keyof AchievementItem, value: string) => void;
+    onCustomFieldsChange?: (i: number, fields: CustomField[]) => void;
     generateDescription: (index: number, ach: AchievementItem) => void;
     // ✅ generateAI may now return the list of AI-generated bullet suggestions
     //    (plain text, no leading "•") so they can be shown in the picker modal.
@@ -68,7 +73,7 @@ const normalInput =
 
 const AchievementsSection: React.FC<AchievementsSectionProps> = ({
     achievements, addAchievement, removeAchievement, updateAchievement,
-    generateDescription, generateAI, generating, aiGenerating,
+    generateDescription, generateAI, generating, aiGenerating, onCustomFieldsChange,
 }) => {
     const [isGenerating, setIsGenerating] = useState<number | null>(null);
     // ✅ ONE-AT-A-TIME: kisi bhi section mein generation chal rahi ho to naya start nahi hoga
@@ -337,6 +342,17 @@ const AchievementsSection: React.FC<AchievementsSectionProps> = ({
                                         <FileText size={14} className="text-purple-600" />
                                         Description <span className="text-slate-400 font-normal">(shown on CV)</span>
                                     </label>
+                                    <div className="mb-2">
+                                        <DescriptionFormatToggle
+                                            value={ach.descriptionFormat}
+                                            align={ach.descriptionAlign}
+                                            onAlignChange={a => updateAchievement(idx, 'descriptionAlign', a)}
+                                            onChange={f => {
+                                                updateAchievement(idx, 'descriptionFormat', f);
+                                                updateAchievement(idx, 'description', applyDescriptionFormat(ach.description, f));
+                                            }}
+                                        />
+                                    </div>
                                     <textarea
                                         placeholder="Your final achievement description for the CV. Use 'Generate AI Bullets' to auto-fill with selected bullets, or type manually."
                                         value={ach.description || ''}
@@ -345,6 +361,13 @@ const AchievementsSection: React.FC<AchievementsSectionProps> = ({
                                         className={`${baseInput} ${normalInput} resize-none`}
                                     />
                                 </div>
+
+                                {onCustomFieldsChange && (
+                                    <CustomFieldsEditor
+                                        fields={ach.customFields}
+                                        onChange={(f: CustomField[]) => onCustomFieldsChange(idx, f)}
+                                    />
+                                )}
                             </div>
                         </div>
                     );

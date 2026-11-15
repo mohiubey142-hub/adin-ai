@@ -87,6 +87,38 @@ const safeSave = (
 };
 
 // =====================================================
+// ✅ NEW: "Kuch badla hi nahi" check — write-back loop band
+// =====================================================
+// Pehle ye hook page open / reload / cloud-restore ke baad 1 sec mein SAME data dobara save kar deta tha
+// (loadedRef pehle effect me true ho jata hai, isliye mount par skip nahi hota tha).
+// Is write-back se lastEdited = abhi ho jata tha aur cloud par naya upload chala jata tha:
+//   • dusre device ke naye updates "recent local edit" ban kar 2 min block hote the
+//   • B ka purana state, A ke naye edit ko cloud par overwrite kar sakta tha
+// Ab agar saved data me koi asli farq nahi hai to kuch likha / sync nahi hota.
+const DOC_KEY_PREFIX = 'adin_cv_document_';
+const IGNORED_COMPARE_KEYS: ReadonlySet<string> = new Set(['lastUpdated', 'hasPhoto']);
+
+// Keys sorted — Postgres jsonb key order badal deta hai, isliye normal JSON.stringify compare galat hota
+const stableStringify = (value: any, isRoot = true): string => {
+    if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'null';
+    if (Array.isArray(value)) return `[${value.map((v) => stableStringify(v, false)).join(',')}]`;
+    const keys = Object.keys(value)
+        .filter((k) => !(isRoot && IGNORED_COMPARE_KEYS.has(k)))
+        .sort();
+    return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(value[k], false)}`).join(',')}}`;
+};
+
+const isSameAsStored = (userId: string, documentId: string, candidate: any): boolean => {
+    try {
+        const raw = localStorage.getItem(`${DOC_KEY_PREFIX}${userId}_${documentId}`);
+        if (!raw) return false;
+        return stableStringify(JSON.parse(raw)) === stableStringify(candidate);
+    } catch {
+        return false;   // shak ho to save karo (purana behaviour)
+    }
+};
+
+// =====================================================
 // ✅ THROTTLE HELPER — "Saving" indicator ke liye
 // =====================================================
 // Yeh function ensure karta hai ki `setSaveStatus('saving')` sirf
@@ -103,7 +135,7 @@ export const useAutoSave = (
     skipSave: boolean = false
 ) => {
     const [saveStatus, setSaveStatus] = useState<'saved' | 'saving'>('saved');
-    const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const loadedRef = useRef(false);
     const quotaDispatchedRef = useRef(false);
     const lastSavingTimeRef = useRef(0);  // ✅ Throttle tracking
@@ -146,6 +178,12 @@ export const useAutoSave = (
             };
 
             let result = { ok: true, quotaExceeded: false };
+
+            // ✅ Koi asli change nahi → na local write, na lastEdited bump, na cloud upload
+            if (documentId && !skipSave && isSameAsStored(userId, documentId, dataToSave)) {
+                setSaveStatus('saved');
+                return;
+            }
 
             if (documentId && !skipSave) {
                 result = safeSave(

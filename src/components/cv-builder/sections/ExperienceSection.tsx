@@ -10,12 +10,17 @@ import {
     Briefcase, Building2, Calendar, Trash2, Plus, Minus, X, Lightbulb, FileText,
 } from 'lucide-react';
 import { ExperienceItem } from '../types/cvTypes';
+import CustomFieldsEditor from './CustomFieldsEditor';
+import DescriptionFormatToggle from './DescriptionFormatToggle';
+import { applyDescriptionFormat } from '../utils/descriptionFormat';
+import type { CustomField } from '../types/cvExtraTypes';
 
 interface ExperienceSectionProps {
     experiences: ExperienceItem[];
     addExperience: () => void;
     removeExperience: (i: number) => void;
     updateExperience: (i: number, field: keyof ExperienceItem, value: string) => void;
+    onCustomFieldsChange?: (i: number, fields: CustomField[]) => void;
     generateDescription: (index: number, exp: ExperienceItem) => void;
     generateAI?: (index: number, exp: ExperienceItem) => void | string[] | Promise<void | string[]>;
     generating: string | null;   // ✅ FIX: section-specific key
@@ -58,7 +63,8 @@ const ExperienceItemComponent: React.FC<{
     isLoading: boolean;
     isBusy: boolean;   // ✅ ONE-AT-A-TIME: koi aur generation chal rahi ho to button disabled (spinner nahi)
     totalExperiences: number;
-}> = ({ exp, idx, updateExperience, removeExperience, onGenerateClick, isLoading, isBusy, totalExperiences }) => {
+    onCustomFieldsChange?: (i: number, fields: CustomField[]) => void;
+}> = ({ exp, idx, updateExperience, removeExperience, onGenerateClick, isLoading, isBusy, totalExperiences, onCustomFieldsChange }) => {
     const titleInputRef = useRef<HTMLInputElement>(null);
 
     return (
@@ -164,6 +170,17 @@ const ExperienceItemComponent: React.FC<{
                             )}
                         </button>
                     </div>
+                    <div className="mb-2">
+                        <DescriptionFormatToggle
+                            value={exp.descriptionFormat}
+                            align={exp.descriptionAlign}
+                            onAlignChange={a => updateExperience(idx, 'descriptionAlign', a)}
+                            onChange={f => {
+                                updateExperience(idx, 'descriptionFormat', f);
+                                updateExperience(idx, 'description', applyDescriptionFormat(exp.description, f));
+                            }}
+                        />
+                    </div>
                     <textarea
                         placeholder="Describe your responsibilities, achievements, and impact..."
                         value={exp.description}
@@ -172,6 +189,13 @@ const ExperienceItemComponent: React.FC<{
                         className={`${baseInput} ${normalInput} resize-none`}
                     />
                 </div>
+
+                {onCustomFieldsChange && (
+                    <CustomFieldsEditor
+                        fields={exp.customFields}
+                        onChange={(f: CustomField[]) => onCustomFieldsChange(idx, f)}
+                    />
+                )}
             </div>
         </div>
     );
@@ -179,7 +203,7 @@ const ExperienceItemComponent: React.FC<{
 
 const ExperienceSection: React.FC<ExperienceSectionProps> = ({
     experiences, addExperience, removeExperience, updateExperience,
-    generateDescription, generateAI, generating, aiGenerating,
+    generateDescription, generateAI, generating, aiGenerating, onCustomFieldsChange,
 }) => {
     const [isGenerating, setIsGenerating] = useState<number | null>(null);
     // ✅ ONE-AT-A-TIME: kisi bhi section mein generation chal rahi ho to naya start nahi hoga
@@ -329,6 +353,7 @@ const ExperienceSection: React.FC<ExperienceSectionProps> = ({
                         isLoading={generating === `exp-${idx}` || isGenerating === idx || aiGenerating === `exp-${idx}`}
                         isBusy={isBusy}
                         totalExperiences={experiences.length}
+                        onCustomFieldsChange={onCustomFieldsChange}
                     />
                 ))}
             </div>

@@ -16,6 +16,15 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { CVPreviewProps } from '../types/previewTypes';
 import { safeText } from '../utils/renderHelpers';
+import {
+    buildExtrasPlan,
+    getItemCustomLines,
+    getPersonalCustomContactParts,
+    REFERENCES_ON_REQUEST_TEXT,
+    type NormalizedEntry,
+} from '../../utils/extrasModel';
+import { getDescriptionAlign, getDescriptionFormat, getMarkerIndent, parseDescriptionLines } from '../../utils/descriptionFormat';
+import type { DescriptionAlign, DescriptionFormat } from '../../types/cvExtraTypes';
 
 // ====================================================================
 // PAGE (A4, same numbers as minimalPdf.ts)
@@ -340,6 +349,10 @@ const parseBulletLines = (text?: string): string[] =>
         })
         .filter(Boolean);
 
+// Description formats: bullets keep the original parser; numbered / paragraph use the shared helper.
+const parseDescription = (text: string | undefined, fmt: DescriptionFormat): string[] =>
+    fmt === 'bullets' ? parseBulletLines(text) : parseDescriptionLines(text).map((l) => safeText(l)).filter(Boolean);
+
 const hasDescenderChar = (text: string) => /[gjpqy]/.test(text);
 
 const clean = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
@@ -587,7 +600,9 @@ const Section: React.FC<{
     );
 };
 
-const BulletList: React.FC<{ lines: string[] }> = ({ lines }) => (
+const BulletList: React.FC<{ lines: string[]; format?: DescriptionFormat; align?: DescriptionAlign }> = ({ lines, format = 'bullets', align = 'left' }) => {
+    const indent = getMarkerIndent(format, lines.length, BODY_SIZE, BULLET_DOT_TO_TEXT_GAP);
+    return (
     <div>
         {lines.map((line, i) => (
             <div
@@ -601,12 +616,15 @@ const BulletList: React.FC<{ lines: string[] }> = ({ lines }) => (
                     pageBreakInside: 'avoid'
                 }}
             >
-                <span style={{ flexShrink: 0, width: pt(BULLET_DOT_TO_TEXT_GAP), color: COLOR_SECTION_HEADING }}>•</span>
-                <span style={{ minWidth: 0, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{safeText(line)}</span>
+                {format !== 'paragraph' && (
+                    <span style={{ flexShrink: 0, width: pt(indent), color: COLOR_SECTION_HEADING }}>{format === 'numbered' ? `${i + 1}.` : '•'}</span>
+                )}
+                <span style={{ minWidth: 0, wordBreak: 'break-word', overflowWrap: 'anywhere', ...(align === 'justify' ? { textAlign: 'justify' as const } : {}) }}>{safeText(line)}</span>
             </div>
         ))}
     </div>
-);
+    );
+};
 
 const TitleDateRow: React.FC<{ title?: string; date?: string }> = ({ title, date }) => (
     <div
@@ -651,6 +669,14 @@ const TitleDateRow: React.FC<{ title?: string; date?: string }> = ({ title, date
 
 const titleLine = (text: string) => <div style={lineStyle(ENTRY_TITLE_SIZE, COLOR_HEADING, true)}>{safeText(text)}</div>;
 const subLine = (text: string) => <div style={lineStyle(ENTRY_SUB_SIZE, COLOR_BODY)}>{safeText(text)}</div>;
+
+
+// Custom fields of an item: one "Label: Value" line each, body-line spaced, after the entry's last line.
+const appendCustomLines = (lines: StackLine[], item: any) => {
+    getItemCustomLines(item).forEach((line, i) =>
+        lines.push({ key: `cf${i}`, fs: ENTRY_SUB_SIZE, dist: lines.length > 0 ? BODY_LINE_HEIGHT : 0, node: subLine(line) })
+    );
+};
 
 interface EntryItem {
     firstFs: number;
@@ -732,6 +758,7 @@ const MinimalTemplate: React.FC<CVPreviewProps> = (props) => {
     if (clean(pi?.github)) contactParts.push(`GitHub: ${clean(pi.github)}`);
     const webLink = clean(pi?.website) || clean(pi?.portfolio);
     if (webLink) contactParts.push(`Portfolio URL: ${webLink}`);
+    getPersonalCustomContactParts(pi).forEach((p) => contactParts.push(p));
     const contactItems = contactParts.map((p) => stripEmojis(safeText(p))).filter(Boolean);
 
     const layout = getHeaderLayout(hasPhoto, hasTitle);
@@ -884,7 +911,9 @@ const MinimalTemplate: React.FC<CVPreviewProps> = (props) => {
         const title = clean(exp.title);
         const company = clean(exp.company);
         const dateRange = [clean(exp.startDate), clean(exp.endDate)].filter(Boolean).join(' – ');
-        const bullets = parseBulletLines(exp.description);
+        const fmt = getDescriptionFormat(exp);
+        const al = getDescriptionAlign(exp);
+        const bullets = parseDescription(exp.description, fmt);
         const hasTitleRow = !!(title || dateRange);
         const rowFs = title ? ENTRY_TITLE_SIZE : ENTRY_SUB_SIZE;
 
@@ -911,10 +940,11 @@ const MinimalTemplate: React.FC<CVPreviewProps> = (props) => {
                 key: 'bullets',
                 fs: BODY_SIZE,
                 dist: lines.length > 0 ? prevFs + ENTRY_SUBTITLE_TO_DESCRIPTION_GAP : 0,
-                node: <BulletList lines={bullets} />
+                node: <BulletList lines={bullets} format={fmt} align={al} />
             });
         }
 
+        appendCustomLines(lines, exp);
         const firstFs = stackFirstFs(lines);
         const lastFs = stackLastFs(lines);
 
@@ -984,6 +1014,7 @@ const MinimalTemplate: React.FC<CVPreviewProps> = (props) => {
                         : ENTRY_TITLE_SIZE + ENTRY_SUBTITLE_TO_DESCRIPTION_GAP;
             lines.push({ key: 'grade', fs: ENTRY_SUB_SIZE, dist, node: subLine(`Grade: ${grade}`) });
         }
+        appendCustomLines(lines, edu);
         return { firstFs: stackFirstFs(lines), lastFs: stackLastFs(lines), node: <Stack lines={lines} /> };
     });
 
@@ -1011,6 +1042,7 @@ const MinimalTemplate: React.FC<CVPreviewProps> = (props) => {
                 node: subLine(credentialId)
             });
         }
+        appendCustomLines(lines, c);
         return { firstFs: stackFirstFs(lines), lastFs: stackLastFs(lines), node: <Stack lines={lines} /> };
     });
 
@@ -1019,10 +1051,12 @@ const MinimalTemplate: React.FC<CVPreviewProps> = (props) => {
         const language = clean(l.language);
         const proficiencyRaw = clean(l.proficiency);
         const level = proficiencyRaw ? getProficiencyDisplayLabel(proficiencyRaw) : '';
-        return {
-            firstFs: ENTRY_TITLE_SIZE,
-            lastFs: ENTRY_TITLE_SIZE,
-            node: (
+        const langLines: StackLine[] = [
+            {
+                key: 'lang',
+                fs: ENTRY_TITLE_SIZE,
+                dist: 0,
+                node: (
                 <div
                     style={{
                         fontSize: pt(ENTRY_TITLE_SIZE),
@@ -1065,14 +1099,19 @@ const MinimalTemplate: React.FC<CVPreviewProps> = (props) => {
                     )}
                 </div>
             )
-        };
+            }
+        ];
+        appendCustomLines(langLines, l);
+        return { firstFs: ENTRY_TITLE_SIZE, lastFs: stackLastFs(langLines), node: <Stack lines={langLines} /> };
     });
 
     // Achievement entries
     const achievementItems: EntryItem[] = validAchievements.map((a: any) => {
         const title = clean(a.title);
         const date = clean(a.date);
-        const bullets = parseBulletLines(a.description);
+        const fmt = getDescriptionFormat(a);
+        const al = getDescriptionAlign(a);
+        const bullets = parseDescription(a.description, fmt);
 
         const lines: StackLine[] = [];
         if (title) lines.push({ key: 'title', fs: ENTRY_TITLE_SIZE, dist: 0, node: titleLine(title) });
@@ -1089,9 +1128,10 @@ const MinimalTemplate: React.FC<CVPreviewProps> = (props) => {
                 key: 'bullets',
                 fs: BODY_SIZE,
                 dist: lines.length > 0 ? stackLastFs(lines) + ENTRY_SUBTITLE_TO_DESCRIPTION_GAP : 0,
-                node: <BulletList lines={bullets} />
+                node: <BulletList lines={bullets} format={fmt} align={al} />
             });
         }
+        appendCustomLines(lines, a);
         return { firstFs: stackFirstFs(lines), lastFs: stackLastFs(lines), node: <Stack lines={lines} /> };
     });
 
@@ -1099,7 +1139,9 @@ const MinimalTemplate: React.FC<CVPreviewProps> = (props) => {
     const projectItems: EntryItem[] = validProjects.map((p: any) => {
         const projectName = clean(p.name);
         const tech = clean(p.tech);
-        const bullets = parseBulletLines(p.description);
+        const fmt = getDescriptionFormat(p);
+        const al = getDescriptionAlign(p);
+        const bullets = parseDescription(p.description, fmt);
         const github = clean(p.github);
 
         const lines: StackLine[] = [];
@@ -1117,7 +1159,7 @@ const MinimalTemplate: React.FC<CVPreviewProps> = (props) => {
                 key: 'bullets',
                 fs: BODY_SIZE,
                 dist: lines.length > 0 ? stackLastFs(lines) + ENTRY_SUBTITLE_TO_DESCRIPTION_GAP : 0,
-                node: <BulletList lines={bullets} />
+                node: <BulletList lines={bullets} format={fmt} align={al} />
             });
         }
         if (github) {
@@ -1146,6 +1188,7 @@ const MinimalTemplate: React.FC<CVPreviewProps> = (props) => {
                 )
             });
         }
+        appendCustomLines(lines, p);
         return { firstFs: stackFirstFs(lines), lastFs: stackLastFs(lines), node: <Stack lines={lines} /> };
     });
 
@@ -1182,6 +1225,223 @@ const MinimalTemplate: React.FC<CVPreviewProps> = (props) => {
         gateApi.onLeave('personal');
         setHeaderHovered(false);
     };
+
+    // Custom sections + References: Experience-style entry (title + date row, subtitle, bullets) + custom-field lines.
+    const normalizedSection = (key: string, title: string, entries: NormalizedEntry[]) => {
+        const items: EntryItem[] = entries.map((e) => {
+            const t = clean(e.title);
+            const date = clean(e.date);
+            const subtitle = clean(e.subtitle);
+            const fmt = getDescriptionFormat(e);
+            const al = getDescriptionAlign(e);
+            const bullets = parseDescription(e.description, fmt);
+            const hasRow = !!(t || date);
+            const rowFs = t ? ENTRY_TITLE_SIZE : ENTRY_SUB_SIZE;
+            const lines: StackLine[] = [];
+            if (hasRow) {
+                lines.push({
+                    key: 'row',
+                    fs: rowFs,
+                    dist: 0,
+                    node: <TitleDateRow title={t ? safeText(t) : undefined} date={date ? safeText(date) : undefined} />
+                });
+            }
+            if (subtitle) {
+                lines.push({ key: 'sub', fs: ENTRY_SUB_SIZE, dist: hasRow ? rowFs + ENTRY_TITLE_TO_SUBTITLE_GAP : 0, node: subLine(subtitle) });
+            }
+            if (bullets.length > 0) {
+                lines.push({
+                    key: 'bullets',
+                    fs: BODY_SIZE,
+                    dist: lines.length > 0 ? stackLastFs(lines) + ENTRY_SUBTITLE_TO_DESCRIPTION_GAP : 0,
+                    node: <BulletList lines={bullets} format={fmt} align={al} />
+                });
+            }
+            e.metaLines.map((l) => clean(l)).filter(Boolean).forEach((line, i) =>
+                lines.push({ key: `m${i}`, fs: ENTRY_SUB_SIZE, dist: lines.length > 0 ? BODY_LINE_HEIGHT : 0, node: subLine(line) })
+            );
+            if (lines.length === 0) lines.push({ key: 'empty', fs: BODY_SIZE, dist: 0, node: <div style={{ height: pt(BODY_LINE_HEIGHT) }} /> });
+            return { firstFs: stackFirstFs(lines), lastFs: stackLastFs(lines), node: <Stack lines={lines} /> };
+        });
+        if (items.length === 0) return null;
+        return section(key, title, ENTRY_TITLE_SIZE, items[0].firstFs, lastOf(items), renderEntries(items, ENTRY_GAP, key));
+    };
+
+    // ---- Section builders keyed by section id; the Section Order panel decides order + visibility ----
+    const plan = buildExtrasPlan('minimal', props);
+    const sectionBuilders: Record<string, () => React.ReactNode> = {
+        summary: () =>
+            summaryText
+                ? section(
+                        'summary',
+                        'PROFESSIONAL SUMMARY',
+                        BODY_SIZE,
+                        BODY_SIZE,
+                        BODY_SIZE,
+                        <p
+                            {...flowProps}
+                            style={{
+                                margin: 0,
+                                padding: 0,
+                                width: '100%',
+                                fontSize: pt(BODY_SIZE),
+                                lineHeight: pt(BODY_LINE_HEIGHT),
+                                color: COLOR_BODY,
+                                wordBreak: 'break-word',
+                                overflowWrap: 'anywhere'
+                            }}
+                        >
+                            {safeText(summaryText)}
+                        </p>
+                  )
+                : null,
+        experience: () =>
+            experienceItems.length > 0
+                ? section(
+                        'experience',
+                        'EXPERIENCE',
+                        ENTRY_TITLE_SIZE,
+                        experienceItems[0].firstFs,
+                        lastOf(experienceItems),
+                        renderEntries(experienceItems, ENTRY_GAP, 'exp')
+                  )
+                : null,
+        education: () =>
+            educationItems.length > 0
+                ? section(
+                        'education',
+                        'EDUCATION',
+                        ENTRY_TITLE_SIZE,
+                        educationItems[0].firstFs,
+                        lastOf(educationItems),
+                        renderEntries(educationItems, ENTRY_GAP, 'edu')
+                  )
+                : null,
+        certifications: () =>
+            certificationItems.length > 0
+                ? section(
+                        'certifications',
+                        'CERTIFICATIONS',
+                        ENTRY_TITLE_SIZE,
+                        certificationItems[0].firstFs,
+                        lastOf(certificationItems),
+                        renderEntries(certificationItems, ENTRY_GAP, 'cert')
+                  )
+                : null,
+        skills: () =>
+            skillLines.length > 0
+                ? section(
+                        'skills',
+                    'SKILLS',
+                    BODY_SIZE,
+                    BODY_SIZE,
+                    BODY_SIZE,
+                    <div
+                        {...flowProps}
+                        style={{
+                            width: '100%',
+                            fontSize: pt(BODY_SIZE),
+                            lineHeight: pt(BODY_LINE_HEIGHT),
+                            color: COLOR_BODY
+                        }}
+                    >
+                        {skillLines.map((line, idx) => (
+                            <div key={idx} style={{ whiteSpace: 'pre' }}>
+                                {line}
+                            </div>
+                        ))}
+                    </div>
+                  )
+                : null,
+        languages: () =>
+            languageItems.length > 0
+                ? section(
+                        'languages',
+                        'LANGUAGES',
+                        ENTRY_TITLE_SIZE,
+                        ENTRY_TITLE_SIZE,
+                        ENTRY_TITLE_SIZE,
+                        renderEntries(languageItems, 0, 'lang')
+                  )
+                : null,
+        achievements: () =>
+            achievementItems.length > 0
+                ? section(
+                        'achievements',
+                        'ACHIEVEMENTS',
+                        ENTRY_TITLE_SIZE,
+                        achievementItems[0].firstFs,
+                        lastOf(achievementItems),
+                        renderEntries(achievementItems, ENTRY_GAP, 'ach')
+                  )
+                : null,
+        projects: () =>
+            projectItems.length > 0
+                ? section(
+                        'projects',
+                        'PROJECTS',
+                        ENTRY_TITLE_SIZE,
+                        projectItems[0].firstFs,
+                        lastOf(projectItems),
+                        renderEntries(projectItems, ENTRY_GAP, 'proj')
+                  )
+                : null,
+        interests: () => {
+            const list = plan.interests.map((x) => safeText(x)).filter(Boolean);
+            if (list.length === 0) return null;
+            const lines = buildSkillLines(list, CONTENT_WIDTH / fit);
+            return section(
+                'interests',
+                'INTERESTS',
+                BODY_SIZE,
+                BODY_SIZE,
+                BODY_SIZE,
+                <div
+                    {...flowProps}
+                    style={{ width: '100%', fontSize: pt(BODY_SIZE), lineHeight: pt(BODY_LINE_HEIGHT), color: COLOR_BODY }}
+                >
+                    {lines.map((line, idx) => (
+                        <div key={idx} style={{ whiteSpace: 'pre' }}>
+                            {line}
+                        </div>
+                    ))}
+                </div>
+            );
+        },
+        references: () => {
+            if (plan.referenceEntries.length > 0) return normalizedSection('references', 'REFERENCES', plan.referenceEntries);
+            if (!plan.references.availableOnRequest) return null;
+            return section(
+                'references',
+                'REFERENCES',
+                BODY_SIZE,
+                BODY_SIZE,
+                BODY_SIZE,
+                <p
+                    {...flowProps}
+                    style={{ margin: 0, padding: 0, width: '100%', fontSize: pt(BODY_SIZE), lineHeight: pt(BODY_LINE_HEIGHT), color: COLOR_BODY }}
+                >
+                    {REFERENCES_ON_REQUEST_TEXT}
+                </p>
+            );
+        },
+    };
+    plan.customSections.forEach((cs) => {
+        sectionBuilders[`custom:${cs.id}`] = () =>
+            normalizedSection(
+                `custom:${cs.id}`,
+                cs.title.toUpperCase(),
+                cs.entries.map((e) => ({
+                    title: e.title || '',
+                    subtitle: e.subtitle || '',
+                    date: e.date || '',
+                    description: e.description || '',
+                    descriptionFormat: getDescriptionFormat(e),
+                descriptionAlign: getDescriptionAlign(e),
+                metaLines: getItemCustomLines(e)
+                }))
+            );
+    });
 
     const body = (
         <div
@@ -1323,113 +1583,10 @@ const MinimalTemplate: React.FC<CVPreviewProps> = (props) => {
                     transformOrigin: 'top left'
                 }}
             >
-                {summaryText &&
-                    section(
-                        'summary',
-                        'PROFESSIONAL SUMMARY',
-                        BODY_SIZE,
-                        BODY_SIZE,
-                        BODY_SIZE,
-                        <p
-                            {...flowProps}
-                            style={{
-                                margin: 0,
-                                padding: 0,
-                                width: '100%',
-                                fontSize: pt(BODY_SIZE),
-                                lineHeight: pt(BODY_LINE_HEIGHT),
-                                color: COLOR_BODY,
-                                wordBreak: 'break-word',
-                                overflowWrap: 'anywhere'
-                            }}
-                        >
-                            {safeText(summaryText)}
-                        </p>
-                    )}
-
-                {experienceItems.length > 0 &&
-                    section(
-                        'experience',
-                        'EXPERIENCE',
-                        ENTRY_TITLE_SIZE,
-                        experienceItems[0].firstFs,
-                        lastOf(experienceItems),
-                        renderEntries(experienceItems, ENTRY_GAP, 'exp')
-                    )}
-
-                {educationItems.length > 0 &&
-                    section(
-                        'education',
-                        'EDUCATION',
-                        ENTRY_TITLE_SIZE,
-                        educationItems[0].firstFs,
-                        lastOf(educationItems),
-                        renderEntries(educationItems, ENTRY_GAP, 'edu')
-                    )}
-
-                {certificationItems.length > 0 &&
-                    section(
-                        'certifications',
-                        'CERTIFICATIONS',
-                        ENTRY_TITLE_SIZE,
-                        certificationItems[0].firstFs,
-                        lastOf(certificationItems),
-                        renderEntries(certificationItems, ENTRY_GAP, 'cert')
-                    )}
-
-                {skillLines.length > 0 &&
-                    section(
-                        'skills',
-                        'SKILLS',
-                        BODY_SIZE,
-                        BODY_SIZE,
-                        BODY_SIZE,
-                        <div
-                            {...flowProps}
-                            style={{
-                                width: '100%',
-                                fontSize: pt(BODY_SIZE),
-                                lineHeight: pt(BODY_LINE_HEIGHT),
-                                color: COLOR_BODY
-                            }}
-                        >
-                            {skillLines.map((line, idx) => (
-                                <div key={idx} style={{ whiteSpace: 'pre' }}>
-                                    {line}
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                {languageItems.length > 0 &&
-                    section(
-                        'languages',
-                        'LANGUAGES',
-                        ENTRY_TITLE_SIZE,
-                        ENTRY_TITLE_SIZE,
-                        ENTRY_TITLE_SIZE,
-                        renderEntries(languageItems, 0, 'lang')
-                    )}
-
-                {achievementItems.length > 0 &&
-                    section(
-                        'achievements',
-                        'ACHIEVEMENTS',
-                        ENTRY_TITLE_SIZE,
-                        achievementItems[0].firstFs,
-                        lastOf(achievementItems),
-                        renderEntries(achievementItems, ENTRY_GAP, 'ach')
-                    )}
-
-                {projectItems.length > 0 &&
-                    section(
-                        'projects',
-                        'PROJECTS',
-                        ENTRY_TITLE_SIZE,
-                        projectItems[0].firstFs,
-                        lastOf(projectItems),
-                        renderEntries(projectItems, ENTRY_GAP, 'proj')
-                    )}
+                {plan.order.map((id) => {
+                    const build = sectionBuilders[id];
+                    return build ? <React.Fragment key={id}>{build()}</React.Fragment> : null;
+                })}
             </div>
         </div>
     );

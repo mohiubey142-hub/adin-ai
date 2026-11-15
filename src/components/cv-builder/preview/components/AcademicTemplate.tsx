@@ -16,6 +16,15 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { CVPreviewProps } from '../types/previewTypes';
 import { safeText } from '../utils/renderHelpers';
+import { getDescriptionAlign, getDescriptionFormat, getMarkerIndent, parseDescriptionLines } from '../../utils/descriptionFormat';
+import type { DescriptionAlign, DescriptionFormat } from '../../types/cvExtraTypes';
+import {
+    buildExtrasPlan,
+    getItemCustomLines,
+    getPersonalCustomContactParts,
+    REFERENCES_ON_REQUEST_TEXT,
+    type NormalizedEntry,
+} from '../../utils/extrasModel';
 
 // ====================================================================
 // PAGE (A4, same numbers as academicPdf.ts)
@@ -324,6 +333,10 @@ const parseBulletLines = (text: string): string[] =>
         })
         .filter(Boolean);
 
+// Description formats: bullets keep the original parser; numbered / paragraph use the shared helper.
+const parseDescription = (text: string, fmt: DescriptionFormat): string[] =>
+    fmt === 'bullets' ? parseBulletLines(text) : parseDescriptionLines(text).map((l) => safeText(l)).filter(Boolean);
+
 const usableExperience = (e: any) => !!(txt(e?.title) || txt(e?.company) || txt(e?.startDate) || txt(e?.endDate) || txt(e?.description));
 const usableEducation = (e: any) => !!(txt(e?.degree) || txt(e?.institution) || txt(e?.year) || txt(e?.grade));
 const usableCertification = (c: any) => !!(txt(c?.name) || txt(c?.date) || txt(c?.credentialId));
@@ -536,20 +549,37 @@ const Entry: React.FC<{ rows: RowSpec[]; unit: 'keep' | 'flow' }> = ({ rows, uni
     );
 };
 
-const Bullets: React.FC<{ lines: string[] }> = ({ lines }) => (
-    <div>
-        {lines.map((line, i) => (
-            <div key={i} style={{ display: 'flex' }}>
-                <span style={{ flexShrink: 0, width: pt(BULLET_TEXT_INDENT), color: COLOR_SECTION_HEADING }}>
-                    {BULLET_MARKER}
-                </span>
-                <span style={{ minWidth: 0, flex: 1, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
-                    {safeText(line)}
-                </span>
-            </div>
-        ))}
-    </div>
-);
+const Bullets: React.FC<{ lines: string[]; format?: DescriptionFormat; align?: DescriptionAlign }> = ({
+    lines,
+    format = 'bullets',
+    align = 'left'
+}) => {
+    const indent = getMarkerIndent(format, lines.length, BODY_SIZE, BULLET_TEXT_INDENT);
+    return (
+        <div>
+            {lines.map((line, i) => (
+                <div key={i} style={{ display: 'flex' }}>
+                    {format !== 'paragraph' && (
+                        <span style={{ flexShrink: 0, width: pt(indent), color: COLOR_SECTION_HEADING }}>
+                            {format === 'numbered' ? `${i + 1}.` : BULLET_MARKER}
+                        </span>
+                    )}
+                    <span
+                        style={{
+                            minWidth: 0,
+                            flex: 1,
+                            wordBreak: 'break-word',
+                            overflowWrap: 'anywhere',
+                            ...(align === 'justify' ? { textAlign: 'justify' as const } : {})
+                        }}
+                    >
+                        {safeText(line)}
+                    </span>
+                </div>
+            ))}
+        </div>
+    );
+};
 
 const TitleDate: React.FC<{ title?: string; date?: string }> = ({ title, date }) => (
     <div style={{ display: 'flex', alignItems: 'baseline', columnGap: pt(TITLE_TO_DATE_GAP), width: '100%' }}>
@@ -585,7 +615,9 @@ const buildExperienceRows = (exp: any): RowSpec[] => {
     const title = txt(exp.title);
     const company = txt(exp.company);
     const dateRange = [txt(exp.startDate), txt(exp.endDate)].filter(Boolean).join(' – ');
-    const bullets = parseBulletLines(txt(exp.description));
+    const fmt = getDescriptionFormat(exp);
+    const al = getDescriptionAlign(exp);
+    const bullets = parseDescription(txt(exp.description), fmt);
 
     const rows: RowSpec[] = [];
     const headKind: RowKind | null = title ? 'title' : dateRange ? 'sub' : null;
@@ -604,7 +636,7 @@ const buildExperienceRows = (exp: any): RowSpec[] => {
         rows.push({
             kind: 'body',
             advance: prev ? advanceOf(prev.kind) + SUBTITLE_TO_DESCRIPTION_GAP : 0,
-            node: <Bullets lines={bullets} />
+            node: <Bullets lines={bullets} format={fmt} align={al} />
         });
     }
     return rows;
@@ -666,7 +698,9 @@ const buildLanguageRows = (lang: any): RowSpec[] => {
 const buildAchievementRows = (ach: any): RowSpec[] => {
     const title = txt(ach.title);
     const date = txt(ach.date);
-    const bullets = parseBulletLines(txt(ach.description));
+    const fmt = getDescriptionFormat(ach);
+    const al = getDescriptionAlign(ach);
+    const bullets = parseDescription(txt(ach.description), fmt);
 
     const rows: RowSpec[] = [];
     if (title) rows.push({ kind: 'title', advance: 0, node: safeText(title) });
@@ -676,7 +710,7 @@ const buildAchievementRows = (ach: any): RowSpec[] => {
         rows.push({
             kind: 'body',
             advance: prev ? advanceOf(prev.kind) + SUBTITLE_TO_DESCRIPTION_GAP : 0,
-            node: <Bullets lines={bullets} />
+            node: <Bullets lines={bullets} format={fmt} align={al} />
         });
     }
     return rows;
@@ -686,7 +720,9 @@ const buildProjectRows = (project: any): RowSpec[] => {
     const name = txt(project.name);
     const tech = txt(project.tech);
     const github = txt(project.github);
-    const bullets = parseBulletLines(txt(project.description));
+    const fmt = getDescriptionFormat(project);
+    const al = getDescriptionAlign(project);
+    const bullets = parseDescription(txt(project.description), fmt);
 
     const rows: RowSpec[] = [];
     if (name) rows.push({ kind: 'title', advance: 0, node: safeText(name) });
@@ -698,7 +734,7 @@ const buildProjectRows = (project: any): RowSpec[] => {
         rows.push({
             kind: 'body',
             advance: prev ? advanceOf(prev.kind) + SUBTITLE_TO_DESCRIPTION_GAP : 0,
-            node: <Bullets lines={bullets} />
+            node: <Bullets lines={bullets} format={fmt} align={al} />
         });
     }
     if (github) {
@@ -718,6 +754,23 @@ const buildProjectRows = (project: any): RowSpec[] => {
             )
         });
     }
+    return rows;
+};
+
+// Custom fields of an item: one "Label: Value" sub-row each, body-line spaced, after the entry's last row.
+const withCustom = (rows: RowSpec[], item: any): RowSpec[] => {
+    getItemCustomLines(item).forEach((line) =>
+        rows.push({ kind: 'sub', advance: rows.length > 0 ? BODY_LINE_HEIGHT : 0, node: safeText(line) })
+    );
+    return rows;
+};
+
+// Custom sections + References: Experience-style entry (title + date row, subtitle, bullets) + custom-field lines.
+const buildNormalizedRows = (e: NormalizedEntry): RowSpec[] => {
+    const rows = buildExperienceRows({ title: e.title, company: e.subtitle, startDate: e.date, endDate: '', description: e.description, descriptionFormat: e.descriptionFormat, descriptionAlign: e.descriptionAlign });
+    e.metaLines.forEach((line) =>
+        rows.push({ kind: 'sub', advance: rows.length > 0 ? BODY_LINE_HEIGHT : 0, node: safeText(line) })
+    );
     return rows;
 };
 
@@ -800,6 +853,7 @@ const AcademicTemplate: React.FC<CVPreviewProps> = (props) => {
     if (txt(pi?.github)) contactParts.push(txt(pi.github));
     const webLink = txt(pi?.website) || txt(pi?.portfolio);
     if (webLink) contactParts.push(webLink);
+    getPersonalCustomContactParts(pi).forEach((p) => contactParts.push(p));
     const contactItems = contactParts.map((p) => stripEmojis(safeText(p))).filter(Boolean);
 
     const lastContactHasDescender = /[gjpqy]/.test(contactItems[contactItems.length - 1] || '');
@@ -944,6 +998,220 @@ const AcademicTemplate: React.FC<CVPreviewProps> = (props) => {
         clearHovered('personal');
     };
 
+    // ---- Section nodes keyed by section id; the Section Order panel decides order + visibility ----
+    const plan = buildExtrasPlan('academic', props);
+    const secProps = { onEditSection, gate: gateApi, hoveredKey, setHoveredKey, clearHovered };
+    const sectionNodes: Record<string, React.ReactNode> = {
+        summary: summaryText
+            ? (
+                    <Section
+                    title="PROFESSIONAL SUMMARY"
+                    sectionKey="summary"
+                    firstContentFontSize={BODY_SIZE}
+                    extraTop={SUMMARY_EXTRA_GAP}
+                    onEditSection={onEditSection}
+                    gate={gateApi}
+                    hoveredKey={hoveredKey}
+                    setHoveredKey={setHoveredKey}
+                    clearHovered={clearHovered}
+                >
+                    <Entry unit="flow" rows={[{ kind: 'body', advance: 0, node: safeText(summaryText) }]} />
+                </Section>
+            )
+            : null,
+        experience: validExperiences.length > 0
+            ? (
+                    <Section
+                    title="EXPERIENCE"
+                    sectionKey="experience"
+                    firstContentFontSize={ENTRY_TITLE_SIZE}
+                    onEditSection={onEditSection}
+                    gate={gateApi}
+                    hoveredKey={hoveredKey}
+                    setHoveredKey={setHoveredKey}
+                    clearHovered={clearHovered}
+                >
+                    <div style={entryList(ENTRY_GAP)}>
+                        {validExperiences.map((exp: any, i: number) => (
+                            <Entry key={i} unit="keep" rows={withCustom(buildExperienceRows(exp), exp)} />
+                        ))}
+                    </div>
+                </Section>
+            )
+            : null,
+        education: validEducations.length > 0
+            ? (
+                    <Section
+                    title="EDUCATION"
+                    sectionKey="education"
+                    firstContentFontSize={ENTRY_TITLE_SIZE}
+                    onEditSection={onEditSection}
+                    gate={gateApi}
+                    hoveredKey={hoveredKey}
+                    setHoveredKey={setHoveredKey}
+                    clearHovered={clearHovered}
+                >
+                    <div style={entryList(ENTRY_GAP)}>
+                        {validEducations.map((edu: any, i: number) => (
+                            <Entry key={i} unit="keep" rows={withCustom(buildEducationRows(edu), edu)} />
+                        ))}
+                    </div>
+                </Section>
+            )
+            : null,
+        certifications: validCertifications.length > 0
+            ? (
+                    <Section
+                    title="CERTIFICATIONS"
+                    sectionKey="certifications"
+                    firstContentFontSize={ENTRY_TITLE_SIZE}
+                    onEditSection={onEditSection}
+                    gate={gateApi}
+                    hoveredKey={hoveredKey}
+                    setHoveredKey={setHoveredKey}
+                    clearHovered={clearHovered}
+                >
+                    <div style={entryList(ENTRY_GAP)}>
+                        {validCertifications.map((c: any, i: number) => (
+                            <Entry key={i} unit="keep" rows={withCustom(buildCertificationRows(c), c)} />
+                        ))}
+                    </div>
+                </Section>
+            )
+            : null,
+        skills: skillsList.length > 0
+            ? (
+                    <Section
+                    title="SKILLS"
+                    sectionKey="skills"
+                    firstContentFontSize={BODY_SIZE}
+                    onEditSection={onEditSection}
+                    gate={gateApi}
+                    hoveredKey={hoveredKey}
+                    setHoveredKey={setHoveredKey}
+                    clearHovered={clearHovered}
+                >
+                    <Entry unit="flow" rows={[{ kind: 'body', advance: 0, node: <SkillsGrid skills={skillsList} /> }]} />
+                </Section>
+            )
+            : null,
+        languages: validLanguages.length > 0
+            ? (
+                    <Section
+                    title="LANGUAGES"
+                    sectionKey="languages"
+                    firstContentFontSize={ENTRY_TITLE_SIZE}
+                    onEditSection={onEditSection}
+                    gate={gateApi}
+                    hoveredKey={hoveredKey}
+                    setHoveredKey={setHoveredKey}
+                    clearHovered={clearHovered}
+                >
+                    <div style={entryList(0)}>
+                        {validLanguages.map((l: any, i: number) => (
+                            <Entry key={i} unit="keep" rows={withCustom(buildLanguageRows(l), l)} />
+                        ))}
+                    </div>
+                </Section>
+            )
+            : null,
+        achievements: validAchievements.length > 0
+            ? (
+                    <Section
+                    title="ACHIEVEMENTS"
+                    sectionKey="achievements"
+                    firstContentFontSize={ENTRY_TITLE_SIZE}
+                    onEditSection={onEditSection}
+                    gate={gateApi}
+                    hoveredKey={hoveredKey}
+                    setHoveredKey={setHoveredKey}
+                    clearHovered={clearHovered}
+                >
+                    <div style={entryList(ENTRY_GAP)}>
+                        {validAchievements.map((a: any, i: number) => (
+                            <Entry key={i} unit="keep" rows={withCustom(buildAchievementRows(a), a)} />
+                        ))}
+                    </div>
+                </Section>
+            )
+            : null,
+        projects: validProjects.length > 0
+            ? (
+                    <Section
+                    title="PROJECTS"
+                    sectionKey="projects"
+                    firstContentFontSize={ENTRY_TITLE_SIZE}
+                    onEditSection={onEditSection}
+                    gate={gateApi}
+                    hoveredKey={hoveredKey}
+                    setHoveredKey={setHoveredKey}
+                    clearHovered={clearHovered}
+                >
+                    <div style={entryList(ENTRY_GAP)}>
+                        {validProjects.map((p: any, i: number) => (
+                            <Entry key={i} unit="keep" rows={withCustom(buildProjectRows(p), p)} />
+                        ))}
+                    </div>
+                </Section>
+            )
+            : null,
+        interests:
+            plan.interests.length > 0 ? (
+                <Section
+                    title="INTERESTS"
+                    sectionKey="interests"
+                    firstContentFontSize={BODY_SIZE}
+                    {...secProps}
+                >
+                    <Entry unit="flow" rows={[{ kind: 'body', advance: 0, node: <SkillsGrid skills={plan.interests} /> }]} />
+                </Section>
+            ) : null,
+        references:
+            plan.referenceEntries.length > 0 ? (
+                <Section
+                    title="REFERENCES"
+                    sectionKey="references"
+                    firstContentFontSize={plan.referenceEntries[0].title ? ENTRY_TITLE_SIZE : BODY_SIZE}
+                    {...secProps}
+                >
+                    <div style={entryList(ENTRY_GAP)}>
+                        {plan.referenceEntries.map((e, i) => (
+                            <Entry key={i} unit="keep" rows={buildNormalizedRows(e)} />
+                        ))}
+                    </div>
+                </Section>
+            ) : plan.references.availableOnRequest ? (
+                <Section title="REFERENCES" sectionKey="references" firstContentFontSize={BODY_SIZE} {...secProps}>
+                    <Entry unit="flow" rows={[{ kind: 'body', advance: 0, node: REFERENCES_ON_REQUEST_TEXT }]} />
+                </Section>
+            ) : null,
+    };
+    plan.customSections.forEach((cs) => {
+        const entries: NormalizedEntry[] = cs.entries.map((e) => ({
+            title: e.title || '',
+            subtitle: e.subtitle || '',
+            date: e.date || '',
+            description: e.description || '',
+            descriptionFormat: getDescriptionFormat(e),
+            descriptionAlign: getDescriptionAlign(e),
+            metaLines: getItemCustomLines(e),
+        }));
+        sectionNodes[`custom:${cs.id}`] = (
+            <Section
+                title={cs.title.toUpperCase()}
+                sectionKey={`custom:${cs.id}`}
+                firstContentFontSize={entries[0]?.title ? ENTRY_TITLE_SIZE : BODY_SIZE}
+                {...secProps}
+            >
+                <div style={entryList(ENTRY_GAP)}>
+                    {entries.map((e, i) => (
+                        <Entry key={i} unit="keep" rows={buildNormalizedRows(e)} />
+                    ))}
+                </div>
+            </Section>
+        );
+    });
+
     const body = (
         <div
             style={{
@@ -1082,150 +1350,9 @@ const AcademicTemplate: React.FC<CVPreviewProps> = (props) => {
             >
                 <div style={{ height: pt(HEADER_TO_FIRST_SECTION_SPACER) }} />
 
-                {summaryText && (
-                    <Section
-                        title="PROFESSIONAL SUMMARY"
-                        sectionKey="summary"
-                        firstContentFontSize={BODY_SIZE}
-                        extraTop={SUMMARY_EXTRA_GAP}
-                        onEditSection={onEditSection}
-                        gate={gateApi}
-                        hoveredKey={hoveredKey}
-                        setHoveredKey={setHoveredKey}
-                        clearHovered={clearHovered}
-                    >
-                        <Entry unit="flow" rows={[{ kind: 'body', advance: 0, node: safeText(summaryText) }]} />
-                    </Section>
-                )}
-
-                {validExperiences.length > 0 && (
-                    <Section
-                        title="EXPERIENCE"
-                        sectionKey="experience"
-                        firstContentFontSize={ENTRY_TITLE_SIZE}
-                        onEditSection={onEditSection}
-                        gate={gateApi}
-                        hoveredKey={hoveredKey}
-                        setHoveredKey={setHoveredKey}
-                        clearHovered={clearHovered}
-                    >
-                        <div style={entryList(ENTRY_GAP)}>
-                            {validExperiences.map((exp: any, i: number) => (
-                                <Entry key={i} unit="keep" rows={buildExperienceRows(exp)} />
-                            ))}
-                        </div>
-                    </Section>
-                )}
-
-                {validEducations.length > 0 && (
-                    <Section
-                        title="EDUCATION"
-                        sectionKey="education"
-                        firstContentFontSize={ENTRY_TITLE_SIZE}
-                        onEditSection={onEditSection}
-                        gate={gateApi}
-                        hoveredKey={hoveredKey}
-                        setHoveredKey={setHoveredKey}
-                        clearHovered={clearHovered}
-                    >
-                        <div style={entryList(ENTRY_GAP)}>
-                            {validEducations.map((edu: any, i: number) => (
-                                <Entry key={i} unit="keep" rows={buildEducationRows(edu)} />
-                            ))}
-                        </div>
-                    </Section>
-                )}
-
-                {validCertifications.length > 0 && (
-                    <Section
-                        title="CERTIFICATIONS"
-                        sectionKey="certifications"
-                        firstContentFontSize={ENTRY_TITLE_SIZE}
-                        onEditSection={onEditSection}
-                        gate={gateApi}
-                        hoveredKey={hoveredKey}
-                        setHoveredKey={setHoveredKey}
-                        clearHovered={clearHovered}
-                    >
-                        <div style={entryList(ENTRY_GAP)}>
-                            {validCertifications.map((c: any, i: number) => (
-                                <Entry key={i} unit="keep" rows={buildCertificationRows(c)} />
-                            ))}
-                        </div>
-                    </Section>
-                )}
-
-                {skillsList.length > 0 && (
-                    <Section
-                        title="SKILLS"
-                        sectionKey="skills"
-                        firstContentFontSize={BODY_SIZE}
-                        onEditSection={onEditSection}
-                        gate={gateApi}
-                        hoveredKey={hoveredKey}
-                        setHoveredKey={setHoveredKey}
-                        clearHovered={clearHovered}
-                    >
-                        <Entry unit="flow" rows={[{ kind: 'body', advance: 0, node: <SkillsGrid skills={skillsList} /> }]} />
-                    </Section>
-                )}
-
-                {validLanguages.length > 0 && (
-                    <Section
-                        title="LANGUAGES"
-                        sectionKey="languages"
-                        firstContentFontSize={ENTRY_TITLE_SIZE}
-                        onEditSection={onEditSection}
-                        gate={gateApi}
-                        hoveredKey={hoveredKey}
-                        setHoveredKey={setHoveredKey}
-                        clearHovered={clearHovered}
-                    >
-                        <div style={entryList(0)}>
-                            {validLanguages.map((l: any, i: number) => (
-                                <Entry key={i} unit="keep" rows={buildLanguageRows(l)} />
-                            ))}
-                        </div>
-                    </Section>
-                )}
-
-                {validAchievements.length > 0 && (
-                    <Section
-                        title="ACHIEVEMENTS"
-                        sectionKey="achievements"
-                        firstContentFontSize={ENTRY_TITLE_SIZE}
-                        onEditSection={onEditSection}
-                        gate={gateApi}
-                        hoveredKey={hoveredKey}
-                        setHoveredKey={setHoveredKey}
-                        clearHovered={clearHovered}
-                    >
-                        <div style={entryList(ENTRY_GAP)}>
-                            {validAchievements.map((a: any, i: number) => (
-                                <Entry key={i} unit="keep" rows={buildAchievementRows(a)} />
-                            ))}
-                        </div>
-                    </Section>
-                )}
-
-                {validProjects.length > 0 && (
-                    <Section
-                        title="PROJECTS"
-                        sectionKey="projects"
-                        firstContentFontSize={ENTRY_TITLE_SIZE}
-                        onEditSection={onEditSection}
-                        gate={gateApi}
-                        hoveredKey={hoveredKey}
-                        setHoveredKey={setHoveredKey}
-                        clearHovered={clearHovered}
-                    >
-                        <div style={entryList(ENTRY_GAP)}>
-                            {validProjects.map((p: any, i: number) => (
-                                <Entry key={i} unit="keep" rows={buildProjectRows(p)} />
-                            ))}
-                        </div>
-                    </Section>
-                )}
+                {plan.order.map((id) => (
+                    <React.Fragment key={id}>{sectionNodes[id] ?? null}</React.Fragment>
+                ))}
             </div>
         </div>
     );

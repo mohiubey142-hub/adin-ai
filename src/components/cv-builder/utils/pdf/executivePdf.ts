@@ -97,6 +97,25 @@
  */
 
 import { jsPDF } from 'jspdf';
+import {
+  getDescriptionAlign,
+  getDescriptionFormat,
+  getLineMarker,
+  getMarkerIndent,
+  parseDescriptionLines,
+} from '../descriptionFormat';
+import { drawJustifiedLine } from './pdfDescription';
+import type { DescriptionAlign, DescriptionFormat } from '../../types/cvExtraTypes';
+import {
+  buildExtrasPlan,
+  getPersonalCustomContactParts,
+  getItemCustomLines,
+  renderReferencesPdf,
+  renderSectionsInOrder,
+  type ExtrasPdfCtx,
+  type NormalizedEntry,
+  type PdfExtrasData,
+} from './extrasPdfShared';
 
 // ====================================================================
 // PAGE LAYOUT CONSTANTS
@@ -1297,6 +1316,7 @@ function drawContactIcon(
 // exact shape instead of guessing with fallbacks.
 // ====================================================================
 export interface ExecutivePdfPersonalInfo {
+  customFields?: { id?: string; label?: string; value?: string }[];
   name?: string;
   title?: string;
   jobTitle?: string;
@@ -1325,7 +1345,7 @@ export interface ExecutivePdfPersonalInfo {
   photo?: string;
 }
 
-export interface ExecutivePdfData {
+export interface ExecutivePdfData extends PdfExtrasData {
   personalInfo: ExecutivePdfPersonalInfo;
   phoneNumber: string;
   selectedCountryCode: string;
@@ -1408,6 +1428,9 @@ export interface ExecutivePdfData {
 // state, not CV content, so the PDF does not render them.
 // ------------------------------------------------------------------
 export interface ExecutivePdfExperience {
+  descriptionFormat?: DescriptionFormat;
+  descriptionAlign?: DescriptionAlign;
+  customFields?: { id?: string; label?: string; value?: string }[];
   title?: string;
   company?: string;
   startDate?: string;
@@ -1430,6 +1453,7 @@ export interface ExecutivePdfExperience {
 // education entry in the actual data, so none is rendered.
 // ------------------------------------------------------------------
 export interface ExecutivePdfEducation {
+  customFields?: { id?: string; label?: string; value?: string }[];
   degree?: string;
   institution?: string;
   year?: string;
@@ -1448,6 +1472,7 @@ export interface ExecutivePdfEducation {
 // the actual data, so none is rendered.
 // ------------------------------------------------------------------
 export interface ExecutivePdfLanguage {
+  customFields?: { id?: string; label?: string; value?: string }[];
   language?: string;
   proficiency?: string;
 }
@@ -1460,6 +1485,9 @@ export interface ExecutivePdfLanguage {
 // All fields are optional and rendered only when present.
 // ------------------------------------------------------------------
 export interface ExecutivePdfAchievement {
+  descriptionFormat?: DescriptionFormat;
+  descriptionAlign?: DescriptionAlign;
+  customFields?: { id?: string; label?: string; value?: string }[];
   title?: string;
   date?: string;
   description?: string;
@@ -1473,6 +1501,7 @@ export interface ExecutivePdfAchievement {
 // All fields are optional and rendered only when present.
 // ------------------------------------------------------------------
 export interface ExecutivePdfCertification {
+  customFields?: { id?: string; label?: string; value?: string }[];
   name?: string;
   date?: string;
   credentialId?: string;
@@ -1487,6 +1516,9 @@ export interface ExecutivePdfCertification {
 // All fields are optional and rendered only when present.
 // ------------------------------------------------------------------
 export interface ExecutivePdfProject {
+  descriptionFormat?: DescriptionFormat;
+  descriptionAlign?: DescriptionAlign;
+  customFields?: { id?: string; label?: string; value?: string }[];
   name?: string;
   tech?: string;
   description?: string;
@@ -1705,14 +1737,29 @@ function renderExecutivePDFOnce(data: ExecutivePdfData): { doc: jsPDF; pageCount
   let y = TOP_MARGIN;
 
   y = addHeader(doc, data, y);
-  y = addSummary(doc, data, y);
-  y = addExperience(doc, data, y);
-  y = addEducation(doc, data, y);
-  y = addCertifications(doc, data, y);
-  y = addLanguages(doc, data, y);
-  y = addSkills(doc, data, y);
-  y = addAchievements(doc, data, y);
-  y = addProjects(doc, data, y);
+  // SECTION ORDER: the user's Section Order panel decides (default for Executive = Summary → Experience →
+  // Education → Certifications → Languages → Skills → Achievements → Projects → Interests →
+  // References, then custom sections). Each add*() reads/returns the running `y` cursor and
+  // skips itself when empty, so reordering the calls is the whole change.
+  const extrasCtx = makeExtrasCtx(doc);
+  y = renderSectionsInOrder(
+    data,
+    'executive',
+    extrasCtx,
+    {
+      summary: (yy) => addSummary(doc, data, yy),
+      experience: (yy) => addExperience(doc, data, yy),
+      education: (yy) => addEducation(doc, data, yy),
+      certifications: (yy) => addCertifications(doc, data, yy),
+      languages: (yy) => addLanguages(doc, data, yy),
+      skills: (yy) => addSkills(doc, data, yy),
+      achievements: (yy) => addAchievements(doc, data, yy),
+      projects: (yy) => addProjects(doc, data, yy),
+      interests: (yy) => addListSection(doc, buildExtrasPlan('executive', data).interests, yy, 'INTERESTS'),
+      references: (yy) => renderReferencesPdf(extrasCtx, buildExtrasPlan('executive', data), yy),
+    },
+    y
+  );
 
   return {
     doc,
@@ -2445,6 +2492,9 @@ function buildContactParts(
     parts.push({ type: 'website', text: `${CONTACT_LABELS.website}${webLink.trim()}` });
   }
 
+  // Personal Info custom fields ("Label: Value"), after the standard contact items.
+  getPersonalCustomContactParts(personalInfo).forEach((text) => parts.push({ type: 'website', text }));
+
   return parts;
 }
 
@@ -2766,6 +2816,7 @@ function addExperience(doc: jsPDF, data: ExecutivePdfData, startY: number): numb
       y += EXPERIENCE_ENTRY_GAP;
     }
     y = addExperienceEntry(doc, exp, y, timelineState);
+    y = drawMetaLinesTimeline(doc, getItemCustomLines(exp), y, timelineState);
   });
 
   // --- Timeline closing: draw the last open segment on its own page,
@@ -2791,6 +2842,12 @@ function hasUsableExperienceContent(exp: ExecutivePdfExperience | null | undefin
   );
 }
 
+// Custom-field lines belong to the entry: they are part of what must stay together (and of what a
+// section heading must keep company with), so every caller of this estimate sees them automatically.
+function calculateExperienceEntryHeight(doc: jsPDF, item: any, ...rest: any[]): number {
+  return (calculateExperienceEntryHeightBase as any)(doc, item, ...rest) + getItemCustomLines(item).length * BODY_LINE_HEIGHT;
+}
+
 // Pure measurement helper (draws nothing): computes the FULL height a
 // single experience entry will occupy — header (title/date row +
 // company line) AND its entire wrapped description, plus the same
@@ -2802,7 +2859,7 @@ function hasUsableExperienceContent(exp: ExecutivePdfExperience | null | undefin
 // whole entry should move to a new page as a single unit rather than
 // being split mid-description by a page boundary (see addExperience()'s
 // overflow-rules note above).
-function calculateExperienceEntryHeight(doc: jsPDF, exp: ExecutivePdfExperience, contentWidth: number): number {
+function calculateExperienceEntryHeightBase(doc: jsPDF, exp: ExecutivePdfExperience, contentWidth: number): number {
   const title = sanitizeText((exp.title || '').trim());
   const company = sanitizeText((exp.company || '').trim());
   const startDate = sanitizeText((exp.startDate || '').trim());
@@ -2816,14 +2873,17 @@ function calculateExperienceEntryHeight(doc: jsPDF, exp: ExecutivePdfExperience,
   // is one bullet item, wrapped to contentWidth minus the bullet indent
   // (see BULLET_DOT_TO_TEXT_GAP_PT), so this estimate's line count never
   // drifts from what addExperienceEntry() actually draws.
-  const descriptionLines: string[] = description
+  const legacyDescriptionItems: string[][] = description
     ? description
         .split('\n')
         .flatMap((rawLine) => {
           const trimmedLine = rawLine.trim().replace(BULLET_MARKER_REGEX, '').trim();
-          return trimmedLine ? doc.splitTextToSize(trimmedLine, contentWidth - BULLET_DOT_TO_TEXT_GAP_PT) : [];
+          return trimmedLine ? [doc.splitTextToSize(trimmedLine, contentWidth - BULLET_DOT_TO_TEXT_GAP_PT)] : [];
         })
     : [];
+  const descriptionLines: string[] = resolveDescriptionItems(
+    doc, legacyDescriptionItems, description, contentWidth, getDescriptionFormat(exp), getDescriptionAlign(exp)
+  ).flatMap((item) => item.lines);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(EXPERIENCE_SUBTITLE_SIZE);
@@ -2911,14 +2971,17 @@ function addExperienceEntry(
   // decisions below exactly as before.
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(BODY_SIZE);
-  const descriptionItems: string[][] = description
+  const legacyDescriptionItems: string[][] = description
     ? description
         .split('\n')
         .map((rawLine) => rawLine.trim().replace(BULLET_MARKER_REGEX, '').trim())
         .filter((text) => text.length > 0)
         .map((text) => doc.splitTextToSize(text, EXPERIENCE_CONTENT_WIDTH - BULLET_DOT_TO_TEXT_GAP_PT))
     : [];
-  const descriptionLines: string[] = descriptionItems.flat();
+  const descriptionItems: DescriptionRenderItem[] = resolveDescriptionItems(
+    doc, legacyDescriptionItems, description, EXPERIENCE_CONTENT_WIDTH, getDescriptionFormat(exp), getDescriptionAlign(exp)
+  );
+  const descriptionLines: string[] = descriptionItems.flatMap((item) => item.lines);
 
   // --- OLD EXECUTIVE OVERFLOW TRANSFER: decide, BEFORE drawing
   // anything, whether this whole entry should move to a fresh page as
@@ -3040,25 +3103,29 @@ function addExperienceEntry(
     doc.setFontSize(BODY_SIZE);
 
     const bulletX = EXPERIENCE_CONTENT_START_X;
-    const textX = EXPERIENCE_CONTENT_START_X + BULLET_DOT_TO_TEXT_GAP_PT;
 
-    for (const itemLines of descriptionItems) {
-      itemLines.forEach((line, lineIndex) => {
+    for (const item of descriptionItems) {
+      const textX = EXPERIENCE_CONTENT_START_X + item.indent;
+      item.lines.forEach((line, lineIndex) => {
         // Per-line overflow guard (OLD Executive's "no clipped/lost text"
         // rule): kept as the safety net for the rare oversized entry that
         // skipped the atomic whole-entry check above. For a normal-sized
         // entry this never actually triggers, since the atomic check
         // already guaranteed the whole entry fits from here on.
         y = checkPageBreakWithTimeline(doc, y, lineInkHeight(BODY_SIZE), timelineState);
-        if (lineIndex === 0) {
-          // First wrapped line of this item — draw its bullet dot.
+        if (lineIndex === 0 && item.marker) {
+          // First wrapped line of this item — draw its bullet / number.
           doc.setTextColor(...COLOR_SECTION_HEADING);
-          doc.text('•', bulletX, y);
+          doc.text(item.marker, bulletX, y);
         }
-        // Continuation lines of the same item render no dot, but still
-        // start at the bullet-text indentation, exactly like the first line.
+        // Continuation lines of the same item render no marker, but still
+        // start at the text indentation, exactly like the first line.
         doc.setTextColor(...COLOR_BODY);
-        doc.text(line, textX, y);
+        if (item.justify && lineIndex < item.lines.length - 1) {
+          drawJustifiedLine(doc, line, textX, y, EXPERIENCE_CONTENT_WIDTH - item.indent);
+        } else {
+          doc.text(line, textX, y);
+        }
         y += BODY_LINE_HEIGHT;
         trackTimelineContentEnd(timelineState, y);
       });
@@ -3284,7 +3351,7 @@ function renderEducationColumn(
       ? EXPERIENCE_SUBTITLE_SIZE
       : EXPERIENCE_TITLE_SIZE;
     const inkHeight = inkBottomHeight(fullEntryHeight, lastLineFontSizeForEstimate, lastLineFontSizeForEstimate);
-    const minimumEntrySpaceNeeded = keepTogetherHeight(inkHeight, inkHeight);
+    const minimumEntrySpaceNeeded = keepTogetherHeight(inkHeight, inkHeight) + getItemCustomLines(edu).length * BODY_LINE_HEIGHT;
     // Skipped while measuring (see measureEducationColumnHeight()): a
     // real checkPageBreak() call here could call doc.addPage(), which
     // would corrupt the "as if infinite space" total this call is
@@ -3355,6 +3422,7 @@ function renderEducationColumn(
 
     const lastLineFontSize = EXPERIENCE_SUBTITLE_SIZE; // every field in this column shares one size
     y = topUpToLineHeight(y, degreeLines.length > 0 && institutionLines.length === 0 && gradeLines.length === 0 && dateLines.length === 0 ? EXPERIENCE_TITLE_SIZE : lastLineFontSize);
+    y = drawMetaLinesExec(doc, getItemCustomLines(edu), y, colX, colWidth, measuring);
   });
 
   return { rawEndY: y, contentEndY };
@@ -3419,7 +3487,7 @@ function renderCertificationColumn(
       ? EXPERIENCE_SUBTITLE_SIZE
       : EXPERIENCE_TITLE_SIZE;
     const inkHeight = inkBottomHeight(fullEntryHeight, lastLineFontSizeForEstimate, lastLineFontSizeForEstimate);
-    const minimumEntrySpaceNeeded = keepTogetherHeight(inkHeight, inkHeight);
+    const minimumEntrySpaceNeeded = keepTogetherHeight(inkHeight, inkHeight) + getItemCustomLines(cert).length * BODY_LINE_HEIGHT;
     // Skipped while measuring — see the matching note in
     // renderEducationColumn() above.
     if (!measuring) {
@@ -3472,6 +3540,7 @@ function renderCertificationColumn(
       lastLineFontSize = EXPERIENCE_TITLE_SIZE;
     }
     y = topUpToLineHeight(y, lastLineFontSize);
+    y = drawMetaLinesExec(doc, getItemCustomLines(cert), y, colX, colWidth, measuring);
   });
 
   return { rawEndY: y, contentEndY };
@@ -3576,7 +3645,7 @@ function renderLanguageColumn(
     // checkPageBreak()).
     const lastLineFontSizeForEstimate = proficiencyLines.length > 0 ? EXPERIENCE_SUBTITLE_SIZE : EXPERIENCE_TITLE_SIZE;
     const inkHeight = inkBottomHeight(fullEntryHeight, lastLineFontSizeForEstimate, lastLineFontSizeForEstimate);
-    const minimumEntrySpaceNeeded = keepTogetherHeight(inkHeight, inkHeight);
+    const minimumEntrySpaceNeeded = keepTogetherHeight(inkHeight, inkHeight) + getItemCustomLines(lang).length * BODY_LINE_HEIGHT;
     // Skipped while measuring — see the matching note in
     // renderEducationColumn() above.
     if (!measuring) {
@@ -3625,6 +3694,7 @@ function renderLanguageColumn(
       ? EXPERIENCE_SUBTITLE_SIZE
       : EXPERIENCE_TITLE_SIZE;
     y = topUpToLineHeight(y, lastLineFontSize);
+    y = drawMetaLinesExec(doc, getItemCustomLines(lang), y, colX, colWidth, measuring);
   });
 
   return { rawEndY: y, contentEndY };
@@ -3649,7 +3719,11 @@ function renderLanguageColumn(
 // Returns the new Y position for whatever gets rendered next.
 // ====================================================================
 function addSkills(doc: jsPDF, data: ExecutivePdfData, startY: number): number {
-  const skillsList = parseSkillsList(data.skills);
+  return addListSection(doc, parseSkillsList(data.skills), startY, 'SKILLS');
+}
+
+// Wrapped bullet-free list section — Skills and Interests share it (only the heading differs).
+function addListSection(doc: jsPDF, skillsList: string[], startY: number, headingText: string): number {
 
   // Nothing to render — skip the section entirely rather than leaving
   // an empty heading or a blank gap.
@@ -3678,7 +3752,7 @@ function addSkills(doc: jsPDF, data: ExecutivePdfData, startY: number): number {
   y = checkPageBreak(doc, y, minimumSpaceNeeded);
 
   // --- Heading + divider (single source of truth, see renderSectionHeading()) ---
-  y = renderSectionHeading(doc, 'SKILLS', y, BODY_SIZE, 'skills');
+  y = renderSectionHeading(doc, headingText, y, BODY_SIZE, 'skills');
 
   // --- Wrapped skill list ---
   // Rendered one line at a time (same pattern as addSummary()) so a
@@ -3818,6 +3892,7 @@ function addAchievements(doc: jsPDF, data: ExecutivePdfData, startY: number): nu
       y += EXPERIENCE_ENTRY_GAP;
     }
     y = addAchievementEntry(doc, ach, y);
+    y = drawMetaLinesExec(doc, getItemCustomLines(ach), y, LEFT_MARGIN, CONTENT_WIDTH);
   });
 
   return y;
@@ -3936,6 +4011,12 @@ function computeAchievementHeaderLayout(
   return { sameRow: false, lineCount, height: titleHeight + dateRowHeight };
 }
 
+// Custom-field lines belong to the entry: they are part of what must stay together (and of what a
+// section heading must keep company with), so every caller of this estimate sees them automatically.
+function calculateAchievementEntryHeight(doc: jsPDF, item: any, ...rest: any[]): number {
+  return (calculateAchievementEntryHeightBase as any)(doc, item, ...rest) + getItemCustomLines(item).length * BODY_LINE_HEIGHT;
+}
+
 // Computes the exact minimum vertical space one Achievement entry
 // needs, without drawing anything. Used by addAchievements() to size
 // its heading-guard against the REAL first entry (via the same
@@ -3944,7 +4025,7 @@ function computeAchievementHeaderLayout(
 // calculateExperienceEntryHeight() above, and the fix for the
 // orphaned-heading bug that affected every entry-based section still
 // using a generic guess instead of this real measurement.
-function calculateAchievementEntryHeight(doc: jsPDF, ach: any): number {
+function calculateAchievementEntryHeightBase(doc: jsPDF, ach: any): number {
   const title = sanitizeText((ach.title || '').trim());
   const date = sanitizeText((ach.date || '').trim());
   const description = sanitizeText((ach.description || '').trim());
@@ -3959,9 +4040,12 @@ function calculateAchievementEntryHeight(doc: jsPDF, ach: any): number {
   // ALWAYS-BULLETED (matches Modern's method): every typed line is one
   // bullet item — see the matching comment in calculateAchievementEntryHeight's
   // render counterpart (addAchievementEntry) below for the full rationale.
-  const descriptionLines: string[] = rawDescriptionLines
+  const legacyDescriptionItems: string[][] = rawDescriptionLines
     .map((rawLine) => rawLine.replace(BULLET_MARKER_REGEX, '').trim())
-    .flatMap((text) => doc.splitTextToSize(text, CONTENT_WIDTH - BULLET_DOT_TO_TEXT_GAP_PT));
+    .map((text) => doc.splitTextToSize(text, CONTENT_WIDTH - BULLET_DOT_TO_TEXT_GAP_PT));
+  const descriptionLines: string[] = resolveDescriptionItems(
+    doc, legacyDescriptionItems, description, CONTENT_WIDTH, getDescriptionFormat(ach), getDescriptionAlign(ach)
+  ).flatMap((item) => item.lines);
 
   const headerLayoutEstimate = computeAchievementHeaderLayout(doc, title, date);
   const titleRowHeightEstimate = headerLayoutEstimate.height;
@@ -3970,7 +4054,9 @@ function calculateAchievementEntryHeight(doc: jsPDF, ach: any): number {
     ? EXPERIENCE_SUBTITLE_TO_DESCRIPTION_GAP
     : 0;
   const firstDescriptionLineHeight = descriptionLines.length > 0 ? BODY_LINE_HEIGHT : 0;
-  const rawMinimumEntrySpaceNeeded = titleRowHeightEstimate +
+  const subtitleText = sanitizeText(String(ach.subtitle || '').trim());
+  const subtitleExtra = subtitleText ? (hasHeaderContent ? EXPERIENCE_TITLE_TO_SUBTITLE_GAP : 0) + EXPERIENCE_SUBTITLE_SIZE : 0;
+  const rawMinimumEntrySpaceNeeded = titleRowHeightEstimate + subtitleExtra +
     headerToDescriptionGap + firstDescriptionLineHeight;
 
   const hasDescriptionForEstimate = descriptionLines.length > 0;
@@ -4116,6 +4202,32 @@ function renderTitleRowWithDate(
   return { lines: titleLines, height, hasContent };
 }
 
+// Description formats (bullets / numbered / paragraph): `legacy` is the ORIGINAL bullet wrapping of each site, kept
+// untouched so old CVs render byte-identically; other formats re-wrap the parsed lines to the marker's own indent.
+type DescriptionRenderItem = { lines: string[]; marker: string; indent: number; justify: boolean };
+function resolveDescriptionItems(
+  doc: jsPDF,
+  legacy: string[][],
+  description: string,
+  baseWidth: number,
+  format: DescriptionFormat,
+  align: DescriptionAlign
+): DescriptionRenderItem[] {
+  if (format === 'bullets') {
+    return legacy.map((lines) => ({ lines, marker: '•', indent: BULLET_DOT_TO_TEXT_GAP_PT, justify: false }));
+  }
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(BODY_SIZE);
+  const texts = parseDescriptionLines(description);
+  const indent = getMarkerIndent(format, texts.length, BODY_SIZE, BULLET_DOT_TO_TEXT_GAP_PT);
+  return texts.map((text, i) => ({
+    lines: doc.splitTextToSize(text, baseWidth - indent),
+    marker: getLineMarker(format, i),
+    indent,
+    justify: format === 'paragraph' && align === 'justify',
+  }));
+}
+
 // Renders a bulleted list of achievement items: a "•" dot at
 // LEFT_MARGIN, then the item's text indented by BULLET_DOT_TO_TEXT_GAP_PT
 // — the bullet dot's X position never moves; only the text is offset
@@ -4135,26 +4247,30 @@ function renderTitleRowWithDate(
 // construction above) — the only change here is that the grouping by
 // logical item is preserved through to render time instead of being
 // flattened away. Returns the new Y position.
-function renderBulletedDescriptionLines(doc: jsPDF, items: string[][], startY: number): number {
+function renderBulletedDescriptionLines(doc: jsPDF, items: DescriptionRenderItem[], startY: number): number {
   let y = startY;
   const bulletX = LEFT_MARGIN;
-  const textX = LEFT_MARGIN + BULLET_DOT_TO_TEXT_GAP_PT;
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(BODY_SIZE);
 
-  for (const itemLines of items) {
-    itemLines.forEach((line, lineIndex) => {
+  for (const item of items) {
+    const textX = LEFT_MARGIN + item.indent;
+    item.lines.forEach((line, lineIndex) => {
       y = checkPageBreak(doc, y, lineInkHeight(BODY_SIZE));
-      if (lineIndex === 0) {
-        // First wrapped line of this achievement item — draw its bullet.
+      if (lineIndex === 0 && item.marker) {
+        // First wrapped line of this item — draw its bullet / number.
         doc.setTextColor(...COLOR_SECTION_HEADING); // bullet dot — OLD Executive's theme `primary` (dark navy), see COLOR_SECTION_HEADING above
-        doc.text('•', bulletX, y);
+        doc.text(item.marker, bulletX, y);
       }
-      // Continuation lines of the same item render no dot, but still
-      // start at the bullet-text indentation, exactly like the first line.
+      // Continuation lines of the same item render no marker, but still
+      // start at the text indentation, exactly like the first line.
       doc.setTextColor(...COLOR_BODY);
-      doc.text(line, textX, y);
+      if (item.justify && lineIndex < item.lines.length - 1) {
+        drawJustifiedLine(doc, line, textX, y, CONTENT_WIDTH - item.indent);
+      } else {
+        doc.text(line, textX, y);
+      }
       y += BODY_LINE_HEIGHT;
     });
   }
@@ -4229,10 +4345,13 @@ function addAchievementEntry(
         .filter((trimmedLine) => trimmedLine.length > 0)
     : [];
 
-  const descriptionItems: string[][] = rawDescriptionLines
+  const legacyDescriptionItems: string[][] = rawDescriptionLines
     .map((rawLine) => rawLine.replace(BULLET_MARKER_REGEX, '').trim())
     .map((text) => doc.splitTextToSize(text, CONTENT_WIDTH - BULLET_DOT_TO_TEXT_GAP_PT));
-  const descriptionLines: string[] = descriptionItems.flat();
+  const descriptionItems: DescriptionRenderItem[] = resolveDescriptionItems(
+    doc, legacyDescriptionItems, description, CONTENT_WIDTH, getDescriptionFormat(ach), getDescriptionAlign(ach)
+  );
+  const descriptionLines: string[] = descriptionItems.flatMap((item) => item.lines);
 
   // --- Determine how much space this whole entry needs, so it moves
   // to a new page together rather than splitting a title from its
@@ -4257,9 +4376,24 @@ function addAchievementEntry(
   }
 
   // --- Description (optional, wrapped body text, rendered as bullets) ---
-  if (descriptionLines.length > 0) {
-    // Only add the gap if there was header content before it
+  // Optional subtitle line (custom sections / references only; Achievements never set it).
+  const subtitle = sanitizeText(String((ach as any).subtitle || '').trim());
+  let hasSubtitle = false;
+  if (subtitle) {
+    const subLines: string[] = doc.splitTextToSize(subtitle, CONTENT_WIDTH);
     if (hasHeaderContent) {
+      y += EXPERIENCE_TITLE_TO_SUBTITLE_GAP;
+    }
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(EXPERIENCE_SUBTITLE_SIZE);
+    doc.setTextColor(...COLOR_BODY);
+    doc.text(subLines, LEFT_MARGIN, y);
+    y += subLines.length * EXPERIENCE_SUBTITLE_SIZE;
+    hasSubtitle = true;
+  }
+
+  if (descriptionLines.length > 0) {
+    if (hasHeaderContent || hasSubtitle) {
       y += EXPERIENCE_SUBTITLE_TO_DESCRIPTION_GAP;
     }
 
@@ -4285,6 +4419,8 @@ function addAchievementEntry(
   if (descriptionLines.length > 0) {
     // Description already ends at body-line-equivalent
     return y;
+  } else if (hasSubtitle) {
+    lastLineFontSize = EXPERIENCE_SUBTITLE_SIZE;
   } else if (title) {
     lastLineFontSize = EXPERIENCE_TITLE_SIZE;
   } else if (date) {
@@ -4374,6 +4510,7 @@ function addProjects(doc: jsPDF, data: ExecutivePdfData, startY: number): number
       y += EXPERIENCE_ENTRY_GAP;
     }
     y = addProjectEntry(doc, project, y);
+    y = drawMetaLinesExec(doc, getItemCustomLines(project), y, LEFT_MARGIN, CONTENT_WIDTH);
   });
 
   return y;
@@ -4393,6 +4530,12 @@ function hasUsableProjectContent(project: any | null | undefined): boolean {
   );
 }
 
+// Custom-field lines belong to the entry: they are part of what must stay together (and of what a
+// section heading must keep company with), so every caller of this estimate sees them automatically.
+function calculateProjectEntryHeight(doc: jsPDF, item: any, ...rest: any[]): number {
+  return (calculateProjectEntryHeightBase as any)(doc, item, ...rest) + getItemCustomLines(item).length * BODY_LINE_HEIGHT;
+}
+
 // Renders a single project entry and returns the new Y position,
 // normalized (like every Education/Language/Achievement/Certification
 // entry) so every entry — not only the section's last one — ends on an
@@ -4403,7 +4546,7 @@ function hasUsableProjectContent(project: any | null | undefined): boolean {
 // itself for its own checkPageBreak() call — same single-source-of-
 // truth rationale as calculateAchievementEntryHeight()/
 // calculateExperienceEntryHeight() above.
-function calculateProjectEntryHeight(doc: jsPDF, project: any): number {
+function calculateProjectEntryHeightBase(doc: jsPDF, project: any): number {
   const name = sanitizeText((project.name || '').trim());
   const tech = sanitizeText((project.tech || '').trim());
   const description = sanitizeText((project.description || '').trim());
@@ -4427,9 +4570,12 @@ function calculateProjectEntryHeight(doc: jsPDF, project: any): number {
   // ALWAYS-BULLETED (matches Modern's method): every typed line is one
   // bullet item — see the matching comment in addProjectEntry() below
   // for the full rationale.
-  const descriptionLines: string[] = rawDescriptionLines
+  const legacyDescriptionItems: string[][] = rawDescriptionLines
     .map((rawLine) => rawLine.replace(BULLET_MARKER_REGEX, '').trim())
-    .flatMap((text) => doc.splitTextToSize(text, CONTENT_WIDTH - BULLET_DOT_TO_TEXT_GAP_PT));
+    .map((text) => doc.splitTextToSize(text, CONTENT_WIDTH - BULLET_DOT_TO_TEXT_GAP_PT));
+  const descriptionLines: string[] = resolveDescriptionItems(
+    doc, legacyDescriptionItems, description, CONTENT_WIDTH, getDescriptionFormat(project), getDescriptionAlign(project)
+  ).flatMap((item) => item.lines);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(EXPERIENCE_SUBTITLE_SIZE);
@@ -4529,10 +4675,13 @@ function addProjectEntry(
         .filter((trimmedLine) => trimmedLine.length > 0)
     : [];
 
-  const descriptionItems: string[][] = rawDescriptionLines
+  const legacyDescriptionItems: string[][] = rawDescriptionLines
     .map((rawLine) => rawLine.replace(BULLET_MARKER_REGEX, '').trim())
     .map((text) => doc.splitTextToSize(text, CONTENT_WIDTH - BULLET_DOT_TO_TEXT_GAP_PT));
-  const descriptionLines: string[] = descriptionItems.flat();
+  const descriptionItems: DescriptionRenderItem[] = resolveDescriptionItems(
+    doc, legacyDescriptionItems, description, CONTENT_WIDTH, getDescriptionFormat(project), getDescriptionAlign(project)
+  );
+  const descriptionLines: string[] = descriptionItems.flatMap((item) => item.lines);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(EXPERIENCE_SUBTITLE_SIZE);
@@ -4683,6 +4832,110 @@ function keepTogetherHeight(fullHeight: number, leadHeight: number): number {
     return fullHeight;
   }
   return Math.min(leadHeight, PAGE_USABLE_HEIGHT);
+}
+
+// ====================================================================
+// EXTRAS (custom sections / references / custom fields) — Executive look.
+// A custom entry is drawn like an Achievement entry (title + date row, optional subtitle,
+// bullet description) followed by "Label: Value" lines. Headings reuse the existing badge icons.
+// ====================================================================
+function drawMetaLinesExec(
+  doc: jsPDF,
+  lines: string[],
+  startY: number,
+  x: number,
+  width: number,
+  measuring: boolean = false
+): number {
+  let y = startY;
+  for (const raw of lines) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(EXPERIENCE_SUBTITLE_SIZE);
+    const wrapped: string[] = doc.splitTextToSize(sanitizeText(raw), Math.max(40, width));
+    for (const line of wrapped) {
+      if (!measuring) {
+        y = checkPageBreak(doc, y, lineInkHeight(EXPERIENCE_SUBTITLE_SIZE));
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(EXPERIENCE_SUBTITLE_SIZE);
+        doc.setTextColor(...COLOR_METADATA);
+        doc.text(line, x, y);
+      }
+      y += BODY_LINE_HEIGHT;
+    }
+  }
+  return y;
+}
+
+// Same, inside the Experience timeline column: keeps the connecting line running through the lines.
+function drawMetaLinesTimeline(
+  doc: jsPDF,
+  lines: string[],
+  startY: number,
+  state: ExperienceTimelineState
+): number {
+  let y = startY;
+  for (const raw of lines) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(EXPERIENCE_SUBTITLE_SIZE);
+    const wrapped: string[] = doc.splitTextToSize(sanitizeText(raw), Math.max(40, EXPERIENCE_CONTENT_WIDTH));
+    for (const line of wrapped) {
+      y = checkPageBreakWithTimeline(doc, y, lineInkHeight(EXPERIENCE_SUBTITLE_SIZE), state);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(EXPERIENCE_SUBTITLE_SIZE);
+      doc.setTextColor(...COLOR_METADATA);
+      doc.text(line, EXPERIENCE_CONTENT_START_X, y);
+      y += BODY_LINE_HEIGHT;
+      trackTimelineContentEnd(state, y);
+    }
+  }
+  return y;
+}
+
+function makeExtrasCtx(doc: jsPDF): ExtrasPdfCtx {
+  const asAchievement = (e: NormalizedEntry) => ({
+    title: e.title,
+    date: e.date,
+    description: e.description,
+    subtitle: e.subtitle,
+    descriptionFormat: e.descriptionFormat,
+    descriptionAlign: e.descriptionAlign,
+  });
+  return {
+    beginSection(title, startY, firstEntry) {
+      let y = startY + SECTION_GAP;
+      const firstH = firstEntry
+        ? calculateAchievementEntryHeight(doc, asAchievement(firstEntry)) + firstEntry.metaLines.length * BODY_LINE_HEIGHT
+        : lineInkHeight(BODY_SIZE);
+      const firstFs = !firstEntry || firstEntry.title || firstEntry.date ? EXPERIENCE_TITLE_SIZE : BODY_SIZE;
+      y = checkPageBreak(doc, y, sectionHeadingToContentOffset(firstFs) + firstH);
+      return renderSectionHeading(doc, title.toUpperCase(), y, firstFs, title === 'References' ? 'summary' : 'achievements');
+    },
+    entryGap: () => EXPERIENCE_ENTRY_GAP,
+    renderEntry(entry, startY) {
+      let y = startY;
+      if (entry.title || entry.subtitle || entry.date || entry.description) {
+        y = addAchievementEntry(doc, asAchievement(entry), y);
+      }
+      if (entry.metaLines.length > 0) y = drawMetaLinesExec(doc, entry.metaLines, y, LEFT_MARGIN, CONTENT_WIDTH);
+      return y;
+    },
+    renderParagraph(text, startY) {
+      let y = startY;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(BODY_SIZE);
+      doc.setTextColor(...COLOR_BODY);
+      const lines: string[] = doc.splitTextToSize(sanitizeText(text), CONTENT_WIDTH);
+      for (const line of lines) {
+        y = checkPageBreak(doc, y, lineInkHeight(BODY_SIZE));
+        doc.text(line, LEFT_MARGIN, y);
+        y += BODY_LINE_HEIGHT;
+      }
+      return y;
+    },
+    renderMetaLines(lines, startY) {
+      return drawMetaLinesExec(doc, lines, startY, LEFT_MARGIN, CONTENT_WIDTH);
+    },
+  };
 }
 
 // ====================================================================

@@ -183,10 +183,10 @@ async function main() {
       ).join('')}</ul>`;
     }
     if (key === 'cv-builder') {
-      bodyExtra = `<p>Free AI CV builder: AI-powered summaries, experience descriptions and skills enhancement. Choose from free ATS-friendly <a href="/templates">CV templates</a> and export your CV as PDF, PNG or TXT. No signup required. Need ideas? Read our <a href="/blog">CV writing tips</a>.</p>`;
+      bodyExtra = `<p>Free AI CV builder: AI-powered summaries, experience descriptions and skills enhancement. Choose from free ATS-friendly <a href="/templates">CV templates</a> and export your CV as PDF, PNG or TXT. Need ideas? Read our <a href="/blog">CV writing tips</a>.</p>`;
     }
     if (key === 'cover-letter') {
-      bodyExtra = `<p>Free AI cover letter generator: add your details and get a professional, tailored draft in seconds that you can edit. Pick a design from our <a href="/cover-templates">cover letter templates</a>. No signup required. Read our <a href="/blog">cover letter guides</a>.</p>`;
+      bodyExtra = `<p>Free AI cover letter generator: add your details and get a professional, tailored draft in seconds that you can edit. Pick a design from our <a href="/cover-templates">cover letter templates</a>. Read our <a href="/blog">cover letter guides</a>.</p>`;
     }
     if (key === 'my-documents') {
       bodyExtra = `<p>Your saved CVs and cover letters in one place. Create a new one with the <a href="/cv-builder">free AI CV builder</a> or the <a href="/cover-letter">free AI cover letter generator</a>.</p>`;

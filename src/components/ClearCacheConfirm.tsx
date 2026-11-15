@@ -1,80 +1,25 @@
 // src/components/ClearCacheConfirm.tsx
-// ============================================
-// Adin AI — Clear Local Cache Confirmation
-// ============================================
-// ✅ UPDATED: "Type CLEAR" replaced with a simple confirmation checkbox
-// ✅ NEW: "Download my ID" shortcut button
-// ✅ NEW: "What will be cleared" list
-
 import React, { useState } from 'react';
-import { HardDrive, AlertTriangle, X, Download, CheckCircle2, XCircle } from 'lucide-react';
+import { HardDrive, X, CheckCircle2, XCircle } from 'lucide-react';
 import { getStorageUsageMB } from './cv-builder/utils/storageUtils';
-import toast from 'react-hot-toast';
 
 interface ClearCacheConfirmProps {
   isOpen: boolean;
-  userId: string;
   onConfirm: () => void;
   onCancel: () => void;
 }
 
 const ClearCacheConfirm: React.FC<ClearCacheConfirmProps> = ({
   isOpen,
-  userId,
   onConfirm,
   onCancel,
 }) => {
-  // ✅ NEW: Checkbox state
   const [isConfirmed, setIsConfirmed] = useState(false);
 
   if (!isOpen) return null;
 
   const usedMB = getStorageUsageMB();
-  
-  // ✅ Button enable tabhi hoga jab checkbox tick ho
   const canClear = isConfirmed;
-
-  const handleDownloadId = () => {
-    if (!userId) return;
-    try {
-      const content = `ADIN AI — YOUR ACCOUNT ID
-==========================
-
-Your ID: ${userId}
-
-IMPORTANT: Keep this safe.
-
-This ID is your key to restoring your CVs and Cover Letters on any
-browser or device. Without this ID, you cannot recover your data.
-
-How to use it:
-1. Open Adin AI on any device
-2. Go to your profile → "Restore from another device"
-3. Enter this ID + your 4-digit PIN
-4. Your data will be restored from the cloud
-
-Save this file somewhere safe:
-- Email it to yourself
-- Save it in your notes
-- Take a screenshot
-
-Generated on: ${new Date().toLocaleString()}
-Adin AI — https://getadinai.com
-`;
-      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'adin-ai-user-id.txt';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      toast.success('ID file downloaded!', { duration: 2500 });
-    } catch (e) {
-      toast.error('Download failed');
-    }
-  };
 
   const handleConfirm = () => {
     if (!canClear) return;
@@ -96,7 +41,6 @@ Adin AI — https://getadinai.com
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
       >
-        {/* Header */}
         <div className="relative px-5 pt-5 pb-3">
           <button
             onClick={handleCancel}
@@ -120,10 +64,8 @@ Adin AI — https://getadinai.com
           </p>
         </div>
 
-        {/* What will be cleared / What stays safe */}
         <div className="px-5 pb-4">
           <div className="grid grid-cols-2 gap-2">
-            {/* Will be cleared */}
             <div className="rounded-xl bg-red-50 border border-red-100 p-3">
               <div className="flex items-center gap-1.5 mb-2">
                 <XCircle size={12} className="text-red-600" strokeWidth={2.5} />
@@ -139,7 +81,6 @@ Adin AI — https://getadinai.com
               </ul>
             </div>
 
-            {/* Will stay safe */}
             <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-3">
               <div className="flex items-center gap-1.5 mb-2">
                 <CheckCircle2 size={12} className="text-emerald-600" strokeWidth={2.5} />
@@ -148,41 +89,24 @@ Adin AI — https://getadinai.com
                 </span>
               </div>
               <ul className="space-y-1 text-[10px] text-emerald-700 leading-relaxed">
-                <li>• Your User ID</li>
+                <li>• Your Account</li>
                 <li>• Cloud backups</li>
-                <li>• Your PIN</li>
+                <li>• Email & Password</li>
                 <li>• Account access</li>
               </ul>
             </div>
           </div>
         </div>
 
-        {/* Storage info */}
         <div className="px-5 pb-4">
           <div className="rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-3">
-            <div className="flex items-center justify-between text-[11px] mb-1.5">
+            <div className="flex items-center justify-between text-[11px]">
               <span className="text-slate-500 font-medium">Current usage</span>
               <span className="font-bold text-slate-900">{usedMB.toFixed(2)} MB</span>
-            </div>
-            <div className="text-[10px] font-mono text-slate-400 text-center truncate">
-              Your ID: {userId || '—'}
             </div>
           </div>
         </div>
 
-        {/* Download ID shortcut */}
-        <div className="px-5 pb-4">
-          <button
-            onClick={handleDownloadId}
-            disabled={!userId}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white border border-purple-200 hover:border-purple-400 hover:bg-purple-50 text-purple-700 text-xs font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Download size={14} />
-            Download my ID first
-          </button>
-        </div>
-
-        {/* ✅ NEW: Confirmation Checkbox */}
         <div className="px-5 pb-4">
           <label 
             htmlFor="confirm-clear" 
@@ -201,7 +125,6 @@ Adin AI — https://getadinai.com
           </label>
         </div>
 
-        {/* Actions */}
         <div className="px-5 pb-5 space-y-2">
           <button
             onClick={handleConfirm}

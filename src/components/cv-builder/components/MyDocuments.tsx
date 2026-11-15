@@ -29,6 +29,8 @@ import { readCLDocument } from '../../cover-letter/utils/coverLetterStorage';
 
 // ✅ Download generators
 import { createDownloadActions } from '../handlers/downloadActions';
+// ✅ Extra sections (custom sections / interests / references / section order)
+import { normalizeExtras } from '../utils/cvExtras';
 
 interface MyDocumentsProps {
     userId: string;
@@ -415,6 +417,8 @@ const MyDocuments: React.FC<MyDocumentsProps> = ({
                     data.skills || '',
                     data.template || 'modern',
                     data.profilePhoto || null,
+                    // ✅ Saved extras → PDF / TXT downloaded from My Documents include the new sections too
+                    normalizeExtras(data),
                 );
 
                 const template = data.template || 'modern';
@@ -568,14 +572,8 @@ const MyDocuments: React.FC<MyDocumentsProps> = ({
                         )}
 
                         {/* Description + Create Button */}
-                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6 sm:mb-8">
-                            <div className="flex-1">
-                                <p className="text-slate-600 text-sm sm:text-base">
-                                    Manage and continue working on your saved career documents.
-                                </p>
-                            </div>
-
-                            <div className="flex-shrink-0 self-start sm:self-auto">
+                        <div className="flex justify-end gap-4 mb-6 sm:mb-8">
+                            <div className="flex-shrink-0">
                                 {activeTab === 'all' && totalCount > 0 && (
                                     <div className="relative" ref={createDropdownRef}>
                                         <button

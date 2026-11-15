@@ -1,5 +1,6 @@
 // src/components/cv-builder/preview/types/previewTypes.ts
 
+import type { CustomSection, ReferencesData, SectionLayout } from '../../types/cvExtraTypes';
 import { PersonalInfo, ExperienceItem, EducationItem, ProjectItem, CertificationItem, LanguageItem, AchievementItem, SectionStatus } from '../../types/cvTypes';
 
 // ✅ ALL 11 TEMPLATES SUPPORT
@@ -21,6 +22,12 @@ export interface CVPreviewProps {
     strength: { text: string; color: string; bg: string; icon: string };
     completionPercentage?: number;
     sectionStatuses?: Record<number, SectionStatus>;
+
+    // ✅ Extra sections (optional — templates read them via sectionRegistry helpers)
+    customSections?: CustomSection[];
+    interests?: string[];
+    references?: ReferencesData;
+    sectionLayout?: SectionLayout;
 
     // ============================================
     // ✅ Optional download callbacks
@@ -110,4 +117,4 @@ export interface ATSBreakdown {
     experience: number;
     skills: number;
     completeness: number;
-}
+}

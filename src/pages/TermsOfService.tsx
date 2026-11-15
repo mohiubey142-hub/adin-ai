@@ -8,10 +8,17 @@
 //             "Pricing & Charges") to stay consistent with the landing page
 //             and keep the policy future-proof if ads are ever introduced.
 //             "No Watermarks" is kept — it's a core product promise.
+// ✅ UPDATED (Nov 2026, PRICING): Removed "100% free", "no premium tiers", "never asked
+//             for a credit card" and "existing free features will remain free" claims
+//             (Sections 2, 3, 19) so paid features can be introduced later without
+//             contradicting these Terms. Future charges: announced in advance + consent.
 // ✅ UPDATED (Oct 2026): Aligned with the Privacy Policy and the real system —
 //             PIN required to restore, deletion/version-history wording,
 //             Vercel + Gmail listed, governing law = Pakistan, termination
 //             notice fixed for Guest Accounts (no email on file).
+// ✅ UPDATED (Nov 2026): Rewritten for Supabase Auth (Email/Password + Google).
+//             Removed Guest Account, User ID, PIN and Google Sheets wording;
+//             aligned with the updated Privacy Policy.
 
 import { useEffect, useState } from "react";
 import { cameFromApp, markLandingIntent } from "../utils/inAppNav";
@@ -40,6 +47,11 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
 
   // ✅ Smart back button — returns to referring page
   const goBack = () => {
+    // ✅ App ka handler (handleBackFromLegal): landing se aaye ho to Landing, warna history.back()
+    if (onBack) {
+      onBack();
+      return;
+    }
     // 1. If opened in new tab (no history) → close tab
     if (window.history.length <= 1) {
       window.close();
@@ -115,7 +127,7 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
               </span>
             </h1>
             <p className="text-sm text-slate-500 mt-3">
-              Last updated: October 2026
+              Last updated: November 2026
             </p>
           </div>
 
@@ -135,30 +147,27 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
                 Adin AI is an AI-powered career platform that helps you build CVs, generate cover letters, and improve your job application materials.
               </p>
               <p>
-                All core features — template gallery, editor, AI writing, cloud sync, and PDF/PNG/TXT export — are provided <strong className="text-slate-800">completely free</strong>, with no hidden charges and no premium tiers.
+                All core features — template gallery, editor, AI writing, cloud sync, and PDF/PNG/TXT export — are available <strong className="text-slate-800">free of charge</strong> today, with no hidden charges.
               </p>
             </Section>
 
             <Section icon={<Gift size={16} />} number="3" title="What You Get" highlight>
               <p className="mb-4">
-                Adin AI is built to be simple, safe, and free. When you start using the app, you automatically get a <strong className="text-slate-800">Guest Account</strong> — a private space for your work, no signup needed. Here's what you get:
+                Adin AI is built to be simple, safe, and free to start. When you sign up, you get a private account for your work. Here's what you get:
               </p>
 
-              <SubSection title="Your Guest Account (Why You Get It)">
+              <SubSection title="Your Account (Why You Get It)">
                 <p>
-                  We give you a <strong className="text-slate-800">Guest Account</strong> the moment you start using Adin AI — no email, no password, no signup required. Why? Because we believe you should be able to <strong className="text-slate-800">try the product first</strong> and see its value, before deciding to save anything permanently.
+                  You create an account with your <strong className="text-slate-800">name, email address and a password</strong>, or you can choose <strong className="text-slate-800">Continue with Google</strong>. Your account keeps your CVs and cover letters safe in the cloud and lets you log in from any device to continue exactly where you left off.
                 </p>
                 <p className="mt-3">
-                  Your Guest Account automatically comes with a unique <strong className="text-slate-800">User ID</strong>. You can also set a <strong className="text-slate-800">4-digit PIN</strong> anytime from your profile menu. Together, your ID + PIN let you restore all your documents on another device — like a private key to your work. (The PIN is required for restoring; without one, your work stays on the device where you created it.)
-                </p>
-                <p className="mt-3">
-                  Think of it like this: you can use Adin AI freely as a guest, and if you ever want to bring your work with you to another device, set a PIN and keep your ID and PIN safe.
+                  You can change your password at any time from your Profile page, and if you forget it you can use the "Forgot Password" option on the login screen to get a reset link by email.
                 </p>
               </SubSection>
 
               <div className="space-y-3 mt-5">
-                <InfoRow label="100% Free">
-                  No credit card, no hidden charges, no premium tiers.
+                <InfoRow label="Free to Start">
+                  No hidden charges. Any future paid features will be announced in advance.
                 </InfoRow>
                 <InfoRow label="Private by Default">
                   Your CVs and cover letters are yours. We never sell your data, and we share it only with the services needed to run the app (see Section 14).
@@ -166,8 +175,8 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
                 <InfoRow label="Auto-Save & Cloud Backup">
                   Everything saves automatically. Your documents are stored safely in the cloud.
                 </InfoRow>
-                <InfoRow label="Restore on Any Device">
-                  Use your User ID + PIN to bring all your documents to another device, anytime.
+                <InfoRow label="Access on Any Device">
+                  Log in with your email and password (or Google) to open all your documents on any device, anytime.
                 </InfoRow>
                 <InfoRow label="Full Control">
                   Download your documents (PDF, PNG, TXT) and delete your account whenever you want.
@@ -192,7 +201,7 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
 
             <Section icon={<Users size={16} />} number="5" title="User Accounts & Security">
               <p className="mb-3">
-                When you first use Adin AI, a <strong className="text-slate-800">Guest Account</strong> is automatically created for you with a unique <strong className="text-slate-800">User ID</strong>. You can also set a <strong className="text-slate-800">4-digit PIN</strong> from your profile menu — it is required if you want to restore your documents on another device.
+                To use Adin AI, you create an account with your <strong className="text-slate-800">name, email address and a password</strong>, or sign in with your <strong className="text-slate-800">Google account</strong>. You can change your password at any time from your Profile page.
               </p>
               <p className="mb-3">
                 You agree to:
@@ -202,7 +211,7 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
                   Provide accurate information in your documents and profile.
                 </InfoRow>
                 <InfoRow>
-                  Keep your User ID and PIN confidential and not share them with anyone.
+                  Keep your login credentials (your password and the Google account you use to sign in) confidential and not share them with anyone.
                 </InfoRow>
                 <InfoRow>
                   Notify us immediately via the in-app contact form if you suspect unauthorized access to your account.
@@ -224,13 +233,13 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
 
             <Section icon={<Lock size={16} />} number="7" title="Cloud Storage & Auto-Sync" highlight>
               <p className="mb-3">
-                Your documents are <strong className="text-slate-800">automatically synced</strong> to our secure cloud storage (Google Sheets) whenever you create, edit, or save a document. This sync happens in the background — you don't need to click anything to enable it.
+                Your documents are <strong className="text-slate-800">automatically synced</strong> to our secure cloud database (hosted on Supabase) whenever you create, edit, or save a document. This sync happens in the background — you don't need to click anything to enable it.
               </p>
               <p className="mb-3">
-                This allows you to restore your data on any device using your <strong className="text-slate-800">User ID</strong> and your <strong className="text-slate-800">4-digit PIN</strong> (a PIN is required to restore on another device).
+                This allows you to access your data on any device by simply logging in to your account. Access to your data is protected by Row Level Security policies, so that only you can read, edit, or delete your own documents.
               </p>
               <p>
-                You are responsible for keeping your User ID and PIN safe, as they are the only keys to accessing your cloud data. You can download your User ID as a .txt file from your profile menu at any time. We cannot recover a lost PIN or restore your data without both, so we recommend also exporting copies of important documents (PDF, PNG, TXT).
+                You are responsible for keeping your login credentials safe. If you forget your password, use the "Forgot Password" option on the login screen to receive a reset link by email. We recommend also exporting copies of important documents (PDF, PNG, TXT) as an extra backup.
               </p>
             </Section>
 
@@ -241,19 +250,19 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
 
               <SubSection title="How to Delete Your Account">
                 <p>
-                  Open your profile menu and click "Delete my account". To prevent accidental deletion, you will be asked to confirm with your <strong className="text-slate-800">User ID</strong> and — if you set one — your <strong className="text-slate-800">PIN</strong>. This is a security measure to protect your account from unauthorized deletion.
+                  Open your profile menu and click "Delete my account". To prevent accidental deletion, you will be asked to check a confirmation box before the deletion goes through.
                 </p>
               </SubSection>
 
               <SubSection title="What Gets Deleted">
                 <p>
-                  Your name, User ID, and all your CVs and cover letters (including any email, phone number, or photo inside them) are removed from our active cloud database within seconds, and your devices' access tokens stop working. The local storage, sessionStorage, and IndexedDB entries of the browser you delete from are also cleared immediately.
+                  Your account, name, email, and all your CVs and cover letters (including any photo inside them) are permanently removed from our active cloud database within seconds, and your login credentials are destroyed. This action cannot be undone. The localStorage, sessionStorage, and IndexedDB entries of the browser you delete from are also cleared immediately.
                 </p>
               </SubSection>
 
-              <SubSection title="Version History & Messages">
+              <SubSection title="Contact & Feedback Messages">
                 <p>
-                  Our cloud database is a Google Sheet, which keeps an internal version history, so deleted data may remain in older versions visible only to authorized administrators until they are purged; we do not use it to restore deleted accounts. Messages you sent through the Contact or Feedback forms are not linked to your User ID and are not deleted automatically — ask us through the contact form and we will remove them.
+                  Messages you sent through the Contact or Feedback forms are not linked to your account and are not deleted automatically — ask us through the contact form and we will remove them.
                 </p>
               </SubSection>
             </Section>
@@ -334,7 +343,8 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
                 Adin AI integrates with third-party services to provide certain features:
               </p>
               <div className="space-y-3">
-                <InfoRow label="Google Sheets">For cloud data storage and synchronization.</InfoRow>
+                <InfoRow label="Supabase">For secure login (authentication) and cloud data storage and synchronization.</InfoRow>
+                <InfoRow label="Google (Sign-In)">For the optional "Continue with Google" login.</InfoRow>
                 <InfoRow label="Groq / OpenRouter">For AI-powered text generation.</InfoRow>
                 <InfoRow label="Google Analytics">For aggregated, pseudonymized usage statistics, loaded only after you accept our policy.</InfoRow>
                 <InfoRow label="Vercel">For hosting the website and the server functions that handle requests.</InfoRow>
@@ -372,10 +382,10 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
 
             <Section icon={<Lock size={16} />} number="17" title="Termination">
               <p className="mb-3">
-                You may terminate your account at any time from your profile menu ("Delete my account"), confirming with your User ID and PIN if set.
+                You may terminate your account at any time from your profile menu ("Delete my account"), confirming the deletion in the app.
               </p>
               <p>
-                We reserve the right to suspend or terminate your access to Adin AI at our sole discretion, without prior notice, for violation of these Terms or for any other reason. Because Guest Accounts have no email on file, where possible we will show a notice in the app.
+                We reserve the right to suspend or terminate your access to Adin AI at our sole discretion, without prior notice, for violation of these Terms or for any other reason. Where possible, we will notify you by email or through a notice in the app.
               </p>
             </Section>
 
@@ -390,13 +400,10 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
 
             <Section icon={<Sparkles size={16} />} number="19" title="Pricing & Charges" highlight>
               <p className="mb-3">
-                Adin AI is <strong className="text-slate-800">100% free</strong> to use today, with no hidden charges, no premium tiers, and no paid upgrades.
-              </p>
-              <p className="mb-3">
-                You will never be asked for a credit card, bank details, or any form of payment to use any feature. There are no watermarks and no "unlock" buttons.
+                Adin AI is <strong className="text-slate-800">free to use</strong> today, with no hidden charges. Adin AI does not add watermarks to your documents.
               </p>
               <p>
-                Adin AI is free today and we intend to keep the core features free. If we ever introduce optional paid features in the future, we will clearly announce them in advance — and existing free features will remain free.
+                We may introduce optional paid features, subscriptions, or premium offerings in the future. If we do, we will clearly announce them in advance, and you will not be charged for anything without your clear action and consent.
               </p>
             </Section>
 

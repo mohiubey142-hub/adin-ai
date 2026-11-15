@@ -1,13 +1,13 @@
 # Adin AI
 
-> Adin AI is a 100% free AI-powered career platform. Build professional, ATS-friendly CVs, generate tailored cover letters and get career help — no signup, no credit card. Download as PDF, PNG or TXT.
+> Adin AI is an AI-powered career platform. Build professional, ATS-friendly CVs, generate tailored cover letters and get career help. Start for free. Download as PDF, PNG or TXT.
 
 Website: https://getadinai.com
 
 ## Main pages
-- [Home](https://getadinai.com/): Free CV builder, cover letter generator and career assistant
-- [Free CV Builder](https://getadinai.com/free-cv-builder): Build an ATS-friendly CV online for free, no signup
-- [Free Cover Letter Generator](https://getadinai.com/free-cover-letter-generator): Generate a professional cover letter for free, no signup
+- [Home](https://getadinai.com/): CV builder, cover letter generator and career assistant. Start for free
+- [Free CV Builder](https://getadinai.com/free-cv-builder): Build an ATS-friendly CV online. Start for free
+- [Free Cover Letter Generator](https://getadinai.com/free-cover-letter-generator): Generate a professional cover letter online. Start for free
 - [Free CV Templates](https://getadinai.com/templates): Professional, ATS-friendly CV templates
 - [Free Cover Letter Templates](https://getadinai.com/cover-templates): Professional cover letter templates
 - [Blog](https://getadinai.com/blog): Career tips, CV and cover letter advice for job seekers in Pakistan

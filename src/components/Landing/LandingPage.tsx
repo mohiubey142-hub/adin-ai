@@ -1,6 +1,8 @@
 // src/components/Landing/LandingPage.tsx
 // ✅ NEW: Legal links in footer (Privacy Policy, Terms, Contact)
 // ✅ HONEST STATEMENTS — Cloud sync disclosed
+// ✅ UPDATED (Nov 2026): Aligned with Privacy Policy & Terms (Supabase Email/Google accounts):
+//             removed "No Signup" claims and the User ID + PIN restore wording.
 // ✅ Everything else unchanged
 // ✅ UPDATED: Founder + Contact moved from Legal to new "Company" footer column; Founder added to desktop nav
 // ✅ UPDATED: Removed hardcoded template counts from marketing copy
@@ -19,6 +21,10 @@
 //             /contact, /privacy-policy, /terms-of-service. Normal left-click still
 //             uses the app's own navigation (no reload); Ctrl/Cmd/middle-click and
 //             right-click "open in new tab" now work too.
+// ✅ UPDATED (Nov 2026, PRICING LANGUAGE): Replaced absolute "100% Free" / "All Features Free" /
+//             "No Credit Card" / "It's Free" claims with future-proof wording (credit-card claims removed entirely)
+//             ("Start for Free", "Start in Minutes") so paid premium plans can be
+//             introduced later without contradicting the landing page. Text only.
 // ✅ UPDATED (Oct 2026): Removed claims that did not match the real system —
 //             "End-to-end encrypted", "Encrypted · No Tracking" (Google Analytics
 //             is used), "Encrypted Cloud Sync", "All Premium Features" (no tiers),
@@ -28,7 +34,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import {
   FileText, Mail, Zap, CheckCircle, Layout, ArrowRight, Sparkles,
   Download, Eye, Shield, Menu, X, Wand2, Palette,
-  FileDown, Lock, ChevronRight, Cpu, User,
+  FileDown, Lock, ChevronRight, ChevronDown, Cpu, User,
 } from 'lucide-react';
 import InstallAppCompact from '../InstallAppCompact';
 import Testimonials from './Testimonials';
@@ -114,7 +120,10 @@ const HERO_FAN: FanCard[] = [
 // PROPS
 // ============================================================
 interface LandingPageProps {
-  onGetStarted: () => void;
+  onGetStarted: () => void;        // logged-in users: open the app. Logged-out fallback for sections that need an account.
+  onOpenLogin?: () => void;        // ✅ opens /login
+  onOpenSignup?: () => void;       // ✅ opens /signup
+  isLoggedIn?: boolean;            // ✅ true → "Open App" instead of Log in / Sign up
   onBuildCV?: () => void;
   onWriteCoverLetter?: () => void;
   onViewCVTemplates?: () => void;
@@ -134,6 +143,9 @@ interface LandingPageProps {
 // ============================================================
 export default function LandingPage({
   onGetStarted,
+  onOpenLogin,
+  onOpenSignup,
+  isLoggedIn = false,
   onBuildCV,
   onWriteCoverLetter,
   onViewCVTemplates,
@@ -218,6 +230,22 @@ export default function LandingPage({
       (onViewCoverTemplates || onGetStarted)();
     }
   }, [activeTemplateTab, onViewCVTemplates, onViewCoverTemplates, onGetStarted]);
+
+  // ✅ Auth entry points: Log in → login page, Sign up → signup page (fallback: old single entry)
+  const handleLogin = useCallback(() => {
+    setMobileNavOpen(false);
+    (onOpenLogin || onGetStarted)();
+  }, [onOpenLogin, onGetStarted]);
+
+  const handleSignup = useCallback(() => {
+    setMobileNavOpen(false);
+    (onOpenSignup || onGetStarted)();
+  }, [onOpenSignup, onGetStarted]);
+
+  const handleOpenApp = useCallback(() => {
+    setMobileNavOpen(false);
+    onGetStarted();
+  }, [onGetStarted]);
 
   const handleNavCV = useCallback(() => {
     setMobileNavOpen(false);
@@ -331,25 +359,34 @@ export default function LandingPage({
             </span>
           </a>
 
-          <nav className="hidden lg:flex items-center gap-1">
-            <NavLink onClick={handleNavCV}>CV Builder</NavLink>
-            <NavLink onClick={handleNavCover}>Cover Letter</NavLink>
-            <NavLink href="/templates" onClick={handleNavCVTemplates}>CV Templates</NavLink>
-            <NavLink href="/cover-templates" onClick={handleNavCoverTemplates}>Cover Templates</NavLink>
+          {/* SaaS-style header: 2 dropdowns + 2 links (About lives in the footer / mobile menu) */}
+          <nav className="hidden lg:flex items-center gap-2 xl:gap-4" aria-label="Main">
+            <NavDropdown
+              label="Tools"
+              items={[
+                { label: 'CV Builder', description: 'Pick a template and build your CV with AI', icon: <FileText size={18} />, onClick: handleNavCV },
+                { label: 'Cover Letter Writer', description: 'Pick a template and generate a tailored letter', icon: <Mail size={18} />, onClick: handleNavCover },
+              ]}
+            />
+            <NavDropdown
+              label="Templates"
+              items={[
+                { label: 'CV Templates', description: 'ATS-friendly professional CV designs', icon: <Layout size={18} />, href: '/templates', onClick: handleNavCVTemplates },
+                { label: 'Cover Letter Templates', description: 'Clean, ready-to-use letter layouts', icon: <Palette size={18} />, href: '/cover-templates', onClick: handleNavCoverTemplates },
+              ]}
+            />
             <NavLink onClick={() => scrollToSection('features')}>Features</NavLink>
             <NavLink href="/blog" onClick={handleNavBlog}>Blog</NavLink>
-            <NavLink href="/founder" onClick={handleNavFounder}>About</NavLink>
           </nav>
 
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={onGetStarted}
-              className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-white text-sm font-semibold transition-all duration-300 hover:scale-[1.03] active:scale-[0.97] shadow-md shadow-purple-600/25"
-              style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 50%, #2563eb 100%)' }}
-            >
-              <span>Get Started</span>
-              <ArrowRight size={15} />
-            </button>
+            <AuthCtaButtons
+              variant="header"
+              isLoggedIn={isLoggedIn}
+              onLogin={handleLogin}
+              onSignup={handleSignup}
+              onOpenApp={handleOpenApp}
+            />
 
             <button
               onClick={() => setMobileNavOpen(true)}
@@ -381,10 +418,13 @@ export default function LandingPage({
               </button>
             </div>
             <nav className="flex-1 overflow-y-auto p-4 space-y-1">
+              <MobileNavGroupLabel>Tools</MobileNavGroupLabel>
               <MobileNavItem onClick={handleNavCV} icon={<FileText size={17} />}>CV Builder</MobileNavItem>
-              <MobileNavItem onClick={handleNavCover} icon={<Mail size={17} />}>Cover Letter</MobileNavItem>
+              <MobileNavItem onClick={handleNavCover} icon={<Mail size={17} />}>Cover Letter Writer</MobileNavItem>
+              <MobileNavGroupLabel>Templates</MobileNavGroupLabel>
               <MobileNavItem href="/templates" onClick={handleNavCVTemplates} icon={<Layout size={17} />}>CV Templates</MobileNavItem>
-              <MobileNavItem href="/cover-templates" onClick={handleNavCoverTemplates} icon={<Palette size={17} />}>Cover Templates</MobileNavItem>
+              <MobileNavItem href="/cover-templates" onClick={handleNavCoverTemplates} icon={<Palette size={17} />}>Cover Letter Templates</MobileNavItem>
+              <MobileNavGroupLabel>More</MobileNavGroupLabel>
               <MobileNavItem
                 onClick={() => { setMobileNavOpen(false); scrollToSection('features'); }}
                 icon={<Sparkles size={17} />}
@@ -398,13 +438,13 @@ export default function LandingPage({
               <MobileNavItem href="/contact" onClick={handleNavContact} icon={<Mail size={17} />}>Contact Us</MobileNavItem>
             </nav>
             <div className="p-4 border-t border-slate-100">
-              <button
-                onClick={() => { setMobileNavOpen(false); onGetStarted(); }}
-                className="w-full py-3 rounded-xl text-white text-sm font-semibold shadow-md shadow-purple-600/25"
-                style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 50%, #2563eb 100%)' }}
-              >
-                Start Building — Free
-              </button>
+              <AuthCtaButtons
+                variant="drawer"
+                isLoggedIn={isLoggedIn}
+                onLogin={handleLogin}
+                onSignup={handleSignup}
+                onOpenApp={handleOpenApp}
+              />
               {/* ✅ NEW: PWA install (drawer bottom) */}
               <InstallAppCompact variant="drawer" />
             </div>
@@ -428,16 +468,12 @@ export default function LandingPage({
                     <span className="relative inline-flex w-2 h-2 rounded-full bg-emerald-500" />
                   </span>
                   <span className="whitespace-nowrap text-[11px] font-semibold text-slate-800 tracking-tight">
-                    100% Free · All Features Included
+                    Completely Free · Build Your Career
                   </span>
                 </div>
                 <div className="flex items-center justify-center gap-1.5">
                   <span className="whitespace-nowrap text-[11px] font-medium text-slate-600">
                     No Hidden Charges
-                  </span>
-                  <span className="w-px h-3.5 bg-slate-300" />
-                  <span className="whitespace-nowrap text-[11px] font-medium text-slate-600">
-                    No Signup
                   </span>
                 </div>
               </div>
@@ -448,13 +484,11 @@ export default function LandingPage({
                   <span className="absolute inline-flex w-full h-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
                   <span className="relative inline-flex w-2 h-2 rounded-full bg-emerald-500" />
                 </span>
-                <span className="text-xs font-semibold text-slate-800 tracking-tight">100% Free</span>
-                <span className="w-px h-3.5 bg-slate-300" />
-                <span className="text-xs font-medium text-slate-600">No Signup</span>
+                <span className="text-xs font-semibold text-slate-800 tracking-tight">Completely Free</span>
                 <span className="w-px h-3.5 bg-slate-300" />
                 <span className="text-xs font-medium text-slate-600">No Hidden Charges</span>
                 <span className="w-px h-3.5 bg-slate-300" />
-                <span className="text-xs font-semibold text-slate-800 tracking-tight">All Features Free</span>
+                <span className="text-xs font-semibold text-slate-800 tracking-tight">Start in Minutes</span>
               </div>
             </div>
 
@@ -624,7 +658,7 @@ export default function LandingPage({
           <div className="flex items-center justify-center flex-wrap gap-x-8 gap-y-3 text-xs sm:text-sm text-slate-600">
             {[
               { icon: <Cpu size={14} className="text-purple-600" />, label: 'Advanced GPT Models' },
-              { icon: <CheckCircle size={14} className="text-emerald-600" />, label: '100% Free' },
+              { icon: <CheckCircle size={14} className="text-emerald-600" />, label: 'Completely Free' },
               { icon: <Layout size={14} className="text-blue-600" />, label: 'Professional Templates' },
               { icon: <Shield size={14} className="text-purple-600" />, label: 'ATS Optimized' },
               { icon: <FileDown size={14} className="text-blue-600" />, label: 'PDF · PNG · TXT' },
@@ -721,7 +755,7 @@ export default function LandingPage({
               Everything You Need to Get Hired
             </h2>
             <p className="text-slate-500 text-sm sm:text-base mt-3 max-w-2xl mx-auto">
-              Built for real job seekers — fast, private, and genuinely free.
+              Built for real job seekers — fast, private, and completely free to use.
             </p>
           </div>
 
@@ -732,7 +766,7 @@ export default function LandingPage({
               { icon: <Layout size={20} />, title: 'Professional Templates', desc: 'A growing library of CV and cover letter designs — pick your style.', accent: 'blue' },
               { icon: <Download size={20} />, title: 'PDF · PNG · TXT', desc: 'Export in multiple formats with a single click. No watermark.', accent: 'purple' },
               { icon: <Eye size={20} />, title: 'Live Preview', desc: 'See your changes in real-time as you type.', accent: 'blue' },
-              { icon: <Lock size={20} />, title: 'Private & Secure', desc: 'Your data is sent over secure HTTPS and synced to your private cloud — restore it on any device with your User ID and PIN.', accent: 'emerald' },
+              { icon: <Lock size={20} />, title: 'Private & Secure', desc: 'Your data is sent over secure HTTPS and synced to your private account — log in on any device to pick up where you left off.', accent: 'emerald' },
             ].map((f, i) => (
               <FeatureCard key={i} {...f} delay={i * 60} />
             ))}
@@ -782,7 +816,7 @@ export default function LandingPage({
       <section className="relative z-10 bg-white/60 backdrop-blur-sm border-y border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 text-center">
-            <StatItem value="$0" label="100% Free" />
+            <StatItem value="$0" label="To Get Started" />
             <StatItem value="ATS" label="Optimized Templates" />
             <StatItem value="AI" label="Powered Writing" />
             <StatItem value="PDF" label="PNG · TXT Export" />
@@ -818,15 +852,15 @@ export default function LandingPage({
               Land Your Dream Job — Starting Now
             </h2>
             <p className="mt-4 text-white/85 text-sm sm:text-base max-w-xl mx-auto">
-              No signup. No credit card. No watermark. Just a great CV and cover letter.
+              It's completely free to use. No watermark. Just a great CV and cover letter.
             </p>
 
             <div className="mt-8 flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
               <button
-                onClick={onGetStarted}
+                onClick={onBuildCV || onGetStarted}
                 className="group inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full bg-white text-slate-900 text-sm sm:text-base font-bold hover:scale-[1.03] active:scale-[0.97] transition-all duration-300 shadow-lg"
               >
-                <span>Start Building — It's Free</span>
+                <span>Build My CV Now</span>
                 <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
               </button>
               <button
@@ -855,7 +889,7 @@ export default function LandingPage({
                 </span>
               </div>
               <p className="mt-3 text-xs text-slate-500 leading-relaxed max-w-xs">
-                Free CV builder, cover letter writer, and AI career assistant.
+                CV builder, cover letter writer, and AI career assistant — start for free.
                 Powered by Advanced GPT Models.
               </p>
               {/* ✅ NEW: PWA install (footer) */}
@@ -865,7 +899,12 @@ export default function LandingPage({
             <FooterColumn title="Resources">
               <FooterLink onClick={() => scrollToSection('features')}>Features</FooterLink>
               <FooterLink onClick={() => scrollToSection('templates')}>Templates</FooterLink>
-              <FooterLink onClick={onGetStarted}>Get Started</FooterLink>
+              {isLoggedIn
+                ? <FooterLink onClick={handleOpenApp}>Open App</FooterLink>
+                : <>
+                    <FooterLink onClick={handleSignup}>Sign Up</FooterLink>
+                    <FooterLink onClick={handleLogin}>Log In</FooterLink>
+                  </>}
               <FooterLink href="/blog" onClick={handleNavBlog}>Blog</FooterLink>
               {/* Real links; if the App does not pass a handler, the browser just follows the href */}
               <FooterLink href="/free-cv-builder" onClick={onOpenFreeCVBuilder ? handleNavFreeCV : undefined}>Free CV Builder</FooterLink>
@@ -987,10 +1026,69 @@ function spaClick(cb?: () => void) {
   };
 }
 
+// ============================================================
+// AUTH CTA — Log in / Sign up (logged out) or Open App (logged in)
+// ============================================================
+const AUTH_GRADIENT = 'linear-gradient(135deg, #7c3aed 0%, #6366f1 50%, #2563eb 100%)';
+
+interface AuthCtaButtonsProps {
+  variant: 'header' | 'drawer';
+  isLoggedIn: boolean;
+  onLogin: () => void;
+  onSignup: () => void;
+  onOpenApp: () => void;
+}
+
+function AuthCtaButtons({ variant, isLoggedIn, onLogin, onSignup, onOpenApp }: AuthCtaButtonsProps) {
+  const isDrawer = variant === 'drawer';
+  const primaryClass = isDrawer
+    ? 'w-full py-3 rounded-xl text-white text-sm font-semibold shadow-md shadow-purple-600/25 inline-flex items-center justify-center gap-1.5'
+    : 'inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-white text-sm font-semibold transition-all duration-300 hover:scale-[1.03] active:scale-[0.97] shadow-md shadow-purple-600/25';
+  const secondaryClass = isDrawer
+    ? 'w-full py-3 rounded-xl border border-slate-200 text-slate-800 text-sm font-semibold hover:bg-slate-50 transition-colors'
+    : 'inline-flex items-center px-4 py-2 rounded-full border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50 hover:border-purple-300 transition-colors';
+  const wrapperClass = isDrawer ? 'flex flex-col gap-2' : 'hidden sm:flex items-center gap-2';
+
+  if (isLoggedIn) {
+    return (
+      <div className={wrapperClass}>
+        <button type="button" onClick={onOpenApp} className={primaryClass} style={{ background: AUTH_GRADIENT }}>
+          <span>Open App</span>
+          <ArrowRight size={15} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className={wrapperClass}>
+      {isDrawer ? (
+        <>
+          <button type="button" onClick={onSignup} className={primaryClass} style={{ background: AUTH_GRADIENT }}>
+            Sign up
+          </button>
+          <button type="button" onClick={onLogin} className={secondaryClass}>
+            Log in
+          </button>
+        </>
+      ) : (
+        <>
+          <button type="button" onClick={onLogin} className={secondaryClass}>
+            Log in
+          </button>
+          <button type="button" onClick={onSignup} className={primaryClass} style={{ background: AUTH_GRADIENT }}>
+            Sign up
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 function NavLink({
   children, onClick, href,
 }: { children: React.ReactNode; onClick?: () => void; href?: string }) {
-  const cls = 'px-3.5 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-purple-700 hover:bg-purple-50 transition-colors';
+  const cls = 'whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-purple-700 hover:bg-purple-50 transition-colors';
   if (href) {
     return (
       <a href={href} onClick={spaClick(onClick)} className={`inline-block ${cls}`}>
@@ -1002,6 +1100,94 @@ function NavLink({
     <button onClick={onClick} className={cls}>
       {children}
     </button>
+  );
+}
+
+const DROPDOWN_CLOSE_DELAY_MS = 120;   // mouse button se menu tak jaate hue menu band na ho
+
+interface NavDropdownItem {
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+  href?: string;
+}
+
+// Desktop dropdown: hover + click + keyboard (Esc), bahar click par band
+function NavDropdown({ label, items }: { label: string; items: NavDropdownItem[] }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  const openMenu = () => { clearTimeout(closeTimerRef.current); setOpen(true); };
+  const scheduleClose = () => {
+    clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = setTimeout(() => setOpen(false), DROPDOWN_CLOSE_DELAY_MS);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
+  useEffect(() => () => clearTimeout(closeTimerRef.current), []);
+
+  const itemClass = 'flex items-start gap-3 w-full text-left px-3 py-2.5 rounded-xl hover:bg-purple-50 transition-colors';
+  const renderItem = (item: NavDropdownItem) => {
+    const inner = (
+      <>
+        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-purple-50 text-purple-600">
+          {item.icon}
+        </span>
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold text-slate-900">{item.label}</span>
+          <span className="block text-xs text-slate-500">{item.description}</span>
+        </span>
+      </>
+    );
+    const handle = () => { setOpen(false); item.onClick(); };
+    return item.href ? (
+      <a key={item.label} role="menuitem" href={item.href} onClick={spaClick(handle)} className={itemClass}>{inner}</a>
+    ) : (
+      <button key={item.label} type="button" role="menuitem" onClick={handle} className={itemClass}>{inner}</button>
+    );
+  };
+
+  return (
+    <div ref={rootRef} className="relative" onMouseEnter={openMenu} onMouseLeave={scheduleClose}>
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className="inline-flex items-center gap-1.5 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-purple-700 hover:bg-purple-50 transition-colors"
+      >
+        {label}
+        <ChevronDown size={14} className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div role="menu" className="absolute left-0 top-full z-50 pt-2">
+          <div className="w-72 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl shadow-purple-900/10">
+            {items.map(renderItem)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MobileNavGroupLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="px-3.5 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">{children}</p>
   );
 }
 

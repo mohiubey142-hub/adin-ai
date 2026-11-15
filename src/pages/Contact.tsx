@@ -1,10 +1,8 @@
 // src/pages/Contact.tsx
+// ✅ Supabase integration — direct insert into 'contact_messages' table
 // ✅ LIGHT THEME — matches landing page UI
 // ✅ Gray scrollbar (no purple/black)
 // ✅ FIX: Back button — close tab FIRST, then history.back()
-// ✅ FIX: Privacy + Terms links → path-based, new tab
-// ✅ Purple + blue accents
-// ✅ Contact form → backend proxy /api/sync (action: submit_contact)
 
 import { useEffect, useState } from "react";
 import { cameFromApp, markLandingIntent } from "../utils/inAppNav";
@@ -13,16 +11,14 @@ import {
   Shield, FileText, ExternalLink,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { postToSyncProxy } from "../services/sync/proxyClient";
+import { supabase } from "../services/sync/supabaseClient";
 
 interface ContactProps {
   onBack?: () => void;
 }
 
 export default function Contact({ onBack }: ContactProps) {
-  // ✅ Back sirf tab jab user app ke andar se aaya; seedha khulne par Adin AI home link
   const showBack = cameFromApp();
-  // Header: transparent on top, glass + border after scrolling (same as the main landing page)
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -36,18 +32,9 @@ export default function Contact({ onBack }: ContactProps) {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
 
-  // ✅ Smart back button — Contact-specific
-  // Contact is often opened in a NEW TAB from Privacy/Terms pages.
-  // - If new tab (no history): close the tab
-  // - If history exists: go back in history
-  // - onBack prop is NOT used (it would be circular — App.tsx sends us to /contact)
   const goBack = () => {
-    // Case 1: New tab (no history) — try to close
     if (window.history.length <= 1) {
       window.close();
-
-      // Chrome blocks window.close() for user-opened tabs.
-      // Fallback: go to /contact (stays on same page, no visual change)
       setTimeout(() => {
         if (!window.closed) {
           window.location.href = '/contact';
@@ -55,8 +42,6 @@ export default function Contact({ onBack }: ContactProps) {
       }, 150);
       return;
     }
-
-    // Case 2: Has history — go back
     window.history.back();
   };
 
@@ -76,22 +61,23 @@ export default function Contact({ onBack }: ContactProps) {
     setSending(true);
 
     try {
-      const { json } = await postToSyncProxy("submit_contact", {
+      // Ab direct Supabase mein save ho raha hai
+      const { error } = await supabase.from('contact_messages').insert({
         name: name.trim(),
         email: email.trim(),
         message: message.trim(),
         source: "contact-page",
-        timestamp: new Date().toISOString(),
+        client_timestamp: new Date().toISOString(),
       });
-      const data = json && typeof json === "object" ? json : { ok: false };
 
-      if (data.ok) {
+      if (error) {
+        console.error('[Contact] Supabase error:', error.message);
+        toast.error("Failed to send. Please try again.");
+      } else {
         toast.success("Message sent! We'll get back to you soon.");
         setName("");
         setEmail("");
         setMessage("");
-      } else {
-        toast.error(data.message || "Failed to send. Please try again.");
       }
     } catch (err) {
       console.error("[Contact] submit failed:", err);
@@ -101,7 +87,6 @@ export default function Contact({ onBack }: ContactProps) {
     }
   };
 
-  // ✅ Path-based URLs (no hash), new tab
   const openPrivacy = () => {
     window.open('/privacy-policy', '_blank', 'noopener,noreferrer');
   };
@@ -112,7 +97,6 @@ export default function Contact({ onBack }: ContactProps) {
   return (
     <>
       <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 text-slate-900">
-        {/* Sticky Header */}
         <header className={`sticky top-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/85 backdrop-blur-xl border-b border-slate-200 shadow-sm' : 'bg-transparent border-b border-transparent'}`}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
           {showBack ? (
@@ -152,9 +136,7 @@ export default function Contact({ onBack }: ContactProps) {
         </div>
         </header>
 
-        {/* Content */}
         <main className="max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
-          {/* Hero */}
           <div className="text-center mb-10 sm:mb-14">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 border border-purple-200 text-purple-700 text-xs font-semibold mb-4">
               <MessageSquare size={12} />
@@ -172,7 +154,6 @@ export default function Contact({ onBack }: ContactProps) {
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">
-            {/* Left: Contact Form */}
             <section className="rounded-2xl bg-white border border-slate-200 shadow-sm p-6 sm:p-7">
               <div className="flex items-center gap-3 mb-5">
                 <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center shadow-sm">
@@ -252,9 +233,7 @@ export default function Contact({ onBack }: ContactProps) {
               </form>
             </section>
 
-            {/* Right: Contact Info */}
             <div className="space-y-5">
-              {/* Location card */}
               <section className="rounded-2xl bg-white border border-slate-200 shadow-sm p-6 sm:p-7">
                 <div className="flex items-center gap-3 mb-5">
                   <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center shadow-sm">
@@ -294,7 +273,6 @@ export default function Contact({ onBack }: ContactProps) {
                 </p>
               </section>
 
-              {/* Clickable Privacy / Terms links */}
               <section className="rounded-2xl bg-white border border-slate-200 shadow-sm p-6">
                 <h2 className="text-sm font-bold text-slate-900 mb-3">
                   Before You Ask
@@ -337,7 +315,6 @@ export default function Contact({ onBack }: ContactProps) {
           </div>
         </main>
 
-        {/* Footer */}
         <footer className="border-t border-slate-200 bg-white/70 backdrop-blur-sm mt-10">
           <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 text-center">
             <p className="text-xs text-slate-500">
@@ -346,7 +323,6 @@ export default function Contact({ onBack }: ContactProps) {
           </div>
         </footer>
 
-        {/* Neutral gray scrollbar */}
         <style>{`
           html, body {
             height: auto !important;

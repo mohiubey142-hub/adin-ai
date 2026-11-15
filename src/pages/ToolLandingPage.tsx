@@ -1,11 +1,6 @@
 // src/pages/ToolLandingPage.tsx
 // ============================================================
-// PREMIUM public SEO landing pages (login/onboarding ke bina khulte hain):
-//   /free-cv-builder
-//   /free-cover-letter-generator
-// Content: src/config/toolLandingContent.ts
-// Template images: /Templates/images/*.webp (wahi jo main landing page use karta hai)
-// CTA buttons App.tsx ke existing handlers se judte hain (templates page → onboarding flow)
+// PREMIUM public SEO landing pages
 // ============================================================
 
 import type { CSSProperties } from 'react';
@@ -31,19 +26,13 @@ import { buildToolLandingSchema, type ToolLandingContent } from '../config/toolL
 
 interface ToolLandingPageProps {
   content: ToolLandingContent;
-  /** Primary CTA — App.tsx ka existing "Build CV" / "Write Cover Letter" handler (templates page par le jata hai) */
   onStart: () => void;
-  /** Back — landing page par wapas */
-  /** Kept so App.tsx's props stay valid; this page has no Back button anymore */
   onBack?: () => void;
 }
 
 const CTA_GRADIENT = 'linear-gradient(135deg, #7c3aed 0%, #6366f1 50%, #2563eb 100%)';
 const FEATURE_ICONS = [Sparkles, Layers, Download, Check, ShieldCheck, MapPin];
 
-// Hero 2-row cascade (back row: 3 cards, front row: 2 cards, rows overlap vertically)
-// Order = content.fan: [0 backLeft, 1 backRight, 2 frontRight, 3 backCenter, 4 frontLeft/hero]
-// Values: % of stage (center/top/width), deg rotate
 const SHADOW_BACK = '0 18px 36px -14px rgba(15,23,42,0.30), 0 4px 10px -4px rgba(15,23,42,0.12)';
 const SHADOW_MID = '0 24px 44px -16px rgba(15,23,42,0.34), 0 8px 16px -8px rgba(15,23,42,0.14)';
 const SHADOW_FRONT = '0 36px 64px -22px rgba(91,33,182,0.42), 0 14px 28px -12px rgba(15,23,42,0.26)';
@@ -55,17 +44,11 @@ const FAN_GEOMETRY = [
   { center: 34, top: 38, width: 47, rotate: -4.5, z: 6, dim: false, row: 'front', pillRight: false, shadow: SHADOW_FRONT },
 ];
 
-// Hero ke baad ka content (templates heading se neeche sab) kitna upar khiskega.
-// 0.4 = hero↔templates ke beech ka gap 40% kam. Sirf yahi ek value badalni hai.
 const SECTION_PULL_UP = 0.4;
-
-// Sabse neeche wale gradient CTA box ka size (1 = original, 1.3 = 30% bada). Sirf yahi value badalni hai.
 const FINAL_CTA_SCALE = 1.3;
-// Box ka max width page ke content width se zyada na jaye (Tailwind max-w-7xl)
 const FINAL_CTA_MAX_WIDTH = '80rem';
 
 const PAGE_CSS = `
-/* Final CTA box: har size base value × --tlp-final-scale (base = purani Tailwind values) */
 .tlp-final-section { max-width: min(calc(64rem * var(--tlp-final-scale)), ${FINAL_CTA_MAX_WIDTH}); }
 .tlp-final-box { padding: calc(3rem * var(--tlp-final-scale)) calc(1.5rem * var(--tlp-final-scale)); }
 .tlp-final-title { font-size: calc(1.5rem * var(--tlp-final-scale)); line-height: 1.2; }
@@ -75,7 +58,7 @@ const PAGE_CSS = `
   .tlp-final-box { padding-inline: calc(3rem * var(--tlp-final-scale)); }
   .tlp-final-title { font-size: calc(1.875rem * var(--tlp-final-scale)); }
   .tlp-final-text { font-size: calc(1rem * var(--tlp-final-scale)); }
-}/* Hero → templates gap: base spacing (mobile / md+) aur pull-up CSS variables se aati hai */
+}
 .tlp-page { --tlp-hero-pb: 3rem; --tlp-gallery-pt: 3.5rem; }
 @media (min-width: 768px) { .tlp-page { --tlp-hero-pb: 5rem; --tlp-gallery-pt: 5rem; } }
 .tlp-hero-section { padding-bottom: calc(var(--tlp-hero-pb) * (1 - var(--tlp-pull-up))); }
@@ -88,8 +71,6 @@ details > summary::-webkit-details-marker { display: none; }
 @media (prefers-reduced-motion: reduce) { .tlp-float, .tlp-rise { animation: none; } }
 `;
 
-// Hash link (#templates) App.tsx ke hashchange handler ko trigger karta hai (onboarding khul jati thi),
-// isliye plain JS smooth-scroll use karte hain.
 const scrollToTemplates = () => {
   document.getElementById('templates')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
@@ -100,7 +81,6 @@ export default function ToolLandingPage({ content, onStart }: ToolLandingPagePro
   const CtaIcon = isCover ? Mail : FileText;
   const schema = buildToolLandingSchema(content);
 
-  // "Free CV Builder: Create a ..." → gradient lead + normal rest
   const colonAt = content.h1.indexOf(': ');
   const h1Lead = colonAt > 0 ? content.h1.slice(0, colonAt) : '';
   const h1Rest = colonAt > 0 ? content.h1.slice(colonAt + 2) : content.h1;
@@ -120,7 +100,6 @@ export default function ToolLandingPage({ content, onStart }: ToolLandingPagePro
         {JSON.stringify(schema).replace(/</g, '\\u003c')}
       </script>
 
-      {/* Background — main landing page jaisi soft layer (kam bright) */}
       <div aria-hidden="true" className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }}>
         <div
           className="absolute top-[-10%] left-[-10%] w-[420px] h-[420px] rounded-full"
@@ -144,12 +123,8 @@ export default function ToolLandingPage({ content, onStart }: ToolLandingPagePro
         />
       </div>
 
-      {/* Top bar */}
-
       <main className="relative z-10">
-        {/* ───────── HERO ───────── */}
         <section className="relative max-w-7xl mx-auto px-4 sm:px-6 pt-4 sm:pt-5 tlp-hero-section">
-          {/* Header bar nahi hai: CTA hero ke top-right me */}
           <button
               onClick={onStart}
               className="hidden sm:inline-flex absolute right-4 sm:right-6 top-[21px] sm:top-[26px] z-20 items-center gap-1.5 px-4 py-1.5 rounded-full text-white text-sm font-semibold shadow-md shadow-purple-600/20 hover:scale-[1.03] active:scale-[0.97] transition-transform"
@@ -159,7 +134,6 @@ export default function ToolLandingPage({ content, onStart }: ToolLandingPagePro
               <ArrowRight size={14} />
             </button>
           <div className="grid lg:grid-cols-2 gap-10 lg:gap-14 items-start">
-            {/* Left */}
             <div className="tlp-rise text-left">
               <nav aria-label="Breadcrumb" className="mb-5 flex items-center text-xs text-slate-500">
                 <a href="/"
@@ -227,7 +201,6 @@ export default function ToolLandingPage({ content, onStart }: ToolLandingPagePro
               </ul>
             </div>
 
-            {/* Right — 2-row overlapping template cascade */}
             <div className="relative tlp-rise mt-6 lg:mt-16" style={{ animationDelay: '120ms' }}>
               <div className="relative w-full max-w-[580px] mx-auto aspect-[100/104]">
                 <div
@@ -281,7 +254,6 @@ export default function ToolLandingPage({ content, onStart }: ToolLandingPagePro
                   );
                 })}
 
-                {/* Floating AI badge — sits on the seam between the two front cards */}
                 <div
                   className="absolute pointer-events-none"
                   style={{ left: '50%', bottom: '1.5%', transform: 'translateX(-50%)', zIndex: 8 }}
@@ -301,7 +273,6 @@ export default function ToolLandingPage({ content, onStart }: ToolLandingPagePro
           </div>
         </section>
 
-        {/* ───────── TEMPLATE GALLERY ───────── */}
         <section id="templates" className="tlp-gallery-section max-w-7xl mx-auto px-4 sm:px-6 pb-14 md:pb-20 scroll-mt-20">
           <div className="text-center mb-10">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 border border-purple-200 text-purple-700 text-xs font-semibold mb-4">
@@ -356,7 +327,6 @@ export default function ToolLandingPage({ content, onStart }: ToolLandingPagePro
           </div>
         </section>
 
-        {/* ───────── FEATURES ───────── */}
         <section className="bg-white/60 backdrop-blur-sm border-y border-slate-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-14 md:py-20">
             <div className="text-center mb-10">
@@ -386,7 +356,6 @@ export default function ToolLandingPage({ content, onStart }: ToolLandingPagePro
           </div>
         </section>
 
-        {/* ───────── STEPS ───────── */}
         <section className="max-w-6xl mx-auto px-4 sm:px-6 py-14 md:py-20">
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-center">{content.stepsTitle}</h2>
           <ol className="relative mt-10 grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -409,7 +378,6 @@ export default function ToolLandingPage({ content, onStart }: ToolLandingPagePro
           </ol>
         </section>
 
-        {/* ───────── TIPS ───────── */}
         <section className="max-w-5xl mx-auto px-4 sm:px-6 pb-14 md:pb-20">
           <div className="rounded-3xl border border-purple-100 bg-gradient-to-br from-purple-50 via-white to-blue-50 p-6 sm:p-10 shadow-sm">
             <div className="flex items-center gap-3 mb-6">
@@ -431,7 +399,6 @@ export default function ToolLandingPage({ content, onStart }: ToolLandingPagePro
           </div>
         </section>
 
-        {/* ───────── FAQ ───────── */}
         <section className="max-w-3xl mx-auto px-4 sm:px-6 pb-14 md:pb-20">
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-center">{content.faqTitle}</h2>
           <div className="mt-8 space-y-3">
@@ -447,7 +414,6 @@ export default function ToolLandingPage({ content, onStart }: ToolLandingPagePro
           </div>
         </section>
 
-        {/* ───────── GUIDES + RELATED ───────── */}
         <section className="max-w-5xl mx-auto px-4 sm:px-6 pb-14 md:pb-20 grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
             <h2 className="text-lg font-bold text-slate-900">{content.guidesTitle}</h2>
@@ -480,7 +446,6 @@ export default function ToolLandingPage({ content, onStart }: ToolLandingPagePro
           </div>
         </section>
 
-        {/* ───────── FINAL CTA ───────── */}
         <section
           className="tlp-final-section mx-auto px-4 sm:px-6 pb-16 md:pb-24"
           style={{ '--tlp-final-scale': FINAL_CTA_SCALE } as CSSProperties}
@@ -496,8 +461,8 @@ export default function ToolLandingPage({ content, onStart }: ToolLandingPagePro
               </h2>
               <p className="tlp-final-text text-white/80 mx-auto">
                 {isCover
-                  ? 'Get a professional draft in seconds. Free, with no signup required.'
-                  : 'It takes just a few minutes. Free, with no signup required.'}
+                  ? 'Get a professional draft in seconds. It\'s completely free.'
+                  : 'It takes just a few minutes. It\'s completely free.'}
               </p>
               <button
                 onClick={onStart}

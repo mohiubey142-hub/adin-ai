@@ -6,7 +6,7 @@ const STATS = [
   { value: "17", label: "Age", cls: "bg-purple-50 border-purple-100", grad: "from-purple-600 to-purple-500" },
   { value: "Pakistan", label: "Based in", cls: "bg-blue-50 border-blue-100", grad: "from-blue-600 to-cyan-500" },
   { value: "May 2026", label: "Building since", cls: "bg-emerald-50 border-emerald-100", grad: "from-emerald-600 to-teal-500" },
-  { value: "100%", label: "Free to use", cls: "bg-amber-50 border-amber-100", grad: "from-amber-600 to-orange-500" },
+  { value: "$0", label: "To get started", cls: "bg-amber-50 border-amber-100", grad: "from-amber-600 to-orange-500" },
 ];
 
 export default function AboutSection() {

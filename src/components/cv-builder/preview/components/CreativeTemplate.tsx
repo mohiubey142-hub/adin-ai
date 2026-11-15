@@ -21,6 +21,14 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { CVPreviewProps } from '../types/previewTypes';
 import { safeText } from '../utils/renderHelpers';
+import {
+    buildExtrasPlan,
+    getItemCustomLines,
+    REFERENCES_ON_REQUEST_TEXT,
+    type NormalizedEntry,
+} from '../../utils/extrasModel';
+import { getDescriptionAlign, getDescriptionFormat, getMarkerIndent, parseDescriptionLines } from '../../utils/descriptionFormat';
+import type { DescriptionAlign, DescriptionFormat } from '../../types/cvExtraTypes';
 
 // ====================================================================
 // PAGE + COLUMNS (same numbers as creativePdf.ts)
@@ -351,6 +359,10 @@ const parseBulletLines = (text?: string): string[] =>
         })
         .filter(Boolean);
 
+// Description formats: bullets keep the original parser; numbered / paragraph use the shared helper.
+const parseDescription = (text: string | undefined, fmt: DescriptionFormat): string[] =>
+    fmt === 'bullets' ? parseBulletLines(text) : parseDescriptionLines(sanitizeTextForPdf(text || ''));
+
 const hasUsableExperience = (e: any) =>
     !!e && !!(clean(e.title) || clean(e.company) || clean(e.startDate) || clean(e.endDate) || clean(e.description));
 const hasUsableEducation = (e: any) =>
@@ -513,7 +525,9 @@ const Section: React.FC<{
             style={{
                 position: 'relative',
                 padding: ringPad,
-                marginTop: first ? -ringPad : pt(SECTION_TOP_MARGIN) - ringPad,
+                // FIX: `pt(n) - ringPad` was string - number = NaN, so the section gap was silently dropped in the preview.
+                // Net gap = previous section's bottom ring padding + this margin + this top ring padding, hence 2 x ringPad.
+                marginTop: first ? -ringPad : `calc(${pt(SECTION_TOP_MARGIN)} - ${ringPad * 2}px)`,
                 marginLeft: -ringPad,
                 marginRight: -ringPad,
             }}
@@ -529,7 +543,14 @@ const Section: React.FC<{
 
 const wrapStyle: React.CSSProperties = { wordBreak: 'break-word', overflowWrap: 'anywhere', minWidth: 0 };
 
-const BulletList: React.FC<{ lines: string[]; flow?: boolean }> = ({ lines, flow }) => (
+const BulletList: React.FC<{ lines: string[]; flow?: boolean; format?: DescriptionFormat; align?: DescriptionAlign }> = ({
+    lines,
+    flow,
+    format = 'bullets',
+    align = 'left'
+}) => {
+    const indent = getMarkerIndent(format, lines.length, BODY_SIZE, BULLET_DOT_TO_TEXT_GAP);
+    return (
     <div>
         {lines.map((line, i) => (
             <div
@@ -544,14 +565,17 @@ const BulletList: React.FC<{ lines: string[]; flow?: boolean }> = ({ lines, flow
                     pageBreakInside: 'avoid'
                 }}
             >
-                <span style={{ flexShrink: 0, width: pt(BULLET_DOT_TO_TEXT_GAP), color: COLOR_SECTION_HEADING }}>
-                    {BULLET_MARKER}
-                </span>
-                <span style={wrapStyle}>{line}</span>
+                {format !== 'paragraph' && (
+                    <span style={{ flexShrink: 0, width: pt(indent), color: COLOR_SECTION_HEADING }}>
+                        {format === 'numbered' ? `${i + 1}.` : BULLET_MARKER}
+                    </span>
+                )}
+                <span style={align === 'justify' ? { ...wrapStyle, textAlign: 'justify' as const } : wrapStyle}>{line}</span>
             </div>
         ))}
     </div>
-);
+    );
+};
 
 interface EntryDef {
     key: string | number;
@@ -582,6 +606,30 @@ const EntryStack: React.FC<{ entries: EntryDef[]; extraGap: number; step?: numbe
         ))}
     </div>
 );
+
+// "Label: Value" lines under an entry. Each line box is BODY_LINE_HEIGHT tall (tightLine), so lines
+// stack exactly like creativePdf.ts' drawMetaLines(). The first line sits BODY_LINE_HEIGHT +
+// ENTRY_TITLE_TO_SUBTITLE_GAP below the previous baseline (the PDF's "topped-up" entry end + gap).
+const CustomLines: React.FC<{ lines: string[]; prevFS: number; sidebar?: boolean }> = ({ lines, prevFS, sidebar }) =>
+    lines.length === 0 ? null : (
+        <div
+            {...keepProps}
+            style={{ marginTop: pt(lineGap(BODY_LINE_HEIGHT + ENTRY_TITLE_TO_SUBTITLE_GAP, prevFS, ENTRY_SUB_SIZE)) }}
+        >
+            {lines.map((line, i) => (
+                <div
+                    key={i}
+                    style={{
+                        ...tightLine(ENTRY_SUB_SIZE),
+                        color: sidebar ? COLOR_SIDEBAR_BODY : COLOR_METADATA,
+                        ...wrapStyle
+                    }}
+                >
+                    {safeText(line)}
+                </div>
+            ))}
+        </div>
+    );
 
 const titleTextStyle: React.CSSProperties = {
     ...tightLine(ENTRY_TITLE_SIZE),
@@ -708,6 +756,9 @@ const CreativeTemplate: React.FC<CVPreviewProps> = (props) => {
     const validProjects = (projects || []).filter(hasUsableProject);
     const skillsList = parseSkillsList(skills);
 
+    // Extras: custom sections, interests, references, custom fields, section order.
+    const plan = buildExtrasPlan('creative', props as any);
+
     const leftMeasureRef = useRef<HTMLDivElement>(null);
     const rightMeasureRef = useRef<HTMLDivElement>(null);
     const wrapRef = useRef<HTMLDivElement>(null);
@@ -783,27 +834,36 @@ const CreativeTemplate: React.FC<CVPreviewProps> = (props) => {
     if (clean(pi?.github)) contactFields.push({ label: CONTACT_LABELS.github, value: clean(pi.github) });
     const webLink = clean(pi?.website) || clean(pi?.portfolio);
     if (webLink) contactFields.push({ label: CONTACT_LABELS.website, value: webLink });
+    // Personal Info custom fields: extra Contact rows (label + value), after the standard ones.
+    for (const f of (pi?.customFields || []) as { label?: string; value?: string }[]) {
+        const value = clean(f?.value);
+        if (!value) continue;
+        contactFields.push({ label: clean(f?.label) || 'Info', value });
+    }
 
-    const leftFirst: string | null = contactFields.length
-        ? 'contact'
-        : skillsList.length
-            ? 'skills'
-            : validLanguages.length
-                ? 'languages'
-                : validCertifications.length
-                    ? 'certifications'
-                    : null;
-    const rightFirst: string | null = summaryText
-        ? 'summary'
-        : validExperiences.length
-            ? 'experience'
-            : validEducations.length
-                ? 'education'
-                : validProjects.length
-                    ? 'projects'
-                    : validAchievements.length
-                        ? 'achievements'
-                        : null;
+    // Section order: sidebar and main column are ordered separately (no cross-column moves).
+    // Sidebar = Skills / Languages / Certifications / Interests; everything else (incl. References and
+    // every custom section) is the main column.
+    const LEFT_IDS = ['skills', 'languages', 'certifications', 'interests'];
+    const leftOrder = plan.order.filter((id) => LEFT_IDS.includes(id));
+    const rightOrder = plan.order.filter((id) => !LEFT_IDS.includes(id));
+    const hasContentFor = (id: string): boolean => {
+        switch (id) {
+            case 'skills': return skillsList.length > 0;
+            case 'languages': return validLanguages.length > 0;
+            case 'certifications': return validCertifications.length > 0;
+            case 'interests': return plan.hasInterests;
+            case 'summary': return !!summaryText;
+            case 'experience': return validExperiences.length > 0;
+            case 'education': return validEducations.length > 0;
+            case 'projects': return validProjects.length > 0;
+            case 'achievements': return validAchievements.length > 0;
+            case 'references': return plan.hasReferences;
+            default: return !!plan.customSectionById(id)?.entries.length;
+        }
+    };
+    const leftFirst: string | null = contactFields.length ? 'contact' : leftOrder.find(hasContentFor) ?? null;
+    const rightFirst: string | null = rightOrder.find(hasContentFor) ?? null;
 
     const leftStartBaseline = TOP_MARGIN + BODY_TOP_PADDING + SIDEBAR_CONTENT_DOWN_SHIFT + (hasPhoto ? HEADER_PHOTO_SIZE + PHOTO_TO_TEXT_GAP : 0);
     const leftFirstBaseline = leftFirst === 'contact' ? leftStartBaseline : leftStartBaseline + SECTION_GAP * fit;
@@ -923,6 +983,257 @@ const CreativeTemplate: React.FC<CVPreviewProps> = (props) => {
 
     const photoRingPad = HOVER_RING_WIDTH;
 
+    // A custom-section / reference entry is drawn exactly like an Experience entry:
+    // title + right-aligned date, subtitle line, bullet description, then "Label: Value" lines.
+    const normalizedEntryDef = (e: NormalizedEntry, i: number): EntryDef => {
+        const title = clean(e.title);
+        const company = clean(e.subtitle);
+        const dateRange = clean(e.date);
+        const fmt = getDescriptionFormat(e);
+        const al = getDescriptionAlign(e);
+        const bullets = parseDescription(e.description, fmt);
+        const hasRow = !!(title || dateRange);
+        const rowFS = title ? ENTRY_TITLE_SIZE : ENTRY_SUB_SIZE;
+        const companyGap = hasRow ? lineGap(rowFS + ENTRY_TITLE_TO_SUBTITLE_GAP, rowFS, ENTRY_SUB_SIZE) : 0;
+        const bulletGap = company
+            ? lineGap(ENTRY_SUB_SIZE + ENTRY_SUBTITLE_TO_DESCRIPTION_GAP, ENTRY_SUB_SIZE, BODY_SIZE)
+            : hasRow
+                ? lineGap(rowFS + ENTRY_SUBTITLE_TO_DESCRIPTION_GAP, rowFS, BODY_SIZE)
+                : 0;
+        const lastBase = bullets.length ? BODY_SIZE : company ? ENTRY_SUB_SIZE : rowFS;
+        return {
+            key: i,
+            split: true,
+            firstFS: hasRow ? rowFS : ENTRY_SUB_SIZE,
+            lastFS: e.metaLines.length ? ENTRY_SUB_SIZE : lastBase,
+            node: (
+                <>
+                    <div {...(bullets.length ? headProps : keepProps)}>
+                        <TitleDateRow title={title} date={dateRange} />
+                        {company && <div style={{ ...metaStyle, marginTop: pt(companyGap) }}>{company}</div>}
+                    </div>
+                    {bullets.length > 0 && (
+                        <div style={{ marginTop: pt(bulletGap) }}>
+                            <BulletList lines={bullets} flow format={fmt} align={al} />
+                        </div>
+                    )}
+                    <CustomLines lines={e.metaLines} prevFS={lastBase} />
+                </>
+            )
+        };
+    };
+
+    const secProps = {
+        onEditSection,
+        gate: gateApi,
+        hoveredKey,
+        setHoveredKey,
+        clearHovered,
+    };
+
+    const leftNodes: Record<string, React.ReactNode> = {
+        skills: (
+            skillsList.length > 0 && (
+                    <Section
+                        title="SKILLS"
+                        sectionKey="skills"
+                        column="left"
+                        fit={fit}
+                        firstFontSize={BODY_SIZE}
+                        first={leftFirst === 'skills'}
+                        onEditSection={onEditSection}
+                        gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
+                    >
+                        <div>
+                            {skillsList.map((skill, i) => (
+                                <div
+                                    key={i}
+                                    {...flowProps}
+                                    style={{
+                                        display: 'flex',
+                                        fontSize: pt(BODY_SIZE),
+                                        lineHeight: pt(BODY_LINE_HEIGHT)
+                                    }}
+                                >
+                                    <span style={{ flexShrink: 0, width: pt(BULLET_DOT_TO_TEXT_GAP), color: COLOR_SIDEBAR_HEADING }}>
+                                        {BULLET_MARKER}
+                                    </span>
+                                    <span style={{ ...wrapStyle, color: COLOR_SIDEBAR_BODY }}>{skill}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </Section>
+                )
+        ),
+        languages: (
+            validLanguages.length > 0 && (
+                    <Section
+                        title="LANGUAGES"
+                        sectionKey="languages"
+                        column="left"
+                        fit={fit}
+                        firstFontSize={ENTRY_TITLE_SIZE}
+                        first={leftFirst === 'languages'}
+                        onEditSection={onEditSection}
+                        gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
+                    >
+                        <EntryStack
+                            extraGap={0}
+                            entries={validLanguages.map((l: any, i: number) => {
+                                const language = clean(l.language);
+                                const proficiencyRaw = clean(l.proficiency);
+                                const level = proficiencyRaw ? getProficiencyDisplayLabel(proficiencyRaw) : '';
+                                const cl = getItemCustomLines(l);
+                                return {
+                                    key: i,
+                                    firstFS: language ? ENTRY_TITLE_SIZE : ENTRY_SUB_SIZE,
+                                    lastFS: cl.length ? ENTRY_SUB_SIZE : (level ? ENTRY_SUB_SIZE : ENTRY_TITLE_SIZE),
+                                    node: (
+                                        <>
+                                            {language && (
+                                                <div style={{ ...tightLine(ENTRY_TITLE_SIZE), fontWeight: 'bold', color: COLOR_SIDEBAR_TEXT, ...wrapStyle }}>
+                                                    {language}
+                                                </div>
+                                            )}
+                                            {level && (
+                                                <div
+                                                    style={{
+                                                        ...tightLine(ENTRY_SUB_SIZE),
+                                                        marginTop: language
+                                                            ? pt(lineGap(ENTRY_TITLE_SIZE + ENTRY_TITLE_TO_SUBTITLE_GAP, ENTRY_TITLE_SIZE, ENTRY_SUB_SIZE))
+                                                            : 0,
+                                                        color: COLOR_SIDEBAR_BODY,
+                                                        ...wrapStyle
+                                                    }}
+                                                >
+                                                    {level}
+                                                </div>
+                                            )}
+                                            <CustomLines lines={cl} prevFS={level ? ENTRY_SUB_SIZE : ENTRY_TITLE_SIZE} sidebar />
+                                        </>
+                                    )
+                                };
+                            })}
+                        />
+                    </Section>
+                )
+        ),
+        certifications: (
+            validCertifications.length > 0 && (
+                    <Section
+                        title="CERTIFICATIONS"
+                        sectionKey="certifications"
+                        column="left"
+                        fit={fit}
+                        firstFontSize={ENTRY_TITLE_SIZE}
+                        first={leftFirst === 'certifications'}
+                        onEditSection={onEditSection}
+                        gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
+                    >
+                        <EntryStack
+                            extraGap={ENTRY_GAP_PDF}
+                            entries={validCertifications.map((c: any, i: number) => {
+                                const certName = clean(c.name);
+                                const date = clean(c.date);
+                                const credentialId = clean(c.credentialId);
+                                const dateGap = lineGap(ENTRY_TITLE_SIZE + ENTRY_TITLE_TO_SUBTITLE_GAP, ENTRY_TITLE_SIZE, ENTRY_SUB_SIZE);
+                                const credentialGap = date
+                                    ? lineGap(ENTRY_SUB_SIZE + ENTRY_TITLE_TO_SUBTITLE_GAP, ENTRY_SUB_SIZE, ENTRY_SUB_SIZE)
+                                    : certName
+                                        ? lineGap(ENTRY_TITLE_SIZE + ENTRY_TITLE_TO_SUBTITLE_GAP, ENTRY_TITLE_SIZE, ENTRY_SUB_SIZE)
+                                        : 0;
+                                const cl = getItemCustomLines(c);
+                                return {
+                                    key: i,
+                                    firstFS: certName ? ENTRY_TITLE_SIZE : ENTRY_SUB_SIZE,
+                                    lastFS: cl.length ? ENTRY_SUB_SIZE : (credentialId || date ? ENTRY_SUB_SIZE : ENTRY_TITLE_SIZE),
+                                    node: (
+                                        <>
+                                            {certName && (
+                                                <div style={{ ...tightLine(ENTRY_TITLE_SIZE), fontWeight: 'bold', color: COLOR_SIDEBAR_TEXT, ...wrapStyle }}>
+                                                    {certName}
+                                                </div>
+                                            )}
+                                            {date && (
+                                                <div
+                                                    style={{
+                                                        ...tightLine(ENTRY_SUB_SIZE),
+                                                        marginTop: certName ? pt(dateGap) : 0,
+                                                        color: COLOR_SIDEBAR_BODY,
+                                                        ...wrapStyle
+                                                    }}
+                                                >
+                                                    {date}
+                                                </div>
+                                            )}
+                                            {credentialId && (
+                                                <div
+                                                    style={{
+                                                        ...tightLine(ENTRY_SUB_SIZE),
+                                                        marginTop: pt(credentialGap),
+                                                        color: COLOR_SIDEBAR_BODY,
+                                                        ...wrapStyle
+                                                    }}
+                                                >
+                                                    {credentialId}
+                                                </div>
+                                            )}
+                                            <CustomLines lines={cl} prevFS={credentialId || date ? ENTRY_SUB_SIZE : ENTRY_TITLE_SIZE} sidebar />
+                                        </>
+                                    )
+                                };
+                            })}
+                        />
+                    </Section>
+                )
+        ),
+        interests: (
+            plan.hasInterests && (
+                    <Section
+                        title="INTERESTS"
+                        sectionKey="interests"
+                        column="left"
+                        fit={fit}
+                        firstFontSize={BODY_SIZE}
+                        first={leftFirst === 'interests'}
+                        onEditSection={onEditSection}
+                        gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
+                    >
+                        <div>
+                            {plan.interests.map((skill, i) => (
+                                <div
+                                    key={i}
+                                    {...flowProps}
+                                    style={{
+                                        display: 'flex',
+                                        fontSize: pt(BODY_SIZE),
+                                        lineHeight: pt(BODY_LINE_HEIGHT)
+                                    }}
+                                >
+                                    <span style={{ flexShrink: 0, width: pt(BULLET_DOT_TO_TEXT_GAP), color: COLOR_SIDEBAR_HEADING }}>
+                                        {BULLET_MARKER}
+                                    </span>
+                                    <span style={{ ...wrapStyle, color: COLOR_SIDEBAR_BODY }}>{skill}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </Section>
+                )
+        ),
+    };
+
     const leftBody = (
         <div style={{ position: 'relative', display: 'flow-root', width: pt(LEFT_COLUMN_TEXT_WIDTH), fontFamily: FONT_FAMILY }}>
             {hasPhoto && (
@@ -1022,163 +1333,12 @@ const CreativeTemplate: React.FC<CVPreviewProps> = (props) => {
                         />
                     </Section>
                 )}
+                {leftOrder.map((id) => (
+                    <React.Fragment key={id}>{leftNodes[id] ?? null}</React.Fragment>
+                ))}
 
-                {skillsList.length > 0 && (
-                    <Section
-                        title="SKILLS"
-                        sectionKey="skills"
-                        column="left"
-                        fit={fit}
-                        firstFontSize={BODY_SIZE}
-                        first={leftFirst === 'skills'}
-                        onEditSection={onEditSection}
-                        gate={gateApi}
-                        hoveredKey={hoveredKey}
-                        setHoveredKey={setHoveredKey}
-                        clearHovered={clearHovered}
-                    >
-                        <div>
-                            {skillsList.map((skill, i) => (
-                                <div
-                                    key={i}
-                                    {...flowProps}
-                                    style={{
-                                        display: 'flex',
-                                        fontSize: pt(BODY_SIZE),
-                                        lineHeight: pt(BODY_LINE_HEIGHT)
-                                    }}
-                                >
-                                    <span style={{ flexShrink: 0, width: pt(BULLET_DOT_TO_TEXT_GAP), color: COLOR_SIDEBAR_HEADING }}>
-                                        {BULLET_MARKER}
-                                    </span>
-                                    <span style={{ ...wrapStyle, color: COLOR_SIDEBAR_BODY }}>{skill}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </Section>
-                )}
 
-                {validLanguages.length > 0 && (
-                    <Section
-                        title="LANGUAGES"
-                        sectionKey="languages"
-                        column="left"
-                        fit={fit}
-                        firstFontSize={ENTRY_TITLE_SIZE}
-                        first={leftFirst === 'languages'}
-                        onEditSection={onEditSection}
-                        gate={gateApi}
-                        hoveredKey={hoveredKey}
-                        setHoveredKey={setHoveredKey}
-                        clearHovered={clearHovered}
-                    >
-                        <EntryStack
-                            extraGap={0}
-                            entries={validLanguages.map((l: any, i: number) => {
-                                const language = clean(l.language);
-                                const proficiencyRaw = clean(l.proficiency);
-                                const level = proficiencyRaw ? getProficiencyDisplayLabel(proficiencyRaw) : '';
-                                return {
-                                    key: i,
-                                    firstFS: language ? ENTRY_TITLE_SIZE : ENTRY_SUB_SIZE,
-                                    lastFS: level ? ENTRY_SUB_SIZE : ENTRY_TITLE_SIZE,
-                                    node: (
-                                        <>
-                                            {language && (
-                                                <div style={{ ...tightLine(ENTRY_TITLE_SIZE), fontWeight: 'bold', color: COLOR_SIDEBAR_TEXT, ...wrapStyle }}>
-                                                    {language}
-                                                </div>
-                                            )}
-                                            {level && (
-                                                <div
-                                                    style={{
-                                                        ...tightLine(ENTRY_SUB_SIZE),
-                                                        marginTop: language
-                                                            ? pt(lineGap(ENTRY_TITLE_SIZE + ENTRY_TITLE_TO_SUBTITLE_GAP, ENTRY_TITLE_SIZE, ENTRY_SUB_SIZE))
-                                                            : 0,
-                                                        color: COLOR_SIDEBAR_BODY,
-                                                        ...wrapStyle
-                                                    }}
-                                                >
-                                                    {level}
-                                                </div>
-                                            )}
-                                        </>
-                                    )
-                                };
-                            })}
-                        />
-                    </Section>
-                )}
 
-                {validCertifications.length > 0 && (
-                    <Section
-                        title="CERTIFICATIONS"
-                        sectionKey="certifications"
-                        column="left"
-                        fit={fit}
-                        firstFontSize={ENTRY_TITLE_SIZE}
-                        first={leftFirst === 'certifications'}
-                        onEditSection={onEditSection}
-                        gate={gateApi}
-                        hoveredKey={hoveredKey}
-                        setHoveredKey={setHoveredKey}
-                        clearHovered={clearHovered}
-                    >
-                        <EntryStack
-                            extraGap={ENTRY_GAP_PDF}
-                            entries={validCertifications.map((c: any, i: number) => {
-                                const certName = clean(c.name);
-                                const date = clean(c.date);
-                                const credentialId = clean(c.credentialId);
-                                const dateGap = lineGap(ENTRY_TITLE_SIZE + ENTRY_TITLE_TO_SUBTITLE_GAP, ENTRY_TITLE_SIZE, ENTRY_SUB_SIZE);
-                                const credentialGap = date
-                                    ? lineGap(ENTRY_SUB_SIZE + ENTRY_TITLE_TO_SUBTITLE_GAP, ENTRY_SUB_SIZE, ENTRY_SUB_SIZE)
-                                    : certName
-                                        ? lineGap(ENTRY_TITLE_SIZE + ENTRY_TITLE_TO_SUBTITLE_GAP, ENTRY_TITLE_SIZE, ENTRY_SUB_SIZE)
-                                        : 0;
-                                return {
-                                    key: i,
-                                    firstFS: certName ? ENTRY_TITLE_SIZE : ENTRY_SUB_SIZE,
-                                    lastFS: credentialId || date ? ENTRY_SUB_SIZE : ENTRY_TITLE_SIZE,
-                                    node: (
-                                        <>
-                                            {certName && (
-                                                <div style={{ ...tightLine(ENTRY_TITLE_SIZE), fontWeight: 'bold', color: COLOR_SIDEBAR_TEXT, ...wrapStyle }}>
-                                                    {certName}
-                                                </div>
-                                            )}
-                                            {date && (
-                                                <div
-                                                    style={{
-                                                        ...tightLine(ENTRY_SUB_SIZE),
-                                                        marginTop: certName ? pt(dateGap) : 0,
-                                                        color: COLOR_SIDEBAR_BODY,
-                                                        ...wrapStyle
-                                                    }}
-                                                >
-                                                    {date}
-                                                </div>
-                                            )}
-                                            {credentialId && (
-                                                <div
-                                                    style={{
-                                                        ...tightLine(ENTRY_SUB_SIZE),
-                                                        marginTop: pt(credentialGap),
-                                                        color: COLOR_SIDEBAR_BODY,
-                                                        ...wrapStyle
-                                                    }}
-                                                >
-                                                    {credentialId}
-                                                </div>
-                                            )}
-                                        </>
-                                    )
-                                };
-                            })}
-                        />
-                    </Section>
-                )}
             </div>
         </div>
     );
@@ -1217,6 +1377,360 @@ const CreativeTemplate: React.FC<CVPreviewProps> = (props) => {
     };
 
     const headerRingPad = HOVER_RING_WIDTH;
+
+    const rightNodes: Record<string, React.ReactNode> = {
+        summary: (
+            summaryText && (
+                    <Section
+                        title="PROFESSIONAL SUMMARY"
+                        sectionKey="summary"
+                        column="right"
+                        fit={fit}
+                        firstFontSize={BODY_SIZE}
+                        first={rightFirst === 'summary'}
+                        onEditSection={onEditSection}
+                        gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
+                    >
+                        <p
+                            {...flowProps}
+                            style={{
+                                margin: 0,
+                                padding: 0,
+                                width: '100%',
+                                fontSize: pt(BODY_SIZE),
+                                lineHeight: pt(BODY_LINE_HEIGHT),
+                                color: COLOR_BODY,
+                                ...wrapStyle
+                            }}
+                        >
+                            {summaryText}
+                        </p>
+                    </Section>
+                )
+        ),
+        experience: (
+            validExperiences.length > 0 && (
+                    <Section
+                        title="EXPERIENCE"
+                        sectionKey="experience"
+                        column="right"
+                        fit={fit}
+                        firstFontSize={ENTRY_TITLE_SIZE}
+                        first={rightFirst === 'experience'}
+                        onEditSection={onEditSection}
+                        gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
+                    >
+                        <EntryStack
+                            extraGap={ENTRY_GAP_PDF}
+                            entries={validExperiences.map((exp: any, i: number) => {
+                                const title = clean(exp.title);
+                                const company = clean(exp.company);
+                                const dateRange = [clean(exp.startDate), clean(exp.endDate)].filter(Boolean).join(' – ');
+                                const fmt = getDescriptionFormat(exp);
+                                const al = getDescriptionAlign(exp);
+                                const bullets = parseDescription(exp.description, fmt);
+                                const hasRow = !!(title || dateRange);
+                                const rowFS = title ? ENTRY_TITLE_SIZE : ENTRY_SUB_SIZE;
+
+                                const companyGap = hasRow ? lineGap(rowFS + ENTRY_TITLE_TO_SUBTITLE_GAP, rowFS, ENTRY_SUB_SIZE) : 0;
+                                const bulletGap = company
+                                    ? lineGap(ENTRY_SUB_SIZE + ENTRY_SUBTITLE_TO_DESCRIPTION_GAP, ENTRY_SUB_SIZE, BODY_SIZE)
+                                    : hasRow
+                                        ? lineGap(rowFS + ENTRY_SUBTITLE_TO_DESCRIPTION_GAP, rowFS, BODY_SIZE)
+                                        : 0;
+
+                                const cl = getItemCustomLines(exp);
+
+                                return {
+                                    key: i,
+                                    split: true,
+                                    firstFS: hasRow ? rowFS : ENTRY_SUB_SIZE,
+                                    lastFS: cl.length ? ENTRY_SUB_SIZE : (bullets.length ? BODY_SIZE : company ? ENTRY_SUB_SIZE : rowFS),
+                                    node: (
+                                        <>
+                                            <div {...(bullets.length ? headProps : keepProps)}>
+                                                <TitleDateRow title={title} date={dateRange} />
+                                                {company && <div style={{ ...metaStyle, marginTop: pt(companyGap) }}>{company}</div>}
+                                            </div>
+                                            {bullets.length > 0 && (
+                                                <div style={{ marginTop: pt(bulletGap) }}>
+                                                    <BulletList lines={bullets} flow format={fmt} align={al} />
+                                                </div>
+                                            )}
+                                            <CustomLines lines={cl} prevFS={bullets.length ? BODY_SIZE : company ? ENTRY_SUB_SIZE : rowFS} />
+                                        </>
+                                    )
+                                };
+                            })}
+                        />
+                    </Section>
+                )
+        ),
+        education: (
+            validEducations.length > 0 && (
+                    <Section
+                        title="EDUCATION"
+                        sectionKey="education"
+                        column="right"
+                        fit={fit}
+                        firstFontSize={ENTRY_TITLE_SIZE}
+                        first={rightFirst === 'education'}
+                        onEditSection={onEditSection}
+                        gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
+                    >
+                        <EntryStack
+                            extraGap={ENTRY_GAP_PDF}
+                            entries={validEducations.map((edu: any, i: number) => {
+                                const degree = clean(edu.degree);
+                                const institution = clean(edu.institution);
+                                const year = clean(edu.year);
+                                const grade = clean(edu.grade);
+                                const hasRow = !!(degree || year);
+                                const rowFS = degree ? ENTRY_TITLE_SIZE : ENTRY_SUB_SIZE;
+
+                                const institutionGap = hasRow
+                                    ? lineGap(rowFS + ENTRY_TITLE_TO_SUBTITLE_GAP, rowFS, ENTRY_SUB_SIZE)
+                                    : 0;
+                                const gradeGap = institution
+                                    ? lineGap(ENTRY_SUB_SIZE + ENTRY_TITLE_TO_SUBTITLE_GAP, ENTRY_SUB_SIZE, ENTRY_SUB_SIZE)
+                                    : hasRow
+                                        ? lineGap(rowFS + ENTRY_TITLE_TO_SUBTITLE_GAP, rowFS, ENTRY_SUB_SIZE)
+                                        : 0;
+
+                                const cl = getItemCustomLines(edu);
+
+                                return {
+                                    key: i,
+                                    firstFS: hasRow ? rowFS : ENTRY_SUB_SIZE,
+                                    lastFS: cl.length ? ENTRY_SUB_SIZE : (grade || institution ? ENTRY_SUB_SIZE : rowFS),
+                                    node: (
+                                        <>
+                                            <TitleDateRow title={degree} date={year} />
+                                            {institution && (
+                                                <div style={{ ...metaStyle, marginTop: pt(institutionGap) }}>{institution}</div>
+                                            )}
+                                            {grade && <div style={{ ...metaStyle, marginTop: pt(gradeGap) }}>{`Grade: ${grade}`}</div>}
+                                            <CustomLines lines={cl} prevFS={grade || institution ? ENTRY_SUB_SIZE : rowFS} />
+                                        </>
+                                    )
+                                };
+                            })}
+                        />
+                    </Section>
+                )
+        ),
+        projects: (
+            validProjects.length > 0 && (
+                    <Section
+                        title="PROJECTS"
+                        sectionKey="projects"
+                        column="right"
+                        fit={fit}
+                        firstFontSize={ENTRY_TITLE_SIZE}
+                        first={rightFirst === 'projects'}
+                        onEditSection={onEditSection}
+                        gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
+                    >
+                        <EntryStack
+                            extraGap={ENTRY_GAP_PDF}
+                            entries={validProjects.map((p: any, i: number) => {
+                                const projectName = clean(p.name);
+                                const tech = clean(p.tech);
+                                const fmt = getDescriptionFormat(p);
+                                const al = getDescriptionAlign(p);
+                                const bullets = parseDescription(p.description, fmt);
+                                const github = clean(p.github);
+
+                                const techGap = projectName
+                                    ? lineGap(ENTRY_TITLE_SIZE + ENTRY_TITLE_TO_SUBTITLE_GAP, ENTRY_TITLE_SIZE, ENTRY_SUB_SIZE)
+                                    : 0;
+                                const bulletGap = tech
+                                    ? lineGap(ENTRY_SUB_SIZE + ENTRY_SUBTITLE_TO_DESCRIPTION_GAP, ENTRY_SUB_SIZE, BODY_SIZE)
+                                    : projectName
+                                        ? lineGap(ENTRY_TITLE_SIZE + ENTRY_SUBTITLE_TO_DESCRIPTION_GAP, ENTRY_TITLE_SIZE, BODY_SIZE)
+                                        : 0;
+                                const githubGap = bullets.length
+                                    ? lineGap(BODY_LINE_HEIGHT + ENTRY_SUBTITLE_TO_DESCRIPTION_GAP, BODY_SIZE, ENTRY_SUB_SIZE)
+                                    : tech
+                                        ? lineGap(ENTRY_SUB_SIZE + ENTRY_SUBTITLE_TO_DESCRIPTION_GAP, ENTRY_SUB_SIZE, ENTRY_SUB_SIZE)
+                                        : projectName
+                                            ? lineGap(ENTRY_TITLE_SIZE + ENTRY_SUBTITLE_TO_DESCRIPTION_GAP, ENTRY_TITLE_SIZE, ENTRY_SUB_SIZE)
+                                            : 0;
+
+                                const cl = getItemCustomLines(p);
+
+                                return {
+                                    key: i,
+                                    split: true,
+                                    firstFS: projectName ? ENTRY_TITLE_SIZE : ENTRY_SUB_SIZE,
+                                    lastFS: cl.length ? ENTRY_SUB_SIZE : (github ? ENTRY_SUB_SIZE : bullets.length ? BODY_SIZE : tech ? ENTRY_SUB_SIZE : ENTRY_TITLE_SIZE),
+                                    node: (
+                                        <>
+                                            {(projectName || tech) && (
+                                                <div {...(bullets.length ? headProps : keepProps)}>
+                                                    {projectName && <div style={titleTextStyle}>{projectName}</div>}
+                                                    {tech && <div style={{ ...metaStyle, marginTop: pt(techGap) }}>{tech}</div>}
+                                                </div>
+                                            )}
+                                            {bullets.length > 0 && (
+                                                <div style={{ marginTop: pt(bulletGap) }}>
+                                                    <BulletList lines={bullets} flow format={fmt} align={al} />
+                                                </div>
+                                            )}
+                                            {github && (
+                                                <a
+                                                    {...keepProps}
+                                                    href={github}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    style={{
+                                                        ...metaStyle,
+                                                        display: 'block',
+                                                        marginTop: pt(githubGap),
+                                                        color: COLOR_LINK,
+                                                        textDecoration: 'none'
+                                                    }}
+                                                >
+                                                    {github}
+                                                </a>
+                                            )}
+                                            <CustomLines lines={cl} prevFS={github ? ENTRY_SUB_SIZE : bullets.length ? BODY_SIZE : tech ? ENTRY_SUB_SIZE : ENTRY_TITLE_SIZE} />
+                                        </>
+                                    )
+                                };
+                            })}
+                        />
+                    </Section>
+                )
+        ),
+        achievements: (
+            validAchievements.length > 0 && (
+                    <Section
+                        title="ACHIEVEMENTS"
+                        sectionKey="achievements"
+                        column="right"
+                        fit={fit}
+                        firstFontSize={ENTRY_TITLE_SIZE}
+                        first={rightFirst === 'achievements'}
+                        onEditSection={onEditSection}
+                        gate={gateApi}
+                        hoveredKey={hoveredKey}
+                        setHoveredKey={setHoveredKey}
+                        clearHovered={clearHovered}
+                    >
+                        <EntryStack
+                            extraGap={ENTRY_GAP_PDF}
+                            entries={validAchievements.map((a: any, i: number) => {
+                                const title = clean(a.title);
+                                const date = clean(a.date);
+                                const fmt = getDescriptionFormat(a);
+                                const al = getDescriptionAlign(a);
+                                const bullets = parseDescription(a.description, fmt);
+                                const hasRow = !!(title || date);
+                                const rowFS = title ? ENTRY_TITLE_SIZE : ENTRY_SUB_SIZE;
+                                const bulletGap = hasRow
+                                    ? lineGap(rowFS + ENTRY_SUBTITLE_TO_DESCRIPTION_GAP, rowFS, BODY_SIZE)
+                                    : 0;
+
+                                const cl = getItemCustomLines(a);
+
+                                return {
+                                    key: i,
+                                    split: true,
+                                    firstFS: hasRow ? rowFS : BODY_SIZE,
+                                    lastFS: cl.length ? ENTRY_SUB_SIZE : (bullets.length ? BODY_SIZE : rowFS),
+                                    node: (
+                                        <>
+                                            <div {...(bullets.length ? headProps : keepProps)}>
+                                                <AchievementRow title={title} date={date} columnWidth={rightWidth} />
+                                            </div>
+                                            {bullets.length > 0 && (
+                                                <div style={{ marginTop: pt(bulletGap) }}>
+                                                    <BulletList lines={bullets} flow format={fmt} align={al} />
+                                                </div>
+                                            )}
+                                            <CustomLines lines={cl} prevFS={bullets.length ? BODY_SIZE : rowFS} />
+                                        </>
+                                    )
+                                };
+                            })}
+                        />
+                    </Section>
+                )
+        ),
+        references: plan.hasReferences ? (
+            <Section
+                title="REFERENCES"
+                sectionKey="references"
+                column="right"
+                fit={fit}
+                firstFontSize={plan.referenceEntries[0]?.title ? ENTRY_TITLE_SIZE : BODY_SIZE}
+                first={rightFirst === 'references'}
+                {...secProps}
+            >
+                {plan.referenceEntries.length > 0 ? (
+                    <EntryStack
+                        extraGap={ENTRY_GAP_PDF}
+                        entries={plan.referenceEntries.map((e, i) => normalizedEntryDef(e, i))}
+                    />
+                ) : (
+                    <p
+                        {...flowProps}
+                        style={{
+                            margin: 0,
+                            padding: 0,
+                            width: '100%',
+                            fontSize: pt(BODY_SIZE),
+                            lineHeight: pt(BODY_LINE_HEIGHT),
+                            color: COLOR_BODY,
+                            ...wrapStyle
+                        }}
+                    >
+                        {REFERENCES_ON_REQUEST_TEXT}
+                    </p>
+                )}
+            </Section>
+        ) : null,
+    };
+    plan.customSections.forEach((cs) => {
+        const entries: NormalizedEntry[] = cs.entries.map((e) => ({
+            title: e.title || '',
+            subtitle: e.subtitle || '',
+            date: e.date || '',
+            description: e.description || '',
+            descriptionFormat: getDescriptionFormat(e),
+            descriptionAlign: getDescriptionAlign(e),
+            metaLines: getItemCustomLines(e),
+        }));
+        rightNodes[`custom:${cs.id}`] = (
+            <Section
+                title={cs.title.toUpperCase()}
+                sectionKey={`custom:${cs.id}`}
+                column="right"
+                fit={fit}
+                firstFontSize={clean(entries[0]?.title) ? ENTRY_TITLE_SIZE : BODY_SIZE}
+                first={rightFirst === `custom:${cs.id}`}
+                {...secProps}
+            >
+                <EntryStack
+                    extraGap={ENTRY_GAP_PDF}
+                    entries={entries.map((e, i) => normalizedEntryDef(e, i))}
+                />
+            </Section>
+        );
+    });
 
     const rightBody = (
         <div style={{ position: 'relative', display: 'flow-root', width: pt(RIGHT_COLUMN_WIDTH), fontFamily: FONT_FAMILY, color: COLOR_BODY }}>
@@ -1293,273 +1807,13 @@ const CreativeTemplate: React.FC<CVPreviewProps> = (props) => {
                     transformOrigin: 'top left'
                 }}
             >
-                {summaryText && (
-                    <Section
-                        title="PROFESSIONAL SUMMARY"
-                        sectionKey="summary"
-                        column="right"
-                        fit={fit}
-                        firstFontSize={BODY_SIZE}
-                        first={rightFirst === 'summary'}
-                        onEditSection={onEditSection}
-                        gate={gateApi}
-                        hoveredKey={hoveredKey}
-                        setHoveredKey={setHoveredKey}
-                        clearHovered={clearHovered}
-                    >
-                        <p
-                            {...flowProps}
-                            style={{
-                                margin: 0,
-                                padding: 0,
-                                width: '100%',
-                                fontSize: pt(BODY_SIZE),
-                                lineHeight: pt(BODY_LINE_HEIGHT),
-                                color: COLOR_BODY,
-                                ...wrapStyle
-                            }}
-                        >
-                            {summaryText}
-                        </p>
-                    </Section>
-                )}
+                {rightOrder.map((id) => (
+                    <React.Fragment key={id}>{rightNodes[id] ?? null}</React.Fragment>
+                ))}
 
-                {validExperiences.length > 0 && (
-                    <Section
-                        title="EXPERIENCE"
-                        sectionKey="experience"
-                        column="right"
-                        fit={fit}
-                        firstFontSize={ENTRY_TITLE_SIZE}
-                        first={rightFirst === 'experience'}
-                        onEditSection={onEditSection}
-                        gate={gateApi}
-                        hoveredKey={hoveredKey}
-                        setHoveredKey={setHoveredKey}
-                        clearHovered={clearHovered}
-                    >
-                        <EntryStack
-                            extraGap={ENTRY_GAP_PDF}
-                            entries={validExperiences.map((exp: any, i: number) => {
-                                const title = clean(exp.title);
-                                const company = clean(exp.company);
-                                const dateRange = [clean(exp.startDate), clean(exp.endDate)].filter(Boolean).join(' – ');
-                                const bullets = parseBulletLines(exp.description);
-                                const hasRow = !!(title || dateRange);
-                                const rowFS = title ? ENTRY_TITLE_SIZE : ENTRY_SUB_SIZE;
 
-                                const companyGap = hasRow ? lineGap(rowFS + ENTRY_TITLE_TO_SUBTITLE_GAP, rowFS, ENTRY_SUB_SIZE) : 0;
-                                const bulletGap = company
-                                    ? lineGap(ENTRY_SUB_SIZE + ENTRY_SUBTITLE_TO_DESCRIPTION_GAP, ENTRY_SUB_SIZE, BODY_SIZE)
-                                    : hasRow
-                                        ? lineGap(rowFS + ENTRY_SUBTITLE_TO_DESCRIPTION_GAP, rowFS, BODY_SIZE)
-                                        : 0;
 
-                                return {
-                                    key: i,
-                                    split: true,
-                                    firstFS: hasRow ? rowFS : ENTRY_SUB_SIZE,
-                                    lastFS: bullets.length ? BODY_SIZE : company ? ENTRY_SUB_SIZE : rowFS,
-                                    node: (
-                                        <>
-                                            <div {...(bullets.length ? headProps : keepProps)}>
-                                                <TitleDateRow title={title} date={dateRange} />
-                                                {company && <div style={{ ...metaStyle, marginTop: pt(companyGap) }}>{company}</div>}
-                                            </div>
-                                            {bullets.length > 0 && (
-                                                <div style={{ marginTop: pt(bulletGap) }}>
-                                                    <BulletList lines={bullets} flow />
-                                                </div>
-                                            )}
-                                        </>
-                                    )
-                                };
-                            })}
-                        />
-                    </Section>
-                )}
 
-                {validEducations.length > 0 && (
-                    <Section
-                        title="EDUCATION"
-                        sectionKey="education"
-                        column="right"
-                        fit={fit}
-                        firstFontSize={ENTRY_TITLE_SIZE}
-                        first={rightFirst === 'education'}
-                        onEditSection={onEditSection}
-                        gate={gateApi}
-                        hoveredKey={hoveredKey}
-                        setHoveredKey={setHoveredKey}
-                        clearHovered={clearHovered}
-                    >
-                        <EntryStack
-                            extraGap={ENTRY_GAP_PDF}
-                            entries={validEducations.map((edu: any, i: number) => {
-                                const degree = clean(edu.degree);
-                                const institution = clean(edu.institution);
-                                const year = clean(edu.year);
-                                const grade = clean(edu.grade);
-                                const hasRow = !!(degree || year);
-                                const rowFS = degree ? ENTRY_TITLE_SIZE : ENTRY_SUB_SIZE;
-
-                                const institutionGap = hasRow
-                                    ? lineGap(rowFS + ENTRY_TITLE_TO_SUBTITLE_GAP, rowFS, ENTRY_SUB_SIZE)
-                                    : 0;
-                                const gradeGap = institution
-                                    ? lineGap(ENTRY_SUB_SIZE + ENTRY_TITLE_TO_SUBTITLE_GAP, ENTRY_SUB_SIZE, ENTRY_SUB_SIZE)
-                                    : hasRow
-                                        ? lineGap(rowFS + ENTRY_TITLE_TO_SUBTITLE_GAP, rowFS, ENTRY_SUB_SIZE)
-                                        : 0;
-
-                                return {
-                                    key: i,
-                                    firstFS: hasRow ? rowFS : ENTRY_SUB_SIZE,
-                                    lastFS: grade || institution ? ENTRY_SUB_SIZE : rowFS,
-                                    node: (
-                                        <>
-                                            <TitleDateRow title={degree} date={year} />
-                                            {institution && (
-                                                <div style={{ ...metaStyle, marginTop: pt(institutionGap) }}>{institution}</div>
-                                            )}
-                                            {grade && <div style={{ ...metaStyle, marginTop: pt(gradeGap) }}>{`Grade: ${grade}`}</div>}
-                                        </>
-                                    )
-                                };
-                            })}
-                        />
-                    </Section>
-                )}
-
-                {validProjects.length > 0 && (
-                    <Section
-                        title="PROJECTS"
-                        sectionKey="projects"
-                        column="right"
-                        fit={fit}
-                        firstFontSize={ENTRY_TITLE_SIZE}
-                        first={rightFirst === 'projects'}
-                        onEditSection={onEditSection}
-                        gate={gateApi}
-                        hoveredKey={hoveredKey}
-                        setHoveredKey={setHoveredKey}
-                        clearHovered={clearHovered}
-                    >
-                        <EntryStack
-                            extraGap={ENTRY_GAP_PDF}
-                            entries={validProjects.map((p: any, i: number) => {
-                                const projectName = clean(p.name);
-                                const tech = clean(p.tech);
-                                const bullets = parseBulletLines(p.description);
-                                const github = clean(p.github);
-
-                                const techGap = projectName
-                                    ? lineGap(ENTRY_TITLE_SIZE + ENTRY_TITLE_TO_SUBTITLE_GAP, ENTRY_TITLE_SIZE, ENTRY_SUB_SIZE)
-                                    : 0;
-                                const bulletGap = tech
-                                    ? lineGap(ENTRY_SUB_SIZE + ENTRY_SUBTITLE_TO_DESCRIPTION_GAP, ENTRY_SUB_SIZE, BODY_SIZE)
-                                    : projectName
-                                        ? lineGap(ENTRY_TITLE_SIZE + ENTRY_SUBTITLE_TO_DESCRIPTION_GAP, ENTRY_TITLE_SIZE, BODY_SIZE)
-                                        : 0;
-                                const githubGap = bullets.length
-                                    ? lineGap(BODY_LINE_HEIGHT + ENTRY_SUBTITLE_TO_DESCRIPTION_GAP, BODY_SIZE, ENTRY_SUB_SIZE)
-                                    : tech
-                                        ? lineGap(ENTRY_SUB_SIZE + ENTRY_SUBTITLE_TO_DESCRIPTION_GAP, ENTRY_SUB_SIZE, ENTRY_SUB_SIZE)
-                                        : projectName
-                                            ? lineGap(ENTRY_TITLE_SIZE + ENTRY_SUBTITLE_TO_DESCRIPTION_GAP, ENTRY_TITLE_SIZE, ENTRY_SUB_SIZE)
-                                            : 0;
-
-                                return {
-                                    key: i,
-                                    split: true,
-                                    firstFS: projectName ? ENTRY_TITLE_SIZE : ENTRY_SUB_SIZE,
-                                    lastFS: github ? ENTRY_SUB_SIZE : bullets.length ? BODY_SIZE : tech ? ENTRY_SUB_SIZE : ENTRY_TITLE_SIZE,
-                                    node: (
-                                        <>
-                                            {(projectName || tech) && (
-                                                <div {...(bullets.length ? headProps : keepProps)}>
-                                                    {projectName && <div style={titleTextStyle}>{projectName}</div>}
-                                                    {tech && <div style={{ ...metaStyle, marginTop: pt(techGap) }}>{tech}</div>}
-                                                </div>
-                                            )}
-                                            {bullets.length > 0 && (
-                                                <div style={{ marginTop: pt(bulletGap) }}>
-                                                    <BulletList lines={bullets} flow />
-                                                </div>
-                                            )}
-                                            {github && (
-                                                <a
-                                                    {...keepProps}
-                                                    href={github}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    style={{
-                                                        ...metaStyle,
-                                                        display: 'block',
-                                                        marginTop: pt(githubGap),
-                                                        color: COLOR_LINK,
-                                                        textDecoration: 'none'
-                                                    }}
-                                                >
-                                                    {github}
-                                                </a>
-                                            )}
-                                        </>
-                                    )
-                                };
-                            })}
-                        />
-                    </Section>
-                )}
-
-                {validAchievements.length > 0 && (
-                    <Section
-                        title="ACHIEVEMENTS"
-                        sectionKey="achievements"
-                        column="right"
-                        fit={fit}
-                        firstFontSize={ENTRY_TITLE_SIZE}
-                        first={rightFirst === 'achievements'}
-                        onEditSection={onEditSection}
-                        gate={gateApi}
-                        hoveredKey={hoveredKey}
-                        setHoveredKey={setHoveredKey}
-                        clearHovered={clearHovered}
-                    >
-                        <EntryStack
-                            extraGap={ENTRY_GAP_PDF}
-                            entries={validAchievements.map((a: any, i: number) => {
-                                const title = clean(a.title);
-                                const date = clean(a.date);
-                                const bullets = parseBulletLines(a.description);
-                                const hasRow = !!(title || date);
-                                const rowFS = title ? ENTRY_TITLE_SIZE : ENTRY_SUB_SIZE;
-                                const bulletGap = hasRow
-                                    ? lineGap(rowFS + ENTRY_SUBTITLE_TO_DESCRIPTION_GAP, rowFS, BODY_SIZE)
-                                    : 0;
-
-                                return {
-                                    key: i,
-                                    split: true,
-                                    firstFS: hasRow ? rowFS : BODY_SIZE,
-                                    lastFS: bullets.length ? BODY_SIZE : rowFS,
-                                    node: (
-                                        <>
-                                            <div {...(bullets.length ? headProps : keepProps)}>
-                                                <AchievementRow title={title} date={date} columnWidth={rightWidth} />
-                                            </div>
-                                            {bullets.length > 0 && (
-                                                <div style={{ marginTop: pt(bulletGap) }}>
-                                                    <BulletList lines={bullets} flow />
-                                                </div>
-                                            )}
-                                        </>
-                                    )
-                                };
-                            })}
-                        />
-                    </Section>
-                )}
             </div>
         </div>
     );

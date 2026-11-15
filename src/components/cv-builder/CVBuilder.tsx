@@ -15,6 +15,7 @@
 // ✅ FIX: Mobile par section click/open karne par editor auto-scroll (desktop jaisa)
 // ✅ REMOVED: Backup reminder popup trigger from Skills section open
 //             (backup is account-level, not content-level — no more context mismatch)
+// ✅ REMOVED: "Your CV is ready" SuccessCard from Export section UI
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import toast from 'react-hot-toast';
@@ -22,6 +23,7 @@ import {
   AlertCircle, X, Pencil, Eye,
   User, Briefcase, GraduationCap, Languages as LanguagesIcon,
   Zap, Award, FolderGit2, Trophy, FileText, Download,
+  Heart, Users, Layers, ListOrdered,
 } from 'lucide-react';
 
 import { CVBuilderProps } from './types/cvTypes';
@@ -57,6 +59,9 @@ import { useActiveSection } from './hooks/useActiveSection';
 import { useSidebar } from '../../hooks/useSidebar';
 
 import { createCVActions } from './handlers/cvActions';
+import { useCVExtras } from './hooks/useCVExtras';
+import type { CustomField } from './types/cvExtraTypes';
+import { isCustomSectionId } from './constants/sectionRegistry';
 import { createAIActions } from './handlers/aiActions';
 import { createDownloadActions } from './handlers/downloadActions';
 
@@ -64,7 +69,7 @@ import HeaderToolbar from './components/HeaderToolbar';
 import TemplateSelector from './components/TemplateSelector';
 import AccordionSection from './components/AccordionSection';
 import DownloadButtons from './components/DownloadButtons';
-import SuccessCard from './components/SuccessCard';
+// ✅ SUCCESS CARD IMPORT REMOVED (UI se hata diya)
 
 import PersonalSection from './sections/PersonalSection';
 import ExperienceSection from './sections/ExperienceSection';
@@ -75,6 +80,10 @@ import CertificationsSection from './sections/CertificationsSection';
 import LanguagesSection from './sections/LanguagesSection';
 import AchievementsSection from './sections/AchievementsSection';
 import SummarySection from './sections/SummarySection';
+import InterestsSection from './sections/InterestsSection';
+import ReferencesSection from './sections/ReferencesSection';
+import CustomSectionsSection from './sections/CustomSectionsSection';
+import SectionLayoutPanel from './sections/SectionLayoutPanel';
 
 import CVPreview, { CVPreviewHandle } from './preview/CVPreview';
 import CVPreviewMobile from './preview/CVPreviewMobile';
@@ -86,6 +95,7 @@ import {
   markFeedbackShown,
 } from '../../services/feedbackService';
 import { syncService } from '../../services/sync/syncService';
+import { setActiveDoc } from '../../services/sync/docsync/syncEngine';
 import { SYNC_CONFIG } from '../../services/sync/config';
 
 // ✅ NEW: Backup reminder popup
@@ -95,7 +105,6 @@ import {
     bumpPdfDownloadCount,
     FEEDBACK_AUTO_DELAY_MS,
 } from '../../services/feedbackAutoPrompt';
-import PinPromptModal, { canShowPinPrompt, recordPinPromptShown } from '../../components/PinPromptModal';
 
 // ✅ Click-to-focus scroll offsets
 const EDITOR_SCROLL_OFFSET_PX = 12;
@@ -106,9 +115,6 @@ const FIELD_INTERACT_THROTTLE_MS = 600;
 
 // ✅ LocalStorage flag for backup reminder
 const BACKUP_REMINDER_FLAG = 'adin-backup-reminder-shown';
-
-// ✅ PIN prompt — download ke baad, sirf jab PIN set na ho (sirf 1 baar)
-const PIN_PROMPT_DELAY_MS = 500;
 
 // ✅ KICKRESUME STYLE: Preview debounce time
 const PREVIEW_DEBOUNCE_MS = 800;
@@ -156,7 +162,8 @@ const createDefaultAchievement = () => ({
 type SectionKey =
     | 'personal' | 'experience' | 'education' | 'languages'
     | 'skills' | 'certifications' | 'projects' | 'achievements'
-    | 'summary' | 'export';
+    | 'summary' | 'export'
+    | 'interests' | 'references' | 'customSections' | 'layout';
 
 const DEFAULT_OPEN_STATE: Record<SectionKey, boolean> = {
     personal: true,
@@ -169,6 +176,10 @@ const DEFAULT_OPEN_STATE: Record<SectionKey, boolean> = {
     achievements: false,
     summary: false,
     export: false,
+    interests: false,
+    references: false,
+    customSections: false,
+    layout: false,
 };
 
 type MobileTab = 'edit' | 'preview';
@@ -183,6 +194,8 @@ const PREVIEW_TO_EDITOR_SECTION: Record<string, SectionKey> = {
     projects: 'projects',
     achievements: 'achievements',
     personal: 'personal',
+    interests: 'interests',
+    references: 'references',
 };
 
 // ============================================================
@@ -399,7 +412,6 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
     onDocumentCreated,
     onDownloadId,
     onSetPin,
-    hasPinSet = false,
 }) => {
     const { open: openSidebar } = useSidebar();
 
@@ -589,24 +601,18 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
     }, [isDesktop, autoScrollHooks]);
 
     const handleEditSection = useCallback((previewSectionKey: string) => {
-        const editorKey = PREVIEW_TO_EDITOR_SECTION[previewSectionKey];
+        const editorKey: SectionKey | undefined = isCustomSectionId(previewSectionKey)
+            ? 'customSections'
+            : PREVIEW_TO_EDITOR_SECTION[previewSectionKey];
         if (!editorKey) return;
 
         setActiveSection(previewSectionKey);
 
         setOpenSections(() => {
-            const next: Record<SectionKey, boolean> = {
-                personal: false,
-                experience: false,
-                education: false,
-                languages: false,
-                skills: false,
-                certifications: false,
-                projects: false,
-                achievements: false,
-                summary: false,
-                export: false,
-            };
+            const next = Object.keys(DEFAULT_OPEN_STATE).reduce((acc, k) => {
+                acc[k as SectionKey] = false;
+                return acc;
+            }, {} as Record<SectionKey, boolean>);
             next[editorKey] = true;
             return next;
         });
@@ -643,20 +649,15 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
     const [feedbackSourceKey, setFeedbackSourceKey] = useState('cv-builder');
 
     const [showBackupReminder, setShowBackupReminder] = useState(false);
-    const [showPinPrompt, setShowPinPrompt] = useState(false);
-    // ✅ Refs: setTimeout ke andar latest values chahiye
-    const hasPinSetRef = useRef(hasPinSet);
-    hasPinSetRef.current = hasPinSet;
+    // ✅ Ref: setTimeout ke andar latest value chahiye
     const feedbackOpenRef = useRef(false);
     feedbackOpenRef.current = showFeedbackModal;
-    const pinPromptOpenRef = useRef(false);
-    pinPromptOpenRef.current = showPinPrompt;
 
-    // ✅ Auto feedback: 24h mein 1 baar; PIN popup ya feedback khula ho to skip
+    // ✅ Auto feedback: 24h mein 1 baar; feedback khula ho to skip
     const maybeOpenFeedback = useCallback(() => {
         if (!canAutoShowFeedback()) return;
         setTimeout(() => {
-            if (!canAutoShowFeedback() || feedbackOpenRef.current || pinPromptOpenRef.current) return;
+            if (!canAutoShowFeedback() || feedbackOpenRef.current) return;
             setShowFeedbackModal(true);
         }, FEEDBACK_AUTO_DELAY_MS);
     }, []);
@@ -770,6 +771,35 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
 
     const [skills, setSkills] = useState(() => savedData?.skills || '');
 
+    // ✅ Extra sections: custom sections, interests, references, section layout.
+    //    `extras` is spread into EVERY save / sync / preview payload below.
+    const {
+        extras, resetExtras,
+        customSections, setCustomSections,
+        interests, setInterests,
+        references, setReferences,
+        sectionLayout, setSectionLayout,
+    } = useCVExtras(savedData);
+
+    // ✅ "+ Add Field" handlers — one generic shape for every item-based section
+    const setItemCustomFields = <T extends { customFields?: CustomField[] }>(
+        list: T[], index: number, fields: CustomField[]
+    ): T[] => list.map((item, i) => (i === index ? { ...item, customFields: fields } : item));
+    const updatePersonalCustomFields = useCallback(
+        (fields: CustomField[]) => setPersonalInfo(prev => ({ ...prev, customFields: fields })), []);
+    const updateExperienceCustomFields = useCallback(
+        (i: number, f: CustomField[]) => setExperiences(prev => setItemCustomFields(prev, i, f)), []);
+    const updateEducationCustomFields = useCallback(
+        (i: number, f: CustomField[]) => setEducations(prev => setItemCustomFields(prev, i, f)), []);
+    const updateLanguageCustomFields = useCallback(
+        (i: number, f: CustomField[]) => setLanguages(prev => setItemCustomFields(prev, i, f)), []);
+    const updateCertificationCustomFields = useCallback(
+        (i: number, f: CustomField[]) => setCertifications(prev => setItemCustomFields(prev, i, f)), []);
+    const updateProjectCustomFields = useCallback(
+        (i: number, f: CustomField[]) => setProjects(prev => setItemCustomFields(prev, i, f)), []);
+    const updateAchievementCustomFields = useCallback(
+        (i: number, f: CustomField[]) => setAchievements(prev => setItemCustomFields(prev, i, f)), []);
+
     const [internalDocumentId, setInternalDocumentId] = useState<string | null>(documentId || null);
     const documentCreationAttempted = useRef(false);
     const documentCreationTimer = useRef<NodeJS.Timeout | null>(null);
@@ -794,6 +824,7 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
         skills,
         profilePhoto,
         template,
+        ...extras,
     });
 
     useEffect(() => {
@@ -812,6 +843,7 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
                 skills,
                 profilePhoto,
                 template,
+                ...extras,
             });
         }, PREVIEW_DEBOUNCE_MS);
 
@@ -819,7 +851,7 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
     }, [
         personalInfo, phoneNumber, selectedCountryCode, professionalSummary,
         experiences, educations, projects, certifications, languages,
-        achievements, skills, profilePhoto, template,
+        achievements, skills, profilePhoto, template, extras,
     ]);
 
     useEffect(() => {
@@ -894,6 +926,7 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
                     personalInfo, professionalSummary, experiences, educations, skills,
                     selectedCountryCode, phoneNumber, template, projects, certifications,
                     languages, achievements,
+                    ...extras,
                     hasPhoto: isRealPhoto(profilePhoto),
                     hasReachedPreview,
                     selectedProvider, openSections, lastUpdated: Date.now(),
@@ -931,7 +964,7 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
         personalInfo, professionalSummary, experiences, educations, skills,
         selectedCountryCode, phoneNumber,
         languages, achievements, hasReachedPreview, selectedProvider,
-        openSections
+        openSections, extras
     ]);
 
     useEffect(() => {
@@ -1110,11 +1143,19 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
         realQuality, realSuggestions, getScoreColor, getScoreBg
     } = scores;
 
+    // ✅ Sync engine ko batao ke ye document abhi khula hai (uske neeche se data replace nahi hoga)
+    useEffect(() => {
+        if (!internalDocumentId) return;
+        setActiveDoc('cv', internalDocumentId);
+        return () => setActiveDoc('cv', null);
+    }, [internalDocumentId]);
+
     const shouldSkipSave = !internalDocumentIdRef.current && !internalDocumentId;
     const { saveStatus } = useAutoSave(userId, {
         personalInfo, professionalSummary, experiences, educations, skills,
         selectedCountryCode, phoneNumber, template, projects, certifications,
         languages, achievements,
+        ...extras,
         hasPhoto: isRealPhoto(profilePhoto),
         hasReachedPreview, selectedProvider,
         openSections,
@@ -1123,7 +1164,7 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
         selectedCountryCode, phoneNumber, template, projects, certifications,
         languages, achievements,
         hasReachedPreview, selectedProvider,
-        openSections,
+        openSections, extras,
     ], 1000, internalDocumentId || undefined, shouldSkipSave);
 
     // ============================================
@@ -1149,6 +1190,7 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
                     personalInfo, professionalSummary, experiences, educations,
                     skills, selectedCountryCode, phoneNumber, template,
                     projects, certifications, languages, achievements,
+                    ...extras,
                     hasPhoto: isRealPhoto(profilePhoto),
                     openSections,
                 },
@@ -1167,7 +1209,7 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
         personalInfo, professionalSummary, experiences, educations,
         skills, selectedCountryCode, phoneNumber, template,
         projects, certifications, languages, achievements,
-        profilePhoto, openSections,
+        profilePhoto, openSections, extras,
     ]);
 
     useEffect(() => {
@@ -1186,6 +1228,7 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
                     personalInfo, professionalSummary, experiences, educations,
                     skills, selectedCountryCode, phoneNumber, template,
                     projects, certifications, languages, achievements,
+                    ...extras,
                     hasPhoto: isRealPhoto(profilePhoto),
                     openSections,
                 },
@@ -1221,7 +1264,7 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
         personalInfo, professionalSummary, experiences, educations,
         skills, selectedCountryCode, phoneNumber, template,
         projects, certifications, languages, achievements,
-        profilePhoto, openSections,
+        profilePhoto, openSections, extras,
     ]);
 
     const cvActions = createCVActions(
@@ -1230,7 +1273,8 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
         setAchievements, setProfilePhoto, setSelectedCountryCode, setPhoneNumber,
         setTemplate, setHasReachedPreview, setShowSuccessCard, setErrors,
         setValidationErrors, setIsEnhancerUsed, setOriginalSummary,
-        professionalSummary, originalSummary, isEnhancerUsed
+        professionalSummary, originalSummary, isEnhancerUsed,
+        resetExtras
     );
     const { clearAllData, restoreOriginalSummary, updatePersonalInfo, handlePhoneChange } = cvActions;
 
@@ -1283,14 +1327,6 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
         }
         // ✅ 2nd (ya zyada) PDF pe feedback
         if (bumpPdfDownloadCount('cv-builder') >= 2) maybeOpenFeedback();
-        if (!hasPinSetRef.current && canShowPinPrompt('cv-builder')) {
-            setTimeout(() => {
-                // dobara check: is dauran PIN set ho gaya ya feedback khul gaya ho
-                if (hasPinSetRef.current || feedbackOpenRef.current || !canShowPinPrompt('cv-builder')) return;
-                recordPinPromptShown('cv-builder');
-                setShowPinPrompt(true);
-            }, PIN_PROMPT_DELAY_MS);
-        }
     };
 
     const handleDownloadTXT = async () => { await downloadTXT(); maybeOpenFeedback(); };
@@ -1392,6 +1428,7 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
                     professionalSummary, experiences, educations, skills,
                     selectedCountryCode, phoneNumber, template, projects, certifications,
                     languages, achievements,
+                    ...extras,
                     hasPhoto: true,
                     hasReachedPreview,
                     selectedProvider, openSections, lastUpdated: Date.now(),
@@ -1412,7 +1449,7 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
         userId,
         personalInfo, professionalSummary, experiences, educations, skills,
         selectedCountryCode, phoneNumber, template, projects, certifications,
-        languages, achievements, hasReachedPreview, selectedProvider, openSections,
+        languages, achievements, hasReachedPreview, selectedProvider, openSections, extras,
         onDocumentCreated,
     ]);
 
@@ -1429,6 +1466,7 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
                     professionalSummary, experiences, educations, skills,
                     selectedCountryCode, phoneNumber, template, projects, certifications,
                     languages, achievements,
+                    ...extras,
                     hasPhoto: false,
                     hasReachedPreview,
                     selectedProvider, openSections, lastUpdated: Date.now(),
@@ -1445,7 +1483,7 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
         userId,
         personalInfo, professionalSummary, experiences, educations, skills,
         selectedCountryCode, phoneNumber, template, projects, certifications,
-        languages, achievements, hasReachedPreview, selectedProvider, openSections,
+        languages, achievements, hasReachedPreview, selectedProvider, openSections, extras,
     ]);
 
     const handleChangePhoto = useCallback(() => {
@@ -1516,7 +1554,7 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
                 onContentInteract={handleFieldInteraction}
                 badge="Required"
             >
-                <PersonalSection {...personalSectionProps} />
+                <PersonalSection {...personalSectionProps} onCustomFieldsChange={updatePersonalCustomFields} />
             </AccordionSection>
 
             <AccordionSection
@@ -1528,7 +1566,7 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
                 onToggle={() => handleToggleSection('experience', !openSections.experience)}
                 onContentInteract={handleFieldInteraction}
             >
-                <ExperienceSection {...experienceSectionProps} />
+                <ExperienceSection {...experienceSectionProps} onCustomFieldsChange={updateExperienceCustomFields} />
             </AccordionSection>
 
             <AccordionSection
@@ -1545,23 +1583,7 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
                     addEducation={addEducation}
                     removeEducation={removeEducation}
                     updateEducation={updateEducation}
-                />
-            </AccordionSection>
-
-            <AccordionSection
-                id="languages"
-                title="Languages"
-                subtitle="Spoken languages and proficiency"
-                icon={<LanguagesIcon size={16} strokeWidth={2.4} />}
-                isOpen={openSections.languages}
-                onToggle={() => handleToggleSection('languages', !openSections.languages)}
-                onContentInteract={handleFieldInteraction}
-            >
-                <LanguagesSection
-                    languages={languages}
-                    addLanguage={addLanguage}
-                    removeLanguage={removeLanguage}
-                    updateLanguage={updateLanguage}
+                    onCustomFieldsChange={updateEducationCustomFields}
                 />
             </AccordionSection>
 
@@ -1575,47 +1597,6 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
                 onContentInteract={handleFieldInteraction}
             >
                 <SkillsSection {...skillsSectionProps} />
-            </AccordionSection>
-
-            <AccordionSection
-                id="certifications"
-                title="Certifications"
-                subtitle="Professional certificates and credentials"
-                icon={<Award size={16} strokeWidth={2.4} />}
-                isOpen={openSections.certifications}
-                onToggle={() => handleToggleSection('certifications', !openSections.certifications)}
-                onContentInteract={handleFieldInteraction}
-            >
-                <CertificationsSection
-                    certifications={certifications}
-                    addCertification={addCertification}
-                    removeCertification={removeCertification}
-                    updateCertification={updateCertification}
-                />
-            </AccordionSection>
-
-            <AccordionSection
-                id="projects"
-                title="Projects"
-                subtitle="Personal, academic, or freelance work"
-                icon={<FolderGit2 size={16} strokeWidth={2.4} />}
-                isOpen={openSections.projects}
-                onToggle={() => handleToggleSection('projects', !openSections.projects)}
-                onContentInteract={handleFieldInteraction}
-            >
-                <ProjectsSection {...projectSectionProps} />
-            </AccordionSection>
-
-            <AccordionSection
-                id="achievements"
-                title="Achievements & Awards"
-                subtitle="Recognition and notable accomplishments"
-                icon={<Trophy size={16} strokeWidth={2.4} />}
-                isOpen={openSections.achievements}
-                onToggle={() => handleToggleSection('achievements', !openSections.achievements)}
-                onContentInteract={handleFieldInteraction}
-            >
-                <AchievementsSection {...achievementSectionProps} />
             </AccordionSection>
 
             <AccordionSection
@@ -1641,6 +1622,118 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
             </AccordionSection>
 
             <AccordionSection
+                id="certifications"
+                title="Certifications"
+                subtitle="Professional certificates and credentials"
+                icon={<Award size={16} strokeWidth={2.4} />}
+                isOpen={openSections.certifications}
+                onToggle={() => handleToggleSection('certifications', !openSections.certifications)}
+                onContentInteract={handleFieldInteraction}
+            >
+                <CertificationsSection
+                    certifications={certifications}
+                    addCertification={addCertification}
+                    removeCertification={removeCertification}
+                    updateCertification={updateCertification}
+                    onCustomFieldsChange={updateCertificationCustomFields}
+                />
+            </AccordionSection>
+
+            <AccordionSection
+                id="languages"
+                title="Languages"
+                subtitle="Spoken languages and proficiency"
+                icon={<LanguagesIcon size={16} strokeWidth={2.4} />}
+                isOpen={openSections.languages}
+                onToggle={() => handleToggleSection('languages', !openSections.languages)}
+                onContentInteract={handleFieldInteraction}
+            >
+                <LanguagesSection
+                    languages={languages}
+                    addLanguage={addLanguage}
+                    removeLanguage={removeLanguage}
+                    updateLanguage={updateLanguage}
+                    onCustomFieldsChange={updateLanguageCustomFields}
+                />
+            </AccordionSection>
+
+            <AccordionSection
+                id="projects"
+                title="Projects"
+                subtitle="Personal, academic, or freelance work"
+                icon={<FolderGit2 size={16} strokeWidth={2.4} />}
+                isOpen={openSections.projects}
+                onToggle={() => handleToggleSection('projects', !openSections.projects)}
+                onContentInteract={handleFieldInteraction}
+            >
+                <ProjectsSection {...projectSectionProps} onCustomFieldsChange={updateProjectCustomFields} />
+            </AccordionSection>
+
+            <AccordionSection
+                id="achievements"
+                title="Achievements & Awards"
+                subtitle="Recognition and notable accomplishments"
+                icon={<Trophy size={16} strokeWidth={2.4} />}
+                isOpen={openSections.achievements}
+                onToggle={() => handleToggleSection('achievements', !openSections.achievements)}
+                onContentInteract={handleFieldInteraction}
+            >
+                <AchievementsSection {...achievementSectionProps} onCustomFieldsChange={updateAchievementCustomFields} />
+            </AccordionSection>
+
+            <AccordionSection
+                id="interests"
+                title="Interests & Hobbies"
+                subtitle="What you enjoy outside work"
+                icon={<Heart size={16} strokeWidth={2.4} />}
+                isOpen={openSections.interests}
+                onToggle={() => handleToggleSection('interests', !openSections.interests)}
+                onContentInteract={handleFieldInteraction}
+            >
+                <InterestsSection interests={interests} onChange={setInterests} />
+            </AccordionSection>
+
+            <AccordionSection
+                id="references"
+                title="References"
+                subtitle="People who can vouch for your work"
+                icon={<Users size={16} strokeWidth={2.4} />}
+                isOpen={openSections.references}
+                onToggle={() => handleToggleSection('references', !openSections.references)}
+                onContentInteract={handleFieldInteraction}
+            >
+                <ReferencesSection references={references} onChange={setReferences} />
+            </AccordionSection>
+
+            <AccordionSection
+                id="customSections"
+                title="Custom Sections"
+                subtitle="Create your own sections (Volunteering, Publications...)"
+                icon={<Layers size={16} strokeWidth={2.4} />}
+                isOpen={openSections.customSections}
+                onToggle={() => handleToggleSection('customSections', !openSections.customSections)}
+                onContentInteract={handleFieldInteraction}
+            >
+                <CustomSectionsSection sections={customSections} onChange={setCustomSections} />
+            </AccordionSection>
+
+            <AccordionSection
+                id="layout"
+                title="Section Order & Visibility"
+                subtitle="Reorder sections or hide them from your CV"
+                icon={<ListOrdered size={16} strokeWidth={2.4} />}
+                isOpen={openSections.layout}
+                onToggle={() => handleToggleSection('layout', !openSections.layout)}
+            >
+                <SectionLayoutPanel
+                    template={template}
+                    layout={sectionLayout}
+                    customSections={customSections}
+                    onChange={setSectionLayout}
+                />
+            </AccordionSection>
+
+            <AccordionSection
                 id="export"
                 title="Export & Download"
                 subtitle="Download your CV and save your progress"
@@ -1649,14 +1742,8 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
                 onToggle={() => handleToggleSection('export', !openSections.export)}
             >
                 <div className="space-y-5">
-                    {areRequiredSectionsComplete() && (
-                        <SuccessCard
-                            realWeightedAverage={realWeightedAverage}
-                            realCompletionPercentage={realCompletionPercentage}
-                            realQuality={realQuality}
-                        />
-                    )}
-
+                    {/* ✅ SUCCESS CARD REMOVED FROM HERE */}
+                    
                     <DownloadButtons
                         onCopy={handleCopyCV}
                         onDownloadPDF={handleDownloadPDF}
@@ -1785,6 +1872,10 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
                                 strength={getStrengthStatus(realWeightedAverage)}
                                 completionPercentage={realCompletionPercentage}
                                 sectionStatuses={sectionStatuses}
+                                customSections={previewData.customSections}
+                                interests={previewData.interests}
+                                references={previewData.references}
+                                sectionLayout={previewData.sectionLayout}
                                 onCopyCV={handleCopyCV}
                                 onDownloadPDF={handleDownloadPDF}
                                 onDownloadTXT={handleDownloadTXT}
@@ -1817,6 +1908,10 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
                                 strength={getStrengthStatus(realWeightedAverage)}
                                 completionPercentage={realCompletionPercentage}
                                 sectionStatuses={sectionStatuses}
+                                customSections={previewData.customSections}
+                                interests={previewData.interests}
+                                references={previewData.references}
+                                sectionLayout={previewData.sectionLayout}
                                 onCopyCV={handleCopyCV}
                                 onDownloadPDF={handleDownloadPDF}
                                 onDownloadTXT={handleDownloadTXT}
@@ -1856,6 +1951,10 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
                                 strength={getStrengthStatus(realWeightedAverage)}
                                 completionPercentage={realCompletionPercentage}
                                 sectionStatuses={sectionStatuses}
+                                customSections={previewData.customSections}
+                                interests={previewData.interests}
+                                references={previewData.references}
+                                sectionLayout={previewData.sectionLayout}
                                 autoDownloadPNG
                                 onAutoDownloadPNGDone={() => { setPngOffscreen(false); maybeOpenFeedback(); }}
                             />
@@ -1903,15 +2002,6 @@ const CVBuilder: React.FC<CVBuilderProps> = ({
                     onClose={handleBackupReminderClose}
                     onDownloadId={handleBackupReminderDownloadId}
                     onSetPin={handleBackupReminderSetPin}
-                />
-
-                <PinPromptModal
-                    isOpen={showPinPrompt}
-                    onSetPin={() => {
-                        setShowPinPrompt(false);
-                        onSetPin?.(); // App.tsx wale SetPinModal ko open karega
-                    }}
-                    onSkip={() => setShowPinPrompt(false)}
                 />
             </div>
         </>

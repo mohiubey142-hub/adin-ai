@@ -25,6 +25,15 @@ import {
     hasStringContent,
     filterValidItems
 } from '../utils/renderHelpers';
+import {
+    buildExtrasPlan,
+    getItemCustomLines,
+    getPersonalCustomContactParts,
+    REFERENCES_ON_REQUEST_TEXT,
+    type NormalizedEntry,
+} from '../../utils/extrasModel';
+import { getDescriptionAlign, getDescriptionFormat, getMarkerIndent, parseDescriptionLines } from '../../utils/descriptionFormat';
+import type { DescriptionAlign, DescriptionFormat } from '../../types/cvExtraTypes';
 
 // ====================================================================
 // PAGE (A4, same numbers as classicPdf.ts)
@@ -339,6 +348,10 @@ const parseBulletLines = (text?: string): string[] =>
         .map((line) => line.trim().replace(/^[•\-*]\s*/, ''))
         .filter(Boolean);
 
+// Description formats: bullets keep the original parser; numbered / paragraph use the shared helper.
+const parseDescription = (text: string | undefined, fmt: DescriptionFormat): string[] =>
+    fmt === 'bullets' ? parseBulletLines(text) : parseDescriptionLines(text).map((l) => safeText(l)).filter(Boolean);
+
 const clean = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
 
 // ====================================================================
@@ -505,7 +518,9 @@ const Section: React.FC<{
     );
 };
 
-const BulletList: React.FC<{ lines: string[] }> = ({ lines }) => (
+const BulletList: React.FC<{ lines: string[]; format?: DescriptionFormat; align?: DescriptionAlign }> = ({ lines, format = 'bullets', align = 'left' }) => {
+    const indent = getMarkerIndent(format, lines.length, BODY_SIZE, BULLET_TEXT_INDENT);
+    return (
     <div>
         {lines.map((line, i) => (
             <div
@@ -519,16 +534,17 @@ const BulletList: React.FC<{ lines: string[] }> = ({ lines }) => (
                     pageBreakInside: 'avoid'
                 }}
             >
-                <span style={{ flexShrink: 0, width: pt(BULLET_TEXT_INDENT), color: COLOR_SECTION }}>
-                    {BULLET_MARKER}
-                </span>
-                <span style={{ minWidth: 0, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                {format !== 'paragraph' && (
+                    <span style={{ flexShrink: 0, width: pt(indent), color: COLOR_SECTION }}>{format === 'numbered' ? `${i + 1}.` : BULLET_MARKER}</span>
+                )}
+                <span style={{ minWidth: 0, wordBreak: 'break-word', overflowWrap: 'anywhere', ...(align === 'justify' ? { textAlign: 'justify' as const } : {}) }}>
                     {safeText(line)}
                 </span>
             </div>
         ))}
     </div>
-);
+    );
+};
 
 const TitleDateRow: React.FC<{ title?: string; date?: string; dateSize?: number }> = ({
     title,
@@ -650,6 +666,7 @@ const ClassicTemplate: React.FC<CVPreviewProps> = (props) => {
     if (webLink) contactParts.push(`Portfolio URL: ${webLink}`);
     const githubUrl = clean(pi?.github) || clean(pi?.githubUrl);
     if (githubUrl) contactParts.push(`GitHub: ${githubUrl}`);
+    getPersonalCustomContactParts(pi).forEach((p) => contactParts.push(p));
     const contactItems = contactParts.map((p) => stripEmojis(safeText(p))).filter(Boolean);
     const hasContact = contactItems.length > 0;
 
@@ -804,6 +821,542 @@ const ClassicTemplate: React.FC<CVPreviewProps> = (props) => {
         clearHovered('personal');
     };
 
+    // ---- Section nodes (keyed by section id) — order + hide/show come from the Section Order panel ----
+    const plan = buildExtrasPlan('classic', props);
+
+    // Custom fields of an item: "Label: Value" lines in the sub-line style, printed after the entry.
+    const customLines = (item: any) => {
+        const lines = getItemCustomLines(item);
+        if (lines.length === 0) return null;
+        return (
+            <div style={{ marginTop: pt(GAP_AFTER_TITLE) }}>
+                {lines.map((line, li) => (
+                    <div
+                        key={li}
+                        style={{
+                            fontSize: pt(ENTRY_SUB_SIZE),
+                            lineHeight: pt(BODY_LINE_HEIGHT),
+                            color: COLOR_METADATA,
+                            wordBreak: 'break-word',
+                            overflowWrap: 'anywhere'
+                        }}
+                    >
+                        {safeText(line)}
+                    </div>
+                ))}
+            </div>
+        );
+    };
+
+    const sectionShell = (key: string, title: string, children: React.ReactNode) => (
+        <Section
+            key={key}
+            title={title}
+            sectionKey={key}
+            onEditSection={onEditSection}
+            activeSection={activeSection}
+            gate={gateApi}
+            hoveredKey={hoveredKey}
+            setHoveredKey={setHoveredKey}
+            clearHovered={clearHovered}
+        >
+            {children}
+        </Section>
+    );
+
+    // Skills-style flowing list (used by Skills and Interests)
+    const flowList = (list: string[]) => (
+        <div
+            {...flowProps}
+            style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                width: '100%',
+                fontSize: pt(BODY_SIZE),
+                lineHeight: pt(BODY_LINE_HEIGHT),
+                color: COLOR_BODY
+            }}
+        >
+            {list.map((skill, idx) => (
+                <span key={idx} style={{ display: 'inline-flex', minWidth: 0, overflowWrap: 'anywhere' }}>
+                    <span>{safeText(skill)}</span>
+                    {idx < list.length - 1 && (
+                        <span style={{ whiteSpace: 'pre' }}>
+                            {SKILLS_SEPARATOR.split('•')[0]}
+                            <span style={{ color: COLOR_SECTION }}>•</span>
+                            {SKILLS_SEPARATOR.split('•')[1]}
+                        </span>
+                    )}
+                </span>
+            ))}
+        </div>
+    );
+
+    // Custom sections + References: same entry look as Achievements (+ subtitle and custom-field lines)
+    const normalizedEntries = (entries: NormalizedEntry[]) => (
+        <div style={entryList}>
+            {entries.map((e, i) => {
+                const title = clean(e.title);
+                const date = clean(e.date);
+                const subtitle = clean(e.subtitle);
+                const fmt = getDescriptionFormat(e);
+                const al = getDescriptionAlign(e);
+                const bullets = parseDescription(e.description, fmt);
+                const meta = e.metaLines.map((l) => clean(l)).filter(Boolean);
+                const hasRow = !!(title || date);
+                return (
+                    <div key={i} {...keepProps} style={entryBlock}>
+                        {hasRow && (
+                            <TitleDateRow
+                                title={title ? safeText(title) : undefined}
+                                date={date ? safeText(date) : undefined}
+                            />
+                        )}
+                        {subtitle && (
+                            <div
+                                style={{
+                                    fontSize: pt(ENTRY_SUB_SIZE),
+                                    lineHeight: pt(BODY_LINE_HEIGHT),
+                                    color: COLOR_METADATA,
+                                    wordBreak: 'break-word',
+                                    overflowWrap: 'anywhere'
+                                }}
+                            >
+                                {safeText(subtitle)}
+                            </div>
+                        )}
+                        {bullets.length > 0 && (
+                            <div style={{ marginTop: pt(hasRow || subtitle ? GAP_AFTER_TITLE : 0) }}>
+                                <BulletList lines={bullets} format={fmt} align={al} />
+                            </div>
+                        )}
+                        {meta.length > 0 && (
+                            <div style={{ marginTop: pt(hasRow || subtitle || bullets.length > 0 ? GAP_AFTER_TITLE : 0) }}>
+                                {meta.map((line, li) => (
+                                    <div
+                                        key={li}
+                                        style={{
+                                            fontSize: pt(ENTRY_SUB_SIZE),
+                                            lineHeight: pt(BODY_LINE_HEIGHT),
+                                            color: COLOR_METADATA,
+                                            wordBreak: 'break-word',
+                                            overflowWrap: 'anywhere'
+                                        }}
+                                    >
+                                        {safeText(line)}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                );
+            })}
+        </div>
+    );
+
+    const sectionNodes: Record<string, React.ReactNode> = {
+        summary: hasAbout ? sectionShell('summary', 'PROFESSIONAL SUMMARY', (
+                        <p
+                            {...flowProps}
+                            style={{
+                                margin: 0,
+                                padding: 0,
+                                width: '100%',
+                                fontSize: pt(BODY_SIZE),
+                                lineHeight: pt(BODY_LINE_HEIGHT),
+                                color: COLOR_BODY,
+                                wordBreak: 'break-word',
+                                overflowWrap: 'anywhere'
+                            }}
+                        >
+                            {safeText(professionalSummary)}
+                        </p>
+        )) : null,
+        experience: hasExperience ? sectionShell('experience', 'EXPERIENCE', (
+                        <div style={entryList}>
+                            {validExperiences.map((exp: any, i: number) => {
+                                const title = clean(exp.title);
+                                const company = clean(exp.company);
+                                const fmt = getDescriptionFormat(exp);
+                                const al = getDescriptionAlign(exp);
+                                const bullets = parseDescription(exp.description, fmt);
+                                const hasHeader = !!(title || company);
+                                return (
+                                    <div
+                                        key={i}
+                                        {...keepProps}
+                                        style={{
+                                            ...entryBlock,
+                                            display: 'flex',
+                                            alignItems: 'flex-start',
+                                            columnGap: pt(DATE_TEXT_GAP + EXPERIENCE_CONTENT_EXTRA_GAP),
+                                            width: '100%'
+                                        }}
+                                    >
+                                        <div
+                                            style={{
+                                                flex: `0 0 ${pt(dateColWidth)}`,
+                                                whiteSpace: 'nowrap',
+                                                fontSize: pt(ENTRY_SUB_SIZE),
+                                                lineHeight: pt(BODY_LINE_HEIGHT),
+                                                color: COLOR_ACCENT
+                                            }}
+                                        >
+                                            {dateRangeOf(exp)}
+                                        </div>
+                                        <div style={{ flex: '1 1 0', minWidth: 0 }}>
+                                            {title && (
+                                                <div
+                                                    style={{
+                                                        fontSize: pt(ENTRY_TITLE_SIZE),
+                                                        fontWeight: 'bold',
+                                                        lineHeight: pt(BODY_LINE_HEIGHT),
+                                                        color: COLOR_HEADING,
+                                                        wordBreak: 'break-word',
+                                                        overflowWrap: 'anywhere'
+                                                    }}
+                                                >
+                                                    {safeText(title)}
+                                                </div>
+                                            )}
+                                            {company && (
+                                                <div
+                                                    style={{
+                                                        fontSize: pt(ENTRY_SUB_SIZE),
+                                                        lineHeight: pt(BODY_LINE_HEIGHT),
+                                                        color: COLOR_BODY,
+                                                        wordBreak: 'break-word',
+                                                        overflowWrap: 'anywhere'
+                                                    }}
+                                                >
+                                                    {safeText(company)}
+                                                </div>
+                                            )}
+                                            {bullets.length > 0 && (
+                                                <div
+                                                    style={{
+                                                        marginTop: pt(
+                                                            !hasHeader ? 0 : company ? GAP_AFTER_SUBTITLE : GAP_AFTER_TITLE
+                                                        )
+                                                    }}
+                                                >
+                                                    <BulletList lines={bullets} format={fmt} align={al} />
+                                                </div>
+                                            )}
+                                            {customLines(exp)}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+        )) : null,
+        education: hasEducation ? sectionShell('education', 'EDUCATION', (
+                        <div style={entryList}>
+                            {validEducations.map((edu: any, i: number) => {
+                                const degree = clean(edu.degree);
+                                const institution = clean(edu.institution);
+                                const year = clean(edu.year);
+                                const grade = clean(edu.grade);
+                                const hasHeaderContent = !!(degree || institution);
+                                return (
+                                    <div key={i} {...keepProps} style={entryBlock}>
+                                        {degree && (
+                                            <TitleDateRow
+                                                title={safeText(degree)}
+                                                date={year ? safeText(year) : undefined}
+                                                dateSize={ENTRY_SUB_SIZE}
+                                            />
+                                        )}
+                                        {institution && (
+                                            <div
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'baseline',
+                                                    columnGap: pt(DATE_TEXT_GAP),
+                                                    lineHeight: pt(BODY_LINE_HEIGHT)
+                                                }}
+                                            >
+                                                <span
+                                                    style={{
+                                                        flex: '1 1 0',
+                                                        minWidth: 0,
+                                                        fontSize: pt(ENTRY_SUB_SIZE),
+                                                        color: COLOR_METADATA,
+                                                        wordBreak: 'break-word',
+                                                        overflowWrap: 'anywhere'
+                                                    }}
+                                                >
+                                                    {safeText(institution)}
+                                                </span>
+                                                {!degree && year && (
+                                                    <span
+                                                        style={{
+                                                            flexShrink: 0,
+                                                            whiteSpace: 'nowrap',
+                                                            fontSize: pt(ENTRY_SUB_SIZE),
+                                                            fontWeight: 'bold',
+                                                            color: COLOR_ACCENT
+                                                        }}
+                                                    >
+                                                        {safeText(year)}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
+                                        {!hasHeaderContent && year && (
+                                            <div
+                                                style={{
+                                                    fontSize: pt(ENTRY_SUB_SIZE),
+                                                    fontWeight: 'bold',
+                                                    lineHeight: pt(BODY_LINE_HEIGHT),
+                                                    color: COLOR_ACCENT
+                                                }}
+                                            >
+                                                {safeText(year)}
+                                            </div>
+                                        )}
+                                        {grade && (
+                                            <div
+                                                style={{
+                                                    marginTop: pt(institution || !hasHeaderContent ? 0 : GAP_AFTER_TITLE),
+                                                    fontSize: pt(ENTRY_SUB_SIZE),
+                                                    lineHeight: pt(BODY_LINE_HEIGHT),
+                                                    color: COLOR_METADATA
+                                                }}
+                                            >
+                                                Grade: {safeText(grade)}
+                                            </div>
+                                        )}
+                                        {customLines(edu)}
+                                    </div>
+                                );
+                            })}
+                        </div>
+        )) : null,
+        certifications: hasCertifications ? sectionShell('certifications', 'CERTIFICATIONS', (
+                        <div style={entryList}>
+                            {validCertifications.map((c: any, i: number) => {
+                                const certName = clean(c.name);
+                                const date = clean(c.date);
+                                const credentialId = clean(c.credentialId);
+                                return (
+                                    <div key={i} {...keepProps} style={entryBlock}>
+                                        {(certName || date) && (
+                                            <TitleDateRow
+                                                title={certName ? safeText(certName) : undefined}
+                                                date={date ? safeText(date) : undefined}
+                                            />
+                                        )}
+                                        {credentialId && (
+                                            <div
+                                                style={{
+                                                    fontSize: pt(ENTRY_SUB_SIZE),
+                                                    lineHeight: pt(BODY_LINE_HEIGHT),
+                                                    color: COLOR_METADATA,
+                                                    wordBreak: 'break-word',
+                                                    overflowWrap: 'anywhere'
+                                                }}
+                                            >
+                                                {safeText(credentialId)}
+                                            </div>
+                                        )}
+                                        {customLines(c)}
+                                    </div>
+                                );
+                            })}
+                        </div>
+        )) : null,
+        skills: hasSkills ? sectionShell('skills', 'SKILLS', flowList(skillsList)) : null,
+        languages: hasLanguages ? sectionShell('languages', 'LANGUAGES', (
+                        <div>
+                            {validLanguages.map((l: any, i: number) => {
+                                const language = clean(l.language);
+                                const proficiencyRaw = clean(l.proficiency);
+                                const level = proficiencyRaw ? getProficiencyDisplayLabel(proficiencyRaw) : '';
+                                return (
+                                    <div
+                                        key={i}
+                                        {...keepProps}
+                                        style={{
+                                            ...entryBlock,
+                                            fontSize: pt(ENTRY_TITLE_SIZE),
+                                            lineHeight: pt(BODY_LINE_HEIGHT),
+                                            wordBreak: 'break-word',
+                                            overflowWrap: 'anywhere'
+                                        }}
+                                    >
+                                        <span style={{ fontWeight: 'bold', color: COLOR_HEADING }}>
+                                            {safeText(language)}
+                                        </span>
+                                        {level && (
+                                            <span
+                                                style={{
+                                                    fontSize: pt(ENTRY_SUB_SIZE),
+                                                    lineHeight: 1,
+                                                    fontWeight: 'normal',
+                                                    color: COLOR_METADATA
+                                                }}
+                                            >
+                                                {LANGUAGE_NAME_LEVEL_SEPARATOR}
+                                                {safeText(level)}
+                                            </span>
+                                        )}
+                                        {customLines(l)}
+                                    </div>
+                                );
+                            })}
+                        </div>
+        )) : null,
+        achievements: hasAchievements ? sectionShell('achievements', 'ACHIEVEMENTS', (
+                        <div style={entryList}>
+                            {validAchievements.map((a: any, i: number) => {
+                                const title = clean(a.title);
+                                const date = clean(a.date);
+                                const fmt = getDescriptionFormat(a);
+                                const al = getDescriptionAlign(a);
+                                const bullets = parseDescription(a.description, fmt);
+                                return (
+                                    <div key={i} {...keepProps} style={entryBlock}>
+                                        {(title || date) && (
+                                            <TitleDateRow
+                                                title={title ? safeText(title) : undefined}
+                                                date={date ? safeText(date) : undefined}
+                                            />
+                                        )}
+                                        {bullets.length > 0 && (
+                                            <div style={{ marginTop: pt(title || date ? GAP_AFTER_TITLE : 0) }}>
+                                                <BulletList lines={bullets} format={fmt} align={al} />
+                                            </div>
+                                        )}
+                                        {customLines(a)}
+                                    </div>
+                                );
+                            })}
+                        </div>
+        )) : null,
+        projects: hasProjects ? sectionShell('projects', 'PROJECTS', (
+                        <div style={entryList}>
+                            {validProjects.map((p: any, i: number) => {
+                                const projectName = clean(p.name);
+                                const tech = clean(p.tech);
+                                const fmt = getDescriptionFormat(p);
+                                const al = getDescriptionAlign(p);
+                                const bullets = parseDescription(p.description, fmt);
+                                const github = clean(p.github);
+                                const hasHeader = !!(projectName || tech);
+
+                                const descriptionGap = !hasHeader ? 0 : tech ? GAP_AFTER_SUBTITLE : GAP_AFTER_TITLE;
+                                const linkGap =
+                                    bullets.length > 0
+                                        ? GAP_DESC_TO_LINK
+                                        : tech
+                                            ? GAP_AFTER_SUBTITLE
+                                            : projectName
+                                                ? GAP_AFTER_TITLE
+                                                : 0;
+
+                                return (
+                                    <div key={i} {...keepProps} style={entryBlock}>
+                                        {projectName && (
+                                            <div
+                                                style={{
+                                                    fontSize: pt(ENTRY_TITLE_SIZE),
+                                                    fontWeight: 'bold',
+                                                    lineHeight: pt(BODY_LINE_HEIGHT),
+                                                    color: COLOR_HEADING,
+                                                    wordBreak: 'break-word',
+                                                    overflowWrap: 'anywhere'
+                                                }}
+                                            >
+                                                {safeText(projectName)}
+                                            </div>
+                                        )}
+                                        {tech && (
+                                            <div
+                                                style={{
+                                                    fontSize: pt(ENTRY_SUB_SIZE),
+                                                    lineHeight: pt(BODY_LINE_HEIGHT),
+                                                    color: COLOR_METADATA,
+                                                    wordBreak: 'break-word',
+                                                    overflowWrap: 'anywhere'
+                                                }}
+                                            >
+                                                {safeText(tech)}
+                                            </div>
+                                        )}
+                                        {bullets.length > 0 && (
+                                            <div style={{ marginTop: pt(descriptionGap) }}>
+                                                <BulletList lines={bullets} format={fmt} align={al} />
+                                            </div>
+                                        )}
+                                        {github && (
+                                            <a
+                                                href={github}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                style={{
+                                                    display: 'block',
+                                                    marginTop: pt(linkGap),
+                                                    fontSize: pt(ENTRY_SUB_SIZE),
+                                                    lineHeight: pt(BODY_LINE_HEIGHT),
+                                                    color: COLOR_LINK,
+                                                    textDecoration: 'none',
+                                                    wordBreak: 'break-word',
+                                                    overflowWrap: 'anywhere'
+                                                }}
+                                            >
+                                                {github}
+                                            </a>
+                                        )}
+                                        {customLines(p)}
+                                    </div>
+                                );
+                            })}
+                        </div>
+        )) : null,
+        interests: plan.hasInterests ? sectionShell('interests', 'INTERESTS', flowList(plan.interests)) : null,
+        references: plan.hasReferences
+            ? sectionShell(
+                  'references',
+                  'REFERENCES',
+                  plan.referenceEntries.length > 0 ? (
+                      normalizedEntries(plan.referenceEntries)
+                  ) : (
+                      <p
+                          {...flowProps}
+                          style={{
+                              margin: 0,
+                              padding: 0,
+                              width: '100%',
+                              fontSize: pt(BODY_SIZE),
+                              lineHeight: pt(BODY_LINE_HEIGHT),
+                              color: COLOR_BODY
+                          }}
+                      >
+                          {REFERENCES_ON_REQUEST_TEXT}
+                      </p>
+                  )
+              )
+            : null,
+    };
+    plan.customSections.forEach((cs) => {
+        sectionNodes[`custom:${cs.id}`] = sectionShell(
+            `custom:${cs.id}`,
+            cs.title.toUpperCase(),
+            normalizedEntries(
+                cs.entries.map((e) => ({
+                    title: e.title || '',
+                    subtitle: e.subtitle || '',
+                    date: e.date || '',
+                    description: e.description || '',
+                    descriptionFormat: getDescriptionFormat(e),
+                descriptionAlign: getDescriptionAlign(e),
+                metaLines: getItemCustomLines(e)
+                }))
+            )
+        );
+    });
+
     const body = (
         <div
             style={{
@@ -947,476 +1500,7 @@ const ClassicTemplate: React.FC<CVPreviewProps> = (props) => {
                     transformOrigin: 'top left'
                 }}
             >
-                {hasAbout && (
-                    <Section
-                        title="PROFESSIONAL SUMMARY"
-                        sectionKey="summary"
-                        onEditSection={onEditSection}
-                        activeSection={activeSection}
-                        gate={gateApi}
-                        hoveredKey={hoveredKey}
-                        setHoveredKey={setHoveredKey}
-                        clearHovered={clearHovered}
-                    >
-                        <p
-                            {...flowProps}
-                            style={{
-                                margin: 0,
-                                padding: 0,
-                                width: '100%',
-                                fontSize: pt(BODY_SIZE),
-                                lineHeight: pt(BODY_LINE_HEIGHT),
-                                color: COLOR_BODY,
-                                wordBreak: 'break-word',
-                                overflowWrap: 'anywhere'
-                            }}
-                        >
-                            {safeText(professionalSummary)}
-                        </p>
-                    </Section>
-                )}
-
-                {hasExperience && (
-                    <Section
-                        title="EXPERIENCE"
-                        sectionKey="experience"
-                        onEditSection={onEditSection}
-                        activeSection={activeSection}
-                        gate={gateApi}
-                        hoveredKey={hoveredKey}
-                        setHoveredKey={setHoveredKey}
-                        clearHovered={clearHovered}
-                    >
-                        <div style={entryList}>
-                            {validExperiences.map((exp: any, i: number) => {
-                                const title = clean(exp.title);
-                                const company = clean(exp.company);
-                                const bullets = parseBulletLines(exp.description);
-                                const hasHeader = !!(title || company);
-                                return (
-                                    <div
-                                        key={i}
-                                        {...keepProps}
-                                        style={{
-                                            ...entryBlock,
-                                            display: 'flex',
-                                            alignItems: 'flex-start',
-                                            columnGap: pt(DATE_TEXT_GAP + EXPERIENCE_CONTENT_EXTRA_GAP),
-                                            width: '100%'
-                                        }}
-                                    >
-                                        <div
-                                            style={{
-                                                flex: `0 0 ${pt(dateColWidth)}`,
-                                                whiteSpace: 'nowrap',
-                                                fontSize: pt(ENTRY_SUB_SIZE),
-                                                lineHeight: pt(BODY_LINE_HEIGHT),
-                                                color: COLOR_ACCENT
-                                            }}
-                                        >
-                                            {dateRangeOf(exp)}
-                                        </div>
-                                        <div style={{ flex: '1 1 0', minWidth: 0 }}>
-                                            {title && (
-                                                <div
-                                                    style={{
-                                                        fontSize: pt(ENTRY_TITLE_SIZE),
-                                                        fontWeight: 'bold',
-                                                        lineHeight: pt(BODY_LINE_HEIGHT),
-                                                        color: COLOR_HEADING,
-                                                        wordBreak: 'break-word',
-                                                        overflowWrap: 'anywhere'
-                                                    }}
-                                                >
-                                                    {safeText(title)}
-                                                </div>
-                                            )}
-                                            {company && (
-                                                <div
-                                                    style={{
-                                                        fontSize: pt(ENTRY_SUB_SIZE),
-                                                        lineHeight: pt(BODY_LINE_HEIGHT),
-                                                        color: COLOR_BODY,
-                                                        wordBreak: 'break-word',
-                                                        overflowWrap: 'anywhere'
-                                                    }}
-                                                >
-                                                    {safeText(company)}
-                                                </div>
-                                            )}
-                                            {bullets.length > 0 && (
-                                                <div
-                                                    style={{
-                                                        marginTop: pt(
-                                                            !hasHeader ? 0 : company ? GAP_AFTER_SUBTITLE : GAP_AFTER_TITLE
-                                                        )
-                                                    }}
-                                                >
-                                                    <BulletList lines={bullets} />
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </Section>
-                )}
-
-                {hasEducation && (
-                    <Section
-                        title="EDUCATION"
-                        sectionKey="education"
-                        onEditSection={onEditSection}
-                        activeSection={activeSection}
-                        gate={gateApi}
-                        hoveredKey={hoveredKey}
-                        setHoveredKey={setHoveredKey}
-                        clearHovered={clearHovered}
-                    >
-                        <div style={entryList}>
-                            {validEducations.map((edu: any, i: number) => {
-                                const degree = clean(edu.degree);
-                                const institution = clean(edu.institution);
-                                const year = clean(edu.year);
-                                const grade = clean(edu.grade);
-                                const hasHeaderContent = !!(degree || institution);
-                                return (
-                                    <div key={i} {...keepProps} style={entryBlock}>
-                                        {degree && (
-                                            <TitleDateRow
-                                                title={safeText(degree)}
-                                                date={year ? safeText(year) : undefined}
-                                                dateSize={ENTRY_SUB_SIZE}
-                                            />
-                                        )}
-                                        {institution && (
-                                            <div
-                                                style={{
-                                                    display: 'flex',
-                                                    alignItems: 'baseline',
-                                                    columnGap: pt(DATE_TEXT_GAP),
-                                                    lineHeight: pt(BODY_LINE_HEIGHT)
-                                                }}
-                                            >
-                                                <span
-                                                    style={{
-                                                        flex: '1 1 0',
-                                                        minWidth: 0,
-                                                        fontSize: pt(ENTRY_SUB_SIZE),
-                                                        color: COLOR_METADATA,
-                                                        wordBreak: 'break-word',
-                                                        overflowWrap: 'anywhere'
-                                                    }}
-                                                >
-                                                    {safeText(institution)}
-                                                </span>
-                                                {!degree && year && (
-                                                    <span
-                                                        style={{
-                                                            flexShrink: 0,
-                                                            whiteSpace: 'nowrap',
-                                                            fontSize: pt(ENTRY_SUB_SIZE),
-                                                            fontWeight: 'bold',
-                                                            color: COLOR_ACCENT
-                                                        }}
-                                                    >
-                                                        {safeText(year)}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        )}
-                                        {!hasHeaderContent && year && (
-                                            <div
-                                                style={{
-                                                    fontSize: pt(ENTRY_SUB_SIZE),
-                                                    fontWeight: 'bold',
-                                                    lineHeight: pt(BODY_LINE_HEIGHT),
-                                                    color: COLOR_ACCENT
-                                                }}
-                                            >
-                                                {safeText(year)}
-                                            </div>
-                                        )}
-                                        {grade && (
-                                            <div
-                                                style={{
-                                                    marginTop: pt(institution || !hasHeaderContent ? 0 : GAP_AFTER_TITLE),
-                                                    fontSize: pt(ENTRY_SUB_SIZE),
-                                                    lineHeight: pt(BODY_LINE_HEIGHT),
-                                                    color: COLOR_METADATA
-                                                }}
-                                            >
-                                                Grade: {safeText(grade)}
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </Section>
-                )}
-
-                {hasCertifications && (
-                    <Section
-                        title="CERTIFICATIONS"
-                        sectionKey="certifications"
-                        onEditSection={onEditSection}
-                        activeSection={activeSection}
-                        gate={gateApi}
-                        hoveredKey={hoveredKey}
-                        setHoveredKey={setHoveredKey}
-                        clearHovered={clearHovered}
-                    >
-                        <div style={entryList}>
-                            {validCertifications.map((c: any, i: number) => {
-                                const certName = clean(c.name);
-                                const date = clean(c.date);
-                                const credentialId = clean(c.credentialId);
-                                return (
-                                    <div key={i} {...keepProps} style={entryBlock}>
-                                        {(certName || date) && (
-                                            <TitleDateRow
-                                                title={certName ? safeText(certName) : undefined}
-                                                date={date ? safeText(date) : undefined}
-                                            />
-                                        )}
-                                        {credentialId && (
-                                            <div
-                                                style={{
-                                                    fontSize: pt(ENTRY_SUB_SIZE),
-                                                    lineHeight: pt(BODY_LINE_HEIGHT),
-                                                    color: COLOR_METADATA,
-                                                    wordBreak: 'break-word',
-                                                    overflowWrap: 'anywhere'
-                                                }}
-                                            >
-                                                {safeText(credentialId)}
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </Section>
-                )}
-
-                {hasSkills && (
-                    <Section
-                        title="SKILLS"
-                        sectionKey="skills"
-                        onEditSection={onEditSection}
-                        activeSection={activeSection}
-                        gate={gateApi}
-                        hoveredKey={hoveredKey}
-                        setHoveredKey={setHoveredKey}
-                        clearHovered={clearHovered}
-                    >
-                        <div
-                            {...flowProps}
-                            style={{
-                                display: 'flex',
-                                flexWrap: 'wrap',
-                                width: '100%',
-                                fontSize: pt(BODY_SIZE),
-                                lineHeight: pt(BODY_LINE_HEIGHT),
-                                color: COLOR_BODY
-                            }}
-                        >
-                            {skillsList.map((skill, idx) => (
-                                <span
-                                    key={idx}
-                                    style={{ display: 'inline-flex', minWidth: 0, overflowWrap: 'anywhere' }}
-                                >
-                                    <span>{safeText(skill)}</span>
-                                    {idx < skillsList.length - 1 && (
-                                        <span style={{ whiteSpace: 'pre' }}>
-                                            {SKILLS_SEPARATOR.split('•')[0]}
-                                            <span style={{ color: COLOR_SECTION }}>•</span>
-                                            {SKILLS_SEPARATOR.split('•')[1]}
-                                        </span>
-                                    )}
-                                </span>
-                            ))}
-                        </div>
-                    </Section>
-                )}
-
-                {hasLanguages && (
-                    <Section
-                        title="LANGUAGES"
-                        sectionKey="languages"
-                        onEditSection={onEditSection}
-                        activeSection={activeSection}
-                        gate={gateApi}
-                        hoveredKey={hoveredKey}
-                        setHoveredKey={setHoveredKey}
-                        clearHovered={clearHovered}
-                    >
-                        <div>
-                            {validLanguages.map((l: any, i: number) => {
-                                const language = clean(l.language);
-                                const proficiencyRaw = clean(l.proficiency);
-                                const level = proficiencyRaw ? getProficiencyDisplayLabel(proficiencyRaw) : '';
-                                return (
-                                    <div
-                                        key={i}
-                                        {...keepProps}
-                                        style={{
-                                            ...entryBlock,
-                                            fontSize: pt(ENTRY_TITLE_SIZE),
-                                            lineHeight: pt(BODY_LINE_HEIGHT),
-                                            wordBreak: 'break-word',
-                                            overflowWrap: 'anywhere'
-                                        }}
-                                    >
-                                        <span style={{ fontWeight: 'bold', color: COLOR_HEADING }}>
-                                            {safeText(language)}
-                                        </span>
-                                        {level && (
-                                            <span
-                                                style={{
-                                                    fontSize: pt(ENTRY_SUB_SIZE),
-                                                    lineHeight: 1,
-                                                    fontWeight: 'normal',
-                                                    color: COLOR_METADATA
-                                                }}
-                                            >
-                                                {LANGUAGE_NAME_LEVEL_SEPARATOR}
-                                                {safeText(level)}
-                                            </span>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </Section>
-                )}
-
-                {hasAchievements && (
-                    <Section
-                        title="ACHIEVEMENTS"
-                        sectionKey="achievements"
-                        onEditSection={onEditSection}
-                        activeSection={activeSection}
-                        gate={gateApi}
-                        hoveredKey={hoveredKey}
-                        setHoveredKey={setHoveredKey}
-                        clearHovered={clearHovered}
-                    >
-                        <div style={entryList}>
-                            {validAchievements.map((a: any, i: number) => {
-                                const title = clean(a.title);
-                                const date = clean(a.date);
-                                const bullets = parseBulletLines(a.description);
-                                return (
-                                    <div key={i} {...keepProps} style={entryBlock}>
-                                        {(title || date) && (
-                                            <TitleDateRow
-                                                title={title ? safeText(title) : undefined}
-                                                date={date ? safeText(date) : undefined}
-                                            />
-                                        )}
-                                        {bullets.length > 0 && (
-                                            <div style={{ marginTop: pt(title || date ? GAP_AFTER_TITLE : 0) }}>
-                                                <BulletList lines={bullets} />
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </Section>
-                )}
-
-                {hasProjects && (
-                    <Section
-                        title="PROJECTS"
-                        sectionKey="projects"
-                        onEditSection={onEditSection}
-                        activeSection={activeSection}
-                        gate={gateApi}
-                        hoveredKey={hoveredKey}
-                        setHoveredKey={setHoveredKey}
-                        clearHovered={clearHovered}
-                    >
-                        <div style={entryList}>
-                            {validProjects.map((p: any, i: number) => {
-                                const projectName = clean(p.name);
-                                const tech = clean(p.tech);
-                                const bullets = parseBulletLines(p.description);
-                                const github = clean(p.github);
-                                const hasHeader = !!(projectName || tech);
-
-                                const descriptionGap = !hasHeader ? 0 : tech ? GAP_AFTER_SUBTITLE : GAP_AFTER_TITLE;
-                                const linkGap =
-                                    bullets.length > 0
-                                        ? GAP_DESC_TO_LINK
-                                        : tech
-                                            ? GAP_AFTER_SUBTITLE
-                                            : projectName
-                                                ? GAP_AFTER_TITLE
-                                                : 0;
-
-                                return (
-                                    <div key={i} {...keepProps} style={entryBlock}>
-                                        {projectName && (
-                                            <div
-                                                style={{
-                                                    fontSize: pt(ENTRY_TITLE_SIZE),
-                                                    fontWeight: 'bold',
-                                                    lineHeight: pt(BODY_LINE_HEIGHT),
-                                                    color: COLOR_HEADING,
-                                                    wordBreak: 'break-word',
-                                                    overflowWrap: 'anywhere'
-                                                }}
-                                            >
-                                                {safeText(projectName)}
-                                            </div>
-                                        )}
-                                        {tech && (
-                                            <div
-                                                style={{
-                                                    fontSize: pt(ENTRY_SUB_SIZE),
-                                                    lineHeight: pt(BODY_LINE_HEIGHT),
-                                                    color: COLOR_METADATA,
-                                                    wordBreak: 'break-word',
-                                                    overflowWrap: 'anywhere'
-                                                }}
-                                            >
-                                                {safeText(tech)}
-                                            </div>
-                                        )}
-                                        {bullets.length > 0 && (
-                                            <div style={{ marginTop: pt(descriptionGap) }}>
-                                                <BulletList lines={bullets} />
-                                            </div>
-                                        )}
-                                        {github && (
-                                            <a
-                                                href={github}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                style={{
-                                                    display: 'block',
-                                                    marginTop: pt(linkGap),
-                                                    fontSize: pt(ENTRY_SUB_SIZE),
-                                                    lineHeight: pt(BODY_LINE_HEIGHT),
-                                                    color: COLOR_LINK,
-                                                    textDecoration: 'none',
-                                                    wordBreak: 'break-word',
-                                                    overflowWrap: 'anywhere'
-                                                }}
-                                            >
-                                                {github}
-                                            </a>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </Section>
-                )}
+                {plan.order.map((id) => sectionNodes[id] || null)}
             </div>
         </div>
     );

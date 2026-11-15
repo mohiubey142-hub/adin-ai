@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { CVDocumentMeta } from '../types/documentTypes';
 import { localStorageDocumentService } from '../services/documentService';
 import { syncService } from '../../../services/sync/syncService';
+import { EVENT_DOCS_UPDATED } from '../../../services/sync/docsync/constants';
 
 export const useMyDocuments = (userId: string) => {
     const [documents, setDocuments] = useState<CVDocumentMeta[]>([]);
@@ -36,6 +37,13 @@ export const useMyDocuments = (userId: string) => {
     useEffect(() => {
         refresh();
     }, [refresh, refreshKey]);
+
+    // ✅ Dusre device ka data pull hone par list khud refresh ho (page reload nahi)
+    useEffect(() => {
+        const onDocsUpdated = () => setRefreshKey((k) => k + 1);
+        window.addEventListener(EVENT_DOCS_UPDATED, onDocsUpdated);
+        return () => window.removeEventListener(EVENT_DOCS_UPDATED, onDocsUpdated);
+    }, []);
 
     const findDoc = useCallback(
         (documentId: string) => documents.find(d => d.id === documentId),
