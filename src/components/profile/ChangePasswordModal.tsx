@@ -1,6 +1,6 @@
 // src/components/profile/ChangePasswordModal.tsx
 import React, { useState, useEffect } from 'react';
-import { X, Lock, Loader2, AlertCircle, KeyRound } from 'lucide-react';
+import { X, Lock, Loader2, AlertCircle, KeyRound, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../../services/sync/supabaseClient';
 import toast from 'react-hot-toast';
 
@@ -9,6 +9,17 @@ interface ChangePasswordModalProps {
   userEmail: string;
   onClose: () => void;
 }
+
+// ✅ Same validation as AuthScreen
+const validatePassword = (pass: string) => {
+  const minLength = pass.length >= 8;
+  const hasNumberOrSpecial = /[0-9!@#$%^&*(),.?":{}|<>]/.test(pass);
+  return {
+    minLength,
+    hasNumberOrSpecial,
+    isValid: minLength && hasNumberOrSpecial,
+  };
+};
 
 export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
   isOpen,
@@ -21,16 +32,15 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
-  
-  // Internal email state as fallback
   const [email, setEmail] = useState(initialEmail);
+
+  const passCheck = validatePassword(newPassword);
 
   useEffect(() => {
     if (isOpen) {
       if (initialEmail) {
         setEmail(initialEmail);
       } else {
-        // Fallback: Directly fetch from Supabase if prop is empty
         supabase.auth.getUser().then(({ data }) => {
           if (data?.user?.email) {
             setEmail(data.user.email);
@@ -51,10 +61,13 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
       setError('Please fill all fields.');
       return;
     }
-    if (newPassword.length < 6) {
-      setError('New password must be at least 6 characters.');
+    
+    // ✅ Strict validation same as AuthScreen
+    if (!passCheck.isValid) {
+      setError('New password must be at least 8 characters and include a number or special character.');
       return;
     }
+    
     if (newPassword !== confirmPassword) {
       setError('New passwords do not match.');
       return;
@@ -144,7 +157,6 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-xs font-semibold text-slate-700">Current Password</label>
-              {/* Forgot Password Button */}
               <button
                 type="button"
                 onClick={handleForgotPassword}
@@ -174,11 +186,28 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Min 6 characters"
+                placeholder="Min 8 characters"
                 className="w-full h-11 pl-10 pr-4 rounded-xl bg-white border border-slate-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none text-sm text-slate-900 placeholder:text-slate-400"
               />
             </div>
           </div>
+
+          {/* ✅ Password Checklist — same as AuthScreen */}
+          {newPassword.length > 0 && (
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+              <p className="text-xs font-semibold text-slate-700 mb-1">Password must contain:</p>
+              <div className="grid grid-cols-1 gap-2 text-[11px]">
+                <div className={`flex items-center gap-1.5 ${passCheck.minLength ? 'text-emerald-600' : 'text-slate-500'}`}>
+                  <CheckCircle2 size={12} className={passCheck.minLength ? 'opacity-100' : 'opacity-40'} />
+                  At least 8 characters
+                </div>
+                <div className={`flex items-center gap-1.5 ${passCheck.hasNumberOrSpecial ? 'text-emerald-600' : 'text-slate-500'}`}>
+                  <CheckCircle2 size={12} className={passCheck.hasNumberOrSpecial ? 'opacity-100' : 'opacity-40'} />
+                  A number or special character (e.g. 1, @, #)
+                </div>
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1.5">Confirm New Password</label>
