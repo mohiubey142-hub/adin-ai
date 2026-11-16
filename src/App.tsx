@@ -1333,22 +1333,22 @@ function AppInner() {
               <Suspense fallback={<LoadingScreen />}><WorkspacePage onNavigate={handleWorkspaceNavigate} userId={userId} onEditDocument={handleEditDocument} onEditCoverLetter={handleEditCoverLetter} /></Suspense>
             </div>
           ) : currentPage === 'my-documents' ? (
-            <div className={`w-full h-screen flex flex-col overflow-hidden ${PAGE_CHROME['my-documents'].bg}`}>
+            <div className={`w-full h-screen flex flex-col overflow-hidden ${PAGE_CHROME['my-documents'].bg}`} style={{ height: '100dvh' }}>
               <AppTopBar title={PAGE_CHROME['my-documents'].title} subtitle={PAGE_CHROME['my-documents'].subtitle} onOpenSidebar={openSidebar} />
               <div className="flex-1 min-h-0 overflow-hidden"><Suspense fallback={<LoadingScreen />}><MyDocuments userId={userId} onCreateNew={handleCreateNewCV} onEditDocument={handleEditDocument} onCreateCoverLetter={handleCreateNewCoverLetter} onEditCoverLetter={handleEditCoverLetter} /></Suspense></div>
             </div>
           ) : currentPage === 'templates' ? (
-            <div className={`w-full h-screen flex flex-col overflow-hidden ${PAGE_CHROME['templates'].bg}`}>
+            <div className={`w-full h-screen flex flex-col overflow-hidden ${PAGE_CHROME['templates'].bg}`} style={{ height: '100dvh' }}>
               <AppTopBar title={PAGE_CHROME['templates'].title} subtitle={PAGE_CHROME['templates'].subtitle} onOpenSidebar={openSidebar} />
               <div className="flex-1 min-h-0 overflow-hidden"><Suspense fallback={<LoadingScreen />}><CVTemplatesPage onBackToHome={navigateBackFromTemplates} onTemplateSelect={handleTemplateSelect} /></Suspense></div>
             </div>
           ) : currentPage === 'cover-templates' ? (
-            <div className={`w-full h-screen flex flex-col overflow-hidden ${PAGE_CHROME['cover-templates'].bg}`}>
+            <div className={`w-full h-screen flex flex-col overflow-hidden ${PAGE_CHROME['cover-templates'].bg}`} style={{ height: '100dvh' }}>
               <AppTopBar title={PAGE_CHROME['cover-templates'].title} subtitle={PAGE_CHROME['cover-templates'].subtitle} onOpenSidebar={openSidebar} />
               <div className="flex-1 min-h-0 overflow-hidden"><Suspense fallback={<LoadingScreen />}><CoverTemplatesPage onBackToHome={navigateBackFromTemplates} onTemplateSelect={handleCoverTemplateSelect} /></Suspense></div>
             </div>
           ) : currentPage === 'app' ? (
-            <div className="w-screen h-screen flex flex-col overflow-hidden">
+            <div className="w-screen h-screen flex flex-col overflow-hidden" style={{ height: '100dvh' }}>
               <div className="flex-1 min-h-0">
                 {active === "CV Builder" ? (
                   <Suspense fallback={<LoadingScreen />}><CVBuilder userId={userId} onBackToHome={handleBackFromCVBuilder} onBackToDocuments={handleBackFromCVBuilder} initialTemplateId={selectedTemplateId || undefined} documentId={activeDocumentId || undefined} onDocumentCreated={(docId) => setActiveDocumentId(docId)} /></Suspense>
