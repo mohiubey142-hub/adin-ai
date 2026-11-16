@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import {
-  Trash2, Copy, Download, FileText, Eye, CheckCircle2, Sparkles, ChevronDown, MessageCircle, Maximize, Minimize, Image as ImageIcon, Pencil,
+  Trash2, Copy, Download, FileText, Eye, CheckCircle2, ChevronDown, MessageCircle, Maximize, Minimize, Image as ImageIcon, Pencil,
   Check, RefreshCw, Zap, Ban, // ✅ NEW: icons for the permanent CV autofill panel
 } from 'lucide-react';
 
@@ -344,7 +344,6 @@ const FETCH_TOAST_DURATION_MS = 3000;
 // ✅ NEW: premium CV panel styling — ek hi green signal ("Synced" pill), baaki sab neutral/subtle
 const CV_PANEL_BASE_CLASS = 'mb-4 rounded-2xl border bg-white transition-all duration-300';
 const CV_PANEL_IDLE_CLASS = 'border-slate-200 shadow-sm';
-const CV_PANEL_SYNCED_CLASS = 'border-emerald-200/70 shadow-md shadow-emerald-500/5 ring-1 ring-emerald-100';
 const CV_DETECTED_PILL_CLASS = 'inline-flex items-center rounded-full bg-slate-50 border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700';
 const CV_DETECTED_FADE_STAGGER_MS = 60;
 const CV_DETECTED_FADE_CLASS = 'cv-detected-fade';
@@ -822,7 +821,7 @@ const CoverLetter = ({
         const renderFetchToast = (toastId: string, onRestore?: () => void) => (
           <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-lg">
             <span className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center shrink-0">
-              <Sparkles size={15} className="text-purple-600" strokeWidth={2.2} />
+              <FileText size={15} className="text-purple-600" strokeWidth={2.2} />
             </span>
             <span className="text-sm text-slate-800">
               Details fetched from "{data.sourceTitle}"
@@ -1655,25 +1654,20 @@ const CoverLetter = ({
       }`;
 
     return (
-      <div className={`${CV_PANEL_BASE_CLASS} ${isSynced ? CV_PANEL_SYNCED_CLASS : CV_PANEL_IDLE_CLASS}`}>
+      <div className={`${CV_PANEL_BASE_CLASS} ${CV_PANEL_IDLE_CLASS}`}>
         <div className="p-4">
           {/* Header */}
           <div className="flex items-start gap-3">
             <div className="relative shrink-0">
               <div className="w-10 h-10 rounded-xl bg-purple-600 flex items-center justify-center">
-                <Sparkles size={18} className="text-white" strokeWidth={2.2} />
+                <FileText size={18} className="text-white" strokeWidth={2.2} />
               </div>
             </div>
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-sm font-semibold text-slate-900 tracking-tight">Smart CV Autofill</h3>
-                {isSynced ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    Synced
-                  </span>
-                ) : (
+                {!isSynced && (
                   <span className="inline-flex items-center rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
                     {cvList.length} {cvList.length === 1 ? 'CV' : 'CVs'} found
                   </span>
@@ -1956,6 +1950,7 @@ const CoverLetter = ({
         <div
           ref={containerRef}
           className="h-screen flex flex-col bg-slate-100 main-scroll smooth-scroll overflow-hidden"
+          style={{ height: '100dvh' }}
         >
           {/* ✅ Single global toaster lives in App.tsx (AdinToaster). A second one here made every toast show twice. */}
 
@@ -2154,6 +2149,7 @@ const CoverLetter = ({
       <div
         ref={containerRef}
         className="h-screen flex flex-col bg-slate-100 smooth-scroll overflow-hidden"
+        style={{ height: '100dvh' }}
       >
         {/* ✅ Single global toaster lives in App.tsx (AdinToaster). A second one here made every toast show twice. */}
         <CoverLetterHero

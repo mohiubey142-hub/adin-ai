@@ -1099,7 +1099,7 @@ function AppInner() {
         if (pathRoute.page === 'blog-post') setActiveBlogSlug(getBlogSlugFromPath());
         setCurrentPage(pathRoute.page); setActive(pathRoute.active);
         if (pathRoute.page === 'login' || pathRoute.page === 'signup') setShowLanding(false);
-        if (pathRoute.page === 'workspace' && !isOnboardingCompleteRef.current) setShowLanding(true);
+        if (pathRoute.page === 'workspace' && !isOnboardingCompleteRef.current && safeGetItem('adin-onboarding-completed') !== 'true') setShowLanding(true);
         return;
       }
       let hash = window.location.hash.slice(1);
@@ -1117,13 +1117,28 @@ function AppInner() {
         const path = window.location.pathname.replace(/\/$/, '') || '/';
         if (path === '/') {
           setCurrentPage('workspace'); setActive('AI Chat');
-          if (!isOnboardingCompleteRef.current) setShowLanding(true);
+          if (!isOnboardingCompleteRef.current && safeGetItem('adin-onboarding-completed') !== 'true') setShowLanding(true);
         }
       }
     };
     window.addEventListener("popstate", handleRouteChange);
     window.addEventListener("hashchange", handleRouteChange);
     return () => { window.removeEventListener("popstate", handleRouteChange); window.removeEventListener("hashchange", handleRouteChange); };
+  }, []);
+
+  // URL me bachi khali '#' (Supabase login ke baad token-hash hatane se) saaf karo: /#  →  /
+  useEffect(() => {
+    const stripEmptyHash = () => {
+      try {
+        if (window.location.hash === '' && window.location.href.endsWith('#')) {
+          window.history.replaceState(window.history.state ?? {}, '', window.location.pathname + window.location.search);
+        }
+      } catch { /* ignore */ }
+    };
+    stripEmptyHash();
+    const t = window.setTimeout(stripEmptyHash, 800);
+    window.addEventListener('hashchange', stripEmptyHash);
+    return () => { window.clearTimeout(t); window.removeEventListener('hashchange', stripEmptyHash); };
   }, []);
 
   useEffect(() => {

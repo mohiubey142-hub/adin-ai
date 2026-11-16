@@ -7,8 +7,7 @@
 import { useEffect, useState } from "react";
 import { cameFromApp, markLandingIntent } from "../utils/inAppNav";
 import {
-  ArrowLeft, Mail, MapPin, MessageSquare, Send, User, Clock,
-  Shield, FileText, ExternalLink,
+  ArrowLeft, Mail, MapPin, Send, Clock, ExternalLink,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { supabase } from "../services/sync/supabaseClient";
@@ -96,7 +95,7 @@ export default function Contact({ onBack }: ContactProps) {
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 text-slate-900">
+      <div className="min-h-screen flex flex-col bg-white text-slate-900">
         <header className={`sticky top-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/85 backdrop-blur-xl border-b border-slate-200 shadow-sm' : 'bg-transparent border-b border-transparent'}`}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
           {showBack ? (
@@ -136,87 +135,62 @@ export default function Contact({ onBack }: ContactProps) {
         </div>
         </header>
 
-        <main className="max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
-          <div className="text-center mb-10 sm:mb-14">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 border border-purple-200 text-purple-700 text-xs font-semibold mb-4">
-              <MessageSquare size={12} />
-              Get in Touch
-            </div>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-slate-900">
-              Contact{' '}
-              <span className="bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-                Us
-              </span>
+        <main className="flex-1 w-full max-w-5xl mx-auto px-4 sm:px-6 pt-10 sm:pt-16 pb-24 sm:pb-28">
+          <div className="max-w-2xl mb-10 sm:mb-14">
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">
+              Contact us
             </h1>
-            <p className="text-sm sm:text-base text-slate-500 mt-3 max-w-2xl mx-auto">
-              Have questions or feedback? We'd love to hear from you. Reach out anytime — we aim to respond within 24-48 hours.
+            <p className="text-sm sm:text-base text-slate-500 mt-3 leading-relaxed">
+              Have a question or feedback? Send us a message and we'll get back to you within 24-48 hours.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-6">
-            <section className="rounded-2xl bg-white border border-slate-200 shadow-sm p-6 sm:p-7">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center shadow-sm">
-                  <Send size={16} className="text-white" />
-                </div>
-                <h2 className="text-base sm:text-lg font-bold text-slate-900">
-                  Send a Message
-                </h2>
-              </div>
-
-              <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid md:grid-cols-5 gap-10 md:gap-14">
+            <section className="md:col-span-3">
+              <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-800 mb-1.5">
-                    Your Name <span className="text-red-500">*</span>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                    Your name
                   </label>
-                  <div className="relative">
-                    <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                    <input
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Your full name"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:border-purple-400 focus:bg-white focus:ring-2 focus:ring-purple-500/20 outline-none transition-all duration-200 text-sm"
-                    />
-                  </div>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Your full name"
+                    className="w-full px-3.5 py-2.5 rounded-lg bg-white border border-slate-300 text-slate-900 placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none transition-colors text-sm"
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-800 mb-1.5">
-                    Email Address <span className="text-red-500">*</span>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                    Email address
                   </label>
-                  <div className="relative">
-                    <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="you@example.com"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:border-purple-400 focus:bg-white focus:ring-2 focus:ring-purple-500/20 outline-none transition-all duration-200 text-sm"
-                    />
-                  </div>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="w-full px-3.5 py-2.5 rounded-lg bg-white border border-slate-300 text-slate-900 placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none transition-colors text-sm"
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-800 mb-1.5">
-                    Message <span className="text-red-500">*</span>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                    Message
                   </label>
-                  <div className="relative">
-                    <MessageSquare size={16} className="absolute left-3.5 top-3 text-slate-400 pointer-events-none" />
-                    <textarea
-                      value={message}
-                      onChange={(e) => setMessage(e.target.value)}
-                      placeholder="How can we help you?"
-                      rows={5}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:border-purple-400 focus:bg-white focus:ring-2 focus:ring-purple-500/20 outline-none transition-all duration-200 text-sm resize-none"
-                    />
-                  </div>
+                  <textarea
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder="How can we help you?"
+                    rows={6}
+                    className="w-full px-3.5 py-2.5 rounded-lg bg-white border border-slate-300 text-slate-900 placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none transition-colors text-sm resize-none"
+                  />
                 </div>
 
                 <button
                   type="submit"
                   disabled={sending}
-                  className="w-full px-6 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 text-white text-sm font-semibold flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] shadow-md shadow-purple-600/20 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {sending ? (
                     <>
@@ -225,7 +199,7 @@ export default function Contact({ onBack }: ContactProps) {
                     </>
                   ) : (
                     <>
-                      Send Message
+                      Send message
                       <Send size={15} />
                     </>
                   )}
@@ -233,92 +207,60 @@ export default function Contact({ onBack }: ContactProps) {
               </form>
             </section>
 
-            <div className="space-y-5">
-              <section className="rounded-2xl bg-white border border-slate-200 shadow-sm p-6 sm:p-7">
-                <div className="flex items-center gap-3 mb-5">
-                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center shadow-sm">
-                    <MapPin size={16} className="text-white" />
-                  </div>
-                  <h2 className="text-base sm:text-lg font-bold text-slate-900">
-                    Where We Are
-                  </h2>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
-                    <MapPin size={17} className="text-blue-600" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">
-                      Location
-                    </p>
-                    <p className="text-sm text-slate-900 font-medium">
-                      Pakistan
-                    </p>
-                  </div>
-                </div>
-              </section>
-
-              <section className="rounded-2xl border border-purple-200 bg-gradient-to-br from-purple-50/60 via-white to-blue-50/40 shadow-sm p-6">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center shadow-sm">
-                    <Clock size={16} className="text-white" />
-                  </div>
-                  <h2 className="text-base sm:text-lg font-bold text-slate-900">
-                    Response Time
-                  </h2>
-                </div>
-                <p className="text-sm text-slate-600 leading-relaxed">
-                  We aim to respond within <strong className="text-slate-800">24-48 hours</strong>. Use the form on the left to reach us — we read every message personally.
-                </p>
-              </section>
-
-              <section className="rounded-2xl bg-white border border-slate-200 shadow-sm p-6">
-                <h2 className="text-sm font-bold text-slate-900 mb-3">
-                  Before You Ask
+            <aside className="md:col-span-2 space-y-8 md:pl-10 md:border-l md:border-slate-200">
+              <div>
+                <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900 mb-1.5">
+                  <MapPin size={15} className="text-slate-400" />
+                  Location
                 </h2>
-                <p className="text-xs text-slate-600 leading-relaxed mb-4">
-                  Many common questions are answered in our legal pages. Check them first for faster answers.
-                </p>
+                <p className="text-sm text-slate-600">Pakistan</p>
+              </div>
 
-                <div className="space-y-2">
+              <div>
+                <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900 mb-1.5">
+                  <Clock size={15} className="text-slate-400" />
+                  Response time
+                </h2>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  We usually reply within 24-48 hours. We read every message personally.
+                </p>
+              </div>
+
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900 mb-2">
+                  Before you ask
+                </h2>
+                <p className="text-sm text-slate-600 leading-relaxed mb-3">
+                  Many common questions are answered in our legal pages.
+                </p>
+                <div className="space-y-1.5">
                   <button
                     type="button"
                     onClick={openPrivacy}
-                    className="w-full group inline-flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-slate-50 hover:bg-purple-50 border border-slate-200 hover:border-purple-200 text-left transition-all duration-200"
+                    className="group inline-flex items-center gap-1.5 text-sm font-medium text-purple-600 hover:text-purple-700 transition-colors"
                   >
-                    <div className="w-8 h-8 rounded-lg bg-purple-100 group-hover:bg-purple-200 flex items-center justify-center flex-shrink-0 transition-colors">
-                      <Shield size={14} className="text-purple-600" />
-                    </div>
-                    <span className="flex-1 text-xs sm:text-sm font-semibold text-slate-800 group-hover:text-purple-700 transition-colors">
-                      Privacy Policy
-                    </span>
-                    <ExternalLink size={13} className="text-slate-400 group-hover:text-purple-500 flex-shrink-0 transition-colors" />
+                    Privacy Policy
+                    <ExternalLink size={13} className="opacity-70 group-hover:opacity-100" />
                   </button>
-
+                  <br />
                   <button
                     type="button"
                     onClick={openTerms}
-                    className="w-full group inline-flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 text-left transition-all duration-200"
+                    className="group inline-flex items-center gap-1.5 text-sm font-medium text-purple-600 hover:text-purple-700 transition-colors"
                   >
-                    <div className="w-8 h-8 rounded-lg bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center flex-shrink-0 transition-colors">
-                      <FileText size={14} className="text-blue-600" />
-                    </div>
-                    <span className="flex-1 text-xs sm:text-sm font-semibold text-slate-800 group-hover:text-blue-700 transition-colors">
-                      Terms of Service
-                    </span>
-                    <ExternalLink size={13} className="text-slate-400 group-hover:text-blue-500 flex-shrink-0 transition-colors" />
+                    Terms of Service
+                    <ExternalLink size={13} className="opacity-70 group-hover:opacity-100" />
                   </button>
                 </div>
-              </section>
-            </div>
+              </div>
+            </aside>
           </div>
         </main>
 
-        <footer className="border-t border-slate-200 bg-white/70 backdrop-blur-sm mt-10">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 text-center">
+        <footer className="fixed bottom-0 inset-x-0 z-40 border-t border-slate-200 bg-white">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-5 text-center">
             <p className="text-xs text-slate-500">
-              © {new Date().getFullYear()} Adin AI — Contact Us
+              © {new Date().getFullYear()} Adin AI. All rights reserved.
             </p>
           </div>
         </footer>
