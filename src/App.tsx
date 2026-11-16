@@ -125,6 +125,15 @@ const safeRemoveItem = (key: string): void => {
 // aur ProfilePage / GlobalSidebar ko Supabase se baar baar fetch na karna pade (429 rate limit)
 const AVATAR_URL_STORAGE_KEY = 'adin-avatar-url';
 
+// Purane ID+PIN system ke users ("ADN-XXXX") — naya Supabase login zaroori hai
+const GUEST_SESSION_STORAGE_KEY = 'adin-guest-session';
+const LEGACY_USER_ID_PREFIX = 'ADN-';
+const LEGACY_USER_ID_BACKUP_KEY = 'adin-legacy-user-id';   // purani ID yaad rakhte hain (documents baad mein migrate ho sakte hain)
+const LEGACY_UPGRADE_TOAST_ID = 'adin-legacy-upgrade';
+const LEGACY_UPGRADE_TOAST_DURATION_MS = 10 * 1000;
+const LEGACY_UPGRADE_MESSAGE = 'We upgraded to secure accounts. Please sign in to keep your documents synced.';
+const isLegacyUserId = (id: string): boolean => id.startsWith(LEGACY_USER_ID_PREFIX);
+
 // ============================================
 // Cloud sync / auth constants (no magic values)
 // ============================================
@@ -476,9 +485,7 @@ function AppInner() {
   const { isOpen: isSidebarOpen, open: openSidebar, close: closeSidebar } = useSidebar();
 
   const [isGuest, setIsGuest] = useState<boolean>(() => {
-    const guestSession = safeGetItem("adin-guest-session");
-    const savedName = safeGetItem("adin_user_name");
-    return !!(guestSession || savedName);
+    return !!safeGetItem(GUEST_SESSION_STORAGE_KEY);   // naam hone ka matlab guest nahi — asli account bhi naam rakhta hai
   });
 
   const [isOnboardingComplete, setIsOnboardingComplete] = useState<boolean>(() => {
@@ -564,13 +571,13 @@ function AppInner() {
       if (avatar) safeSetItem(AVATAR_URL_STORAGE_KEY, avatar);
       else safeRemoveItem(AVATAR_URL_STORAGE_KEY);   // email/password user: purane account ki DP na dikhe
       setGlobalAvatarUrl(avatar || null);
-      if (!safeGetItem("adin-guest-session")) safeSetItem("adin-guest-session", JSON.stringify({ isGuest: true, guestCreatedAt: new Date().toISOString() }));
+      safeRemoveItem(GUEST_SESSION_STORAGE_KEY);   // asli account hai, guest nahi (purana flag bhi saaf)
       safeSetItem("adin-onboarding-completed", "true");
       safeRemoveItem("adin-just-signed-out"); 
       setAuthUserId(user.id);
       setUserEmail(user.email || '');
       setUserName(name);
-      setIsGuest(true);
+      setIsGuest(false);
       setIsOnboardingComplete(true);
       if (!wasComplete) setShowLanding(false); 
     };
@@ -581,6 +588,23 @@ function AppInner() {
       setAuthUserId(prev => (clearUserId ? '' : prev));
       setUserEmail('');
       setIsOnboardingComplete(false);
+    };
+
+    // Purane ID+PIN user: Supabase session kabhi thi hi nahi → "recover" ka koi faida nahi.
+    // Seedha saaf message + login page, aur purani ID yaad rakho (documents local mein safe rehte hain).
+    const handleLegacySessionUpgrade = (legacyId: string) => {
+      safeSetItem(LEGACY_USER_ID_BACKUP_KEY, legacyId);
+      safeRemoveItem(GUEST_SESSION_STORAGE_KEY);
+      safeRemoveItem("adin_user_name");
+      applySignedOut(true);
+      setUserName('User');
+      setIsGuest(false);
+      safeSetItem('adin-has-seen-landing', 'true');
+      setShowLanding(false);
+      setCurrentPage('login');
+      setActive('Sign In');
+      navigateToPath('/login', true);
+      toast(LEGACY_UPGRADE_MESSAGE, { id: LEGACY_UPGRADE_TOAST_ID, duration: LEGACY_UPGRADE_TOAST_DURATION_MS });
     };
 
     // ✅ Unexpected SIGNED_OUT (429 / refresh race) → pehle session wapas lane ki koshish, phir saaf message.
@@ -676,8 +700,14 @@ function AppInner() {
               isManualLogoutRef.current = false;
               applySignedOut(false);
             } else {
-              console.warn('[App] Deferred INITIAL_SESSION had no session, but logout was not manual.');
-              void recoverAfterUnexpectedSignOut();
+              const storedUserId = safeGetItem("adin-user-id") || '';
+              if (isLegacyUserId(storedUserId)) {
+                console.warn('[App] Legacy (ID+PIN) session found without Supabase login — asking user to sign in.');
+                handleLegacySessionUpgrade(storedUserId);
+              } else {
+                console.warn('[App] Deferred INITIAL_SESSION had no session, but logout was not manual.');
+                void recoverAfterUnexpectedSignOut();
+              }
             }
             setIsAuthResolving(false);
           }, NULL_SESSION_GRACE_MS);
@@ -826,9 +856,9 @@ function AppInner() {
   const handleOnboardingComplete = async (profile: { name: string; userId: string }) => {
     safeSetItem("adin_user_name", profile.name);
     safeSetItem("adin-user-id", profile.userId);
-    safeSetItem("adin-guest-session", JSON.stringify({ isGuest: true, guestCreatedAt: new Date().toISOString() }));
+    safeRemoveItem(GUEST_SESSION_STORAGE_KEY);   // Onboarding sirf Supabase login ke baad chalta hai — asli account, guest nahi
     safeSetItem("adin-onboarding-completed", "true");
-    setIsGuest(true);
+    setIsGuest(false);
     setIsOnboardingComplete(true);
     setUserName(profile.name);
   };
