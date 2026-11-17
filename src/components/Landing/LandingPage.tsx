@@ -29,6 +29,7 @@
 //             "End-to-end encrypted", "Encrypted · No Tracking" (Google Analytics
 //             is used), "Encrypted Cloud Sync", "All Premium Features" (no tiers),
 //             "engineered to pass ATS" (no guarantee).
+// ✅ UPDATED (Nov 2026): Removed the Testimonials (feedback) section and its import.
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import {
@@ -37,7 +38,6 @@ import {
   FileDown, Lock, ChevronRight, ChevronDown, Cpu, User,
 } from 'lucide-react';
 import InstallAppCompact from '../InstallAppCompact';
-import Testimonials from './Testimonials';
 
 // ============================================================
 // TEMPLATE DATA
@@ -809,8 +809,6 @@ export default function LandingPage({
           ))}
         </div>
       </section>
-
-      <Testimonials />
 
       {/* STATS */}
       <section className="relative z-10 bg-white/60 backdrop-blur-sm border-y border-slate-200">
