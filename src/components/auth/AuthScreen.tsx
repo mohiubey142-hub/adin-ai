@@ -22,6 +22,15 @@ interface AuthScreenProps {
 
 type Mode = 'signin' | 'signup';
 
+// Terms / Privacy ka version — policy badalne par yahan date update karein
+const TERMS_VERSION = '2026-11';
+const TERMS_STORAGE_KEY = 'adin-terms-accepted';
+
+const LEGAL_LINK_CLASS = 'font-medium text-purple-600 hover:text-purple-700 hover:underline';
+const TermsLink = ({ href, children }: { href: string; children: React.ReactNode }) => (
+  <a href={href} target="_blank" rel="noopener noreferrer" className={LEGAL_LINK_CLASS}>{children}</a>
+);
+
 // ✅ Kickresume-style Password Validation (8+ chars, must have number or special char)
 const validatePassword = (pass: string) => {
   const minLength = pass.length >= 8;
@@ -92,9 +101,17 @@ export const AuthScreen = ({ onSuccess, onBack, mode: modeProp, onModeChange, in
     window.location.assign('/');
   };
 
+  // Agree karne ka record: date + version (browser mein). Email signup par account metadata mein bhi (best-effort).
+  const recordTermsAcceptance = () => {
+    try {
+      window.localStorage.setItem(TERMS_STORAGE_KEY, JSON.stringify({ version: TERMS_VERSION, at: new Date().toISOString() }));
+    } catch { /* ignore */ }
+  };
+
   const handleGoogleLogin = async () => {
     try {
       setError('');
+      if (mode === 'signup') recordTermsAcceptance();   // Google signup: neeche wala notice = sign-in-wrap agreement
       setGoogleLoading(true);
       let justSignedOut = false;
       try { justSignedOut = window.localStorage.getItem('adin-just-signed-out') === '1'; } catch { /* ignore */ }
@@ -173,6 +190,13 @@ export const AuthScreen = ({ onSuccess, onBack, mode: modeProp, onModeChange, in
         setError(res.message || 'Authentication failed.');
         setLoading(false);
         return;
+      }
+      if (mode === 'signup') {
+        recordTermsAcceptance();
+        // Best-effort: session na ho (email confirmation) to chupchap skip
+        void supabase.auth
+          .updateUser({ data: { terms_accepted_at: new Date().toISOString(), terms_version: TERMS_VERSION } })
+          .catch(() => { /* ignore */ });
       }
       onSuccess();
     } catch {
@@ -374,6 +398,14 @@ export const AuthScreen = ({ onSuccess, onBack, mode: modeProp, onModeChange, in
               )}
             </button>
           </form>
+
+          {/* Sign-in-wrap notice: Google button + email button dono ko cover karta ha (signup + login) */}
+          <p className="text-center mt-5 text-xs leading-relaxed text-slate-500">
+            By clicking <span className="font-medium text-slate-600">Continue with Google</span> or{' '}
+            <span className="font-medium text-slate-600">{mode === 'signup' ? 'Create Account' : 'Sign In'}</span>, you agree to our{' '}
+            <TermsLink href="/terms-of-service">Terms of Service</TermsLink> and{' '}
+            <TermsLink href="/privacy-policy">Privacy Policy</TermsLink>.
+          </p>
 
           {/* Toggle Mode */}
           <div className="text-center mt-6 text-sm text-slate-500">

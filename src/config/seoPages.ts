@@ -247,6 +247,25 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
     noIndex: true,
     noFollow: true,
   },
+  // ══════════════════════════════════════════════
+  // LOGIN / SIGN UP (public, indexable — people search "adin ai login" / "adin ai sign up")
+  // ══════════════════════════════════════════════
+  login: {
+    title: 'Log in to Adin AI — Free CV Builder & Cover Letter Generator',
+    description:
+      'Log in to your Adin AI account to continue building ATS-friendly CVs and AI cover letters. New here? Create a free account in seconds.',
+    keywords: 'adin ai login, adin ai sign in, adin ai account',
+    canonicalUrl: canonicalFor('/login'),
+    ...DEFAULTS,
+  },
+  signup: {
+    title: 'Sign Up Free — Adin AI CV Builder & Cover Letter Generator',
+    description:
+      'Create your free Adin AI account. Build professional, ATS-friendly CVs and generate tailored cover letters with AI. No credit card needed.',
+    keywords: 'adin ai sign up, create adin ai account, free cv builder account',
+    canonicalUrl: canonicalFor('/signup'),
+    ...DEFAULTS,
+  },
   profile: {
     title: 'Profile',
     description: 'Your Adin AI profile.',
@@ -340,6 +359,8 @@ export const SITEMAP_PAGES = [
   { path: '/privacy-policy',  priority: '0.40', changefreq: 'monthly' },
   { path: '/terms-of-service',priority: '0.40', changefreq: 'monthly' },
   { path: '/contact',         priority: '0.60', changefreq: 'monthly' },
+  { path: '/login',           priority: '0.50', changefreq: 'monthly' },
+  { path: '/signup',          priority: '0.60', changefreq: 'monthly' },
 ] as const;
 
 // ─────────────────────────────────────────────
