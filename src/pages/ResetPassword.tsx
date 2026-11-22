@@ -4,6 +4,17 @@ import { supabase } from '../services/sync/supabaseClient';
 import { Lock, Loader2, CheckCircle2, AlertCircle, ArrowRight, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+// ✅ Same validation as AuthScreen
+const validatePassword = (pass: string) => {
+  const minLength = pass.length >= 8;
+  const hasNumberOrSpecial = /[0-9!@#$%^&*(),.?":{}|<>]/.test(pass);
+  return {
+    minLength,
+    hasNumberOrSpecial,
+    isValid: minLength && hasNumberOrSpecial,
+  };
+};
+
 export default function ResetPassword() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -13,8 +24,9 @@ export default function ResetPassword() {
   const [isValidSession, setIsValidSession] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
 
+  const passCheck = validatePassword(password);
+
   useEffect(() => {
-    // Supabase automatically parses the hash in the URL and creates a temporary session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         setIsValidSession(true);
@@ -24,7 +36,6 @@ export default function ResetPassword() {
       setCheckingSession(false);
     });
 
-    // Listen for auth state changes (in case the session loads slightly later)
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY' || session) {
         setIsValidSession(true);
@@ -42,8 +53,8 @@ export default function ResetPassword() {
     if (loading) return;
     setError('');
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
+    if (!passCheck.isValid) {
+      setError('Password must be at least 8 characters and include a number or special character.');
       return;
     }
     if (password !== confirmPassword) {
@@ -63,7 +74,6 @@ export default function ResetPassword() {
       setSuccess(true);
       toast.success('Password updated successfully!');
       
-      // Auto redirect after 3 seconds
       setTimeout(() => {
         window.location.href = '/';
       }, 3000);
@@ -157,11 +167,28 @@ export default function ResetPassword() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Min 6 characters"
+                placeholder="Min 8 characters"
                 className="w-full h-11 pl-10 pr-4 rounded-xl bg-white border border-slate-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none text-sm text-slate-900 placeholder:text-slate-400"
               />
             </div>
           </div>
+
+          {/* ✅ Password Checklist — same as AuthScreen */}
+          {password.length > 0 && (
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+              <p className="text-xs font-semibold text-slate-700 mb-1">Password must contain:</p>
+              <div className="grid grid-cols-1 gap-2 text-[11px]">
+                <div className={`flex items-center gap-1.5 ${passCheck.minLength ? 'text-emerald-600' : 'text-slate-500'}`}>
+                  <CheckCircle2 size={12} className={passCheck.minLength ? 'opacity-100' : 'opacity-40'} />
+                  At least 8 characters
+                </div>
+                <div className={`flex items-center gap-1.5 ${passCheck.hasNumberOrSpecial ? 'text-emerald-600' : 'text-slate-500'}`}>
+                  <CheckCircle2 size={12} className={passCheck.hasNumberOrSpecial ? 'opacity-100' : 'opacity-40'} />
+                  A number or special character (e.g. 1, @, #)
+                </div>
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1.5">Confirm New Password</label>
