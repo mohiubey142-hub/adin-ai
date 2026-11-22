@@ -96,6 +96,11 @@ export default function AboutLinksSection() {
         </div>
 
         <div className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
+          <a href="/features" className="font-medium text-slate-600 hover:text-purple-700 transition-colors">Features</a>
+          <a href="/pk/cv-format" className="font-medium text-slate-600 hover:text-purple-700 transition-colors">CV Format in Pakistan</a>
+          <a href="/pk/cv-for-fresh-graduates" className="font-medium text-slate-600 hover:text-purple-700 transition-colors">CV for Fresh Graduates</a>
+          <a href="/pk/job-application-letter" className="font-medium text-slate-600 hover:text-purple-700 transition-colors">Job Application Letter</a>
+          <a href="/pk/cover-letter-for-freshers" className="font-medium text-slate-600 hover:text-purple-700 transition-colors">Cover Letter for Freshers</a>
           <a href="/contact" className="font-medium text-slate-600 hover:text-purple-700 transition-colors">Contact</a>
           <a href="/privacy-policy" className="font-medium text-slate-600 hover:text-purple-700 transition-colors">Privacy Policy</a>
           <a href="/terms-of-service" className="font-medium text-slate-600 hover:text-purple-700 transition-colors">Terms of Service</a>

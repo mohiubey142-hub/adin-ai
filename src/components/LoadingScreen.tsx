@@ -27,7 +27,7 @@ const LOOP_MS = 4400; // ek loop = 2 pass (ek upar se, ek neeche se)
 
 const CSS = `
 .adin-ls-line { fill: none; stroke: url(#adin-ls-grad); stroke-width: 20; stroke-linejoin: round; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 1; opacity: 0; }
-.adin-ls-mask { fill: none; stroke: #fff; stroke-width: 120; stroke-linejoin: round; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 1; opacity: 0; }
+.adin-ls-mask { fill: none; stroke: #fff; stroke-width: 150; stroke-linejoin: round; stroke-linecap: butt; stroke-dasharray: 1; stroke-dashoffset: 1; opacity: 0; }
 .adin-ls-text { clip-path: inset(0 100% 0 0); }
 `;
 

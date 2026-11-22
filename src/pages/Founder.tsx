@@ -103,12 +103,13 @@ export default function Founder({ onBack }: FounderProps) {
         {/* Crawlable footer links — real <a href> so Google can discover these pages from /founder */}
         <footer className="border-t border-slate-200 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
-            <nav aria-label="Footer" className="grid grid-cols-2 sm:grid-cols-4 gap-8 text-sm">
+            <nav aria-label="Footer" className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-8 text-sm">
               <div>
                 <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wide mb-3">Free Tools</h4>
                 <ul className="space-y-2 text-slate-600">
                   <li><a href="/free-cv-builder" className="hover:text-purple-700 transition-colors">Free CV Builder</a></li>
                   <li><a href="/free-cover-letter-generator" className="hover:text-purple-700 transition-colors">Free Cover Letter Generator</a></li>
+                  <li><a href="/features" className="hover:text-purple-700 transition-colors">Features</a></li>
                 </ul>
               </div>
               <div>
@@ -116,6 +117,15 @@ export default function Founder({ onBack }: FounderProps) {
                 <ul className="space-y-2 text-slate-600">
                   <li><a href="/templates" className="hover:text-purple-700 transition-colors">CV Templates</a></li>
                   <li><a href="/cover-templates" className="hover:text-purple-700 transition-colors">Cover Letter Templates</a></li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wide mb-3">Pakistan Guides</h4>
+                <ul className="space-y-2 text-slate-600">
+                  <li><a href="/pk/cv-format" className="hover:text-purple-700 transition-colors">CV Format in Pakistan</a></li>
+                  <li><a href="/pk/cv-for-fresh-graduates" className="hover:text-purple-700 transition-colors">CV for Fresh Graduates</a></li>
+                  <li><a href="/pk/job-application-letter" className="hover:text-purple-700 transition-colors">Job Application Letter</a></li>
+                  <li><a href="/pk/cover-letter-for-freshers" className="hover:text-purple-700 transition-colors">Cover Letter for Freshers</a></li>
                 </ul>
               </div>
               <div>
