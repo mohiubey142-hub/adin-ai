@@ -876,8 +876,9 @@ export default function LandingPage({
       {/* FOOTER */}
       <footer className="relative z-10 border-t border-slate-200 bg-white/70 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-12">
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-8">
-            <div className="col-span-2 md:col-span-2">
+          {/* 5 chhote, balanced columns (har column me 2-5 links) — pehle "Resources" bohat lamba tha */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-[1.5fr_repeat(5,minmax(0,1fr))] gap-x-6 gap-y-8 lg:gap-8">
+            <div className="col-span-2 sm:col-span-3 lg:col-span-1">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-white shadow-md shadow-purple-900/10 border border-slate-200 flex items-center justify-center overflow-hidden">
                   <img src="/icon-1024x1024.png" alt="Adin AI" className="w-full h-full object-contain" />
@@ -894,30 +895,36 @@ export default function LandingPage({
               <InstallAppCompact variant="footer" />
             </div>
 
-            <FooterColumn title="Resources">
-              <FooterLink onClick={() => scrollToSection('features')}>Features</FooterLink>
-              <FooterLink onClick={() => scrollToSection('templates')}>Templates</FooterLink>
+            <FooterColumn title="Product">
+              <FooterLink onClick={handleNavCV}>CV Builder</FooterLink>
+              <FooterLink onClick={handleNavCover}>Cover Letter</FooterLink>
+              <FooterLink href="/templates" onClick={handleNavCVTemplates}>CV Templates</FooterLink>
+              <FooterLink href="/cover-templates" onClick={handleNavCoverTemplates}>Cover Templates</FooterLink>
+              <FooterLink href="/features">Features</FooterLink>
+            </FooterColumn>
+
+            <FooterColumn title="Get Started">
+              {/* Real links; if the App does not pass a handler, the browser just follows the href */}
+              <FooterLink href="/free-cv-builder" onClick={onOpenFreeCVBuilder ? handleNavFreeCV : undefined}>Free CV Builder</FooterLink>
+              <FooterLink href="/free-cover-letter-generator" onClick={onOpenFreeCoverLetter ? handleNavFreeCoverLetter : undefined}>Free Cover Letter Generator</FooterLink>
               {isLoggedIn
                 ? <FooterLink onClick={handleOpenApp}>Open App</FooterLink>
                 : <>
                     <FooterLink onClick={handleSignup}>Sign Up</FooterLink>
                     <FooterLink onClick={handleLogin}>Log In</FooterLink>
                   </>}
-              <FooterLink href="/blog" onClick={handleNavBlog}>Blog</FooterLink>
-              {/* Real links; if the App does not pass a handler, the browser just follows the href */}
-              <FooterLink href="/free-cv-builder" onClick={onOpenFreeCVBuilder ? handleNavFreeCV : undefined}>Free CV Builder</FooterLink>
-              <FooterLink href="/free-cover-letter-generator" onClick={onOpenFreeCoverLetter ? handleNavFreeCoverLetter : undefined}>Free Cover Letter Generator</FooterLink>
             </FooterColumn>
 
-            <FooterColumn title="Product">
-              <FooterLink onClick={handleNavCV}>CV Builder</FooterLink>
-              <FooterLink onClick={handleNavCover}>Cover Letter</FooterLink>
-              <FooterLink href="/templates" onClick={handleNavCVTemplates}>CV Templates</FooterLink>
-              <FooterLink href="/cover-templates" onClick={handleNavCoverTemplates}>Cover Templates</FooterLink>
+            <FooterColumn title="Pakistan Guides">
+              <FooterLink href="/pk/cv-format">CV Format in Pakistan</FooterLink>
+              <FooterLink href="/pk/cv-for-fresh-graduates">CV for Fresh Graduates</FooterLink>
+              <FooterLink href="/pk/job-application-letter">Job Application Letter</FooterLink>
+              <FooterLink href="/pk/cover-letter-for-freshers">Cover Letter for Freshers</FooterLink>
             </FooterColumn>
 
             <FooterColumn title="Company">
               <FooterLink href="/founder" onClick={handleNavFounder}>About Us</FooterLink>
+              <FooterLink href="/blog" onClick={handleNavBlog}>Blog</FooterLink>
               <FooterLink href="/contact" onClick={handleNavContact}>Contact Us</FooterLink>
             </FooterColumn>
 
@@ -950,6 +957,11 @@ export default function LandingPage({
         <a href="/contact" tabIndex={-1}>Contact</a>
         <a href="/privacy-policy" tabIndex={-1}>Privacy Policy</a>
         <a href="/terms-of-service" tabIndex={-1}>Terms of Service</a>
+        <a href="/features" tabIndex={-1}>Adin AI Features</a>
+        <a href="/pk/cv-format" tabIndex={-1}>CV Format in Pakistan</a>
+        <a href="/pk/cv-for-fresh-graduates" tabIndex={-1}>CV for Fresh Graduates in Pakistan</a>
+        <a href="/pk/job-application-letter" tabIndex={-1}>Job Application Letter Format</a>
+        <a href="/pk/cover-letter-for-freshers" tabIndex={-1}>Cover Letter for Freshers</a>
       </nav>
 
       {/* STYLES */}

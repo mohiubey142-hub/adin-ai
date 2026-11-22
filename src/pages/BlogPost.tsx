@@ -100,7 +100,7 @@ export default function BlogPost({ slug, onBackToBlog, onBuildCV, onWriteCoverLe
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
       <SEOHead
-        title={`${article.title} | Adin AI Blog`}
+        title={article.seoTitle ?? `${article.title} | Adin AI Blog`}
         description={article.excerpt}
         canonicalUrl={canonicalFor(`/blog/${article.slug}`)}
         ogType="article"
@@ -165,7 +165,18 @@ export default function BlogPost({ slug, onBackToBlog, onBuildCV, onWriteCoverLe
                 ul: ({node, ...props}) => <ul className="list-disc pl-6 mb-4 space-y-2 text-slate-700" {...props} />,
                 ol: ({node, ...props}) => <ol className="list-decimal pl-6 mb-4 space-y-2 text-slate-700" {...props} />,
                 li: ({node, ...props}) => <li className="text-[15px]" {...props} />,
-                em: ({node, ...props}) => <em className="italic text-slate-600" {...props} />
+                em: ({node, ...props}) => <em className="italic text-slate-600" {...props} />,
+                a: ({node, href, ...props}) => {
+                  const isExternal = !!href && /^https?:\/\//.test(href);
+                  return (
+                    <a
+                      href={href}
+                      className="font-medium text-purple-600 underline underline-offset-2 hover:text-purple-700"
+                      {...(isExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                      {...props}
+                    />
+                  );
+                }
               }}
             >
               {article.content}

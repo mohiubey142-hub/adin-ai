@@ -80,9 +80,9 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
   // TEMPLATES — CV
   // ══════════════════════════════════════════════
   templates: {
-    title: 'Free CV Templates — Professional & ATS-Friendly Designs',
+    title: 'Free CV Templates — Professional & ATS-Friendly',
     description:
-      'Browse our growing library of free professional CV templates. Choose from modern, classic, minimal, executive, and ATS-friendly designs. Download instantly as PDF, PNG, or TXT. Start for free.',
+      'Browse free professional CV templates: modern, classic, minimal, executive and ATS-friendly. Download instantly as PDF, PNG or TXT. Start for free.',
     keywords: [
       'free cv templates',
       'professional cv templates',
@@ -107,7 +107,7 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
   'cover-templates': {
     title: 'Free Cover Letter Templates — Professional Designs',
     description:
-      'Choose from our growing collection of free professional cover letter templates — classic, modern, minimal, executive, professional, and creative. Generate and download instantly. Start for free.',
+      'Choose from free professional cover letter templates: classic, modern, minimal, executive and creative. Generate and download instantly. Start for free.',
     keywords: [
       'free cover letter templates',
       'professional cover letter template',
@@ -129,7 +129,7 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
   'free-cv-builder': {
     title: 'Free CV Builder Online — AI-Powered & ATS-Friendly',
     description:
-      'Build a professional, ATS-friendly CV online with Adin AI. Pick a template, get AI help with your summary and experience, and download as PDF, PNG or TXT. Start for free.',
+      'Build an ATS-friendly CV online with Adin AI. Pick a template, get AI help with your summary and experience, and download as PDF, PNG or TXT. Free.',
     keywords: [
       'free cv builder',
       'cv builder online free',
@@ -158,6 +158,75 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
       'adin ai',
     ].join(', '),
     canonicalUrl: canonicalFor('/free-cover-letter-generator'),
+    ...DEFAULTS,
+  },
+
+  // ══════════════════════════════════════════════
+  // PAKISTAN LANDING PAGES (/pk/...) — indexable, content in toolLandingContent.ts
+  // ══════════════════════════════════════════════
+  'pk/cv-format': {
+    title: 'CV Format in Pakistan: Free Template & Guide | Adin AI',
+    description:
+      'CV format in Pakistan explained: what to include, how long it should be, and tips on photo and personal details. Build a free, professional CV with Adin AI.',
+    keywords: [
+      'cv format in pakistan',
+      'cv format pakistan',
+      'cv format for job in pakistan',
+      'pakistani cv format',
+      'cv template pakistan',
+      'professional cv format',
+      'cv format pdf',
+      'adin ai',
+    ].join(', '),
+    canonicalUrl: canonicalFor('/pk/cv-format'),
+    ...DEFAULTS,
+  },
+  'pk/cv-for-fresh-graduates': {
+    title: 'CV for Fresh Graduates in Pakistan — Free CV Maker | Adin AI',
+    description:
+      'Fresh graduate in Pakistan? Make a strong CV with no experience: education, FYP, internships and skills. Free fresher CV maker with no watermark.',
+    keywords: [
+      'cv for fresh graduates in pakistan',
+      'fresher cv format pakistan',
+      'cv for freshers',
+      'cv with no experience',
+      'fresh graduate cv sample',
+      'student cv pakistan',
+      'adin ai',
+    ].join(', '),
+    canonicalUrl: canonicalFor('/pk/cv-for-fresh-graduates'),
+    ...DEFAULTS,
+  },
+  'pk/job-application-letter': {
+    title: 'Job Application Letter in Pakistan — Free Generator | Adin AI',
+    description:
+      'Job application letter format for Pakistan: subject line, structure and tips. Generate a free, editable draft in seconds with Adin AI.',
+    keywords: [
+      'job application letter in pakistan',
+      'application letter for job',
+      'job application letter format',
+      'application letter sample',
+      'application letter for job in pakistan',
+      'free application letter generator',
+      'adin ai',
+    ].join(', '),
+    canonicalUrl: canonicalFor('/pk/job-application-letter'),
+    ...DEFAULTS,
+  },
+  'pk/cover-letter-for-freshers': {
+    title: 'Fresher Cover Letter in Pakistan — Free Generator | Adin AI',
+    description:
+      'No experience? Write a fresher cover letter for jobs and internships in Pakistan. Free AI generator with editable drafts and professional designs.',
+    keywords: [
+      'cover letter for freshers',
+      'fresher cover letter',
+      'cover letter for fresh graduate',
+      'cover letter with no experience',
+      'internship cover letter pakistan',
+      'cover letter for internship',
+      'adin ai',
+    ].join(', '),
+    canonicalUrl: canonicalFor('/pk/cover-letter-for-freshers'),
     ...DEFAULTS,
   },
 
@@ -216,12 +285,31 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
   },
 
   // ══════════════════════════════════════════════
+  // FEATURES
+  // ══════════════════════════════════════════════
+  features: {
+    title: 'Features: AI CV Builder, Cover Letters & ATS | Adin AI',
+    description:
+      'Explore Adin AI features: AI suggestions, live preview, click-to-edit, fast template switching, custom sections, PDF/PNG/TXT export and cover letters. Free.',
+    keywords: [
+      'adin ai features',
+      'ai cv builder features',
+      'ats friendly cv builder',
+      'cv builder live preview',
+      'free cv builder no watermark',
+      'ai cover letter generator',
+    ].join(', '),
+    canonicalUrl: canonicalFor('/features'),
+    ...DEFAULTS,
+  },
+
+  // ══════════════════════════════════════════════
   // FOUNDER
   // ══════════════════════════════════════════════
   founder: {
     title: 'About Adin AI & Its Founder — Kian Mercer',
     description:
-      'Learn what Adin AI is, why it was built and who is behind it. Meet Kian Mercer, founder of Adin AI — an AI-powered career platform for professional CVs and cover letters.',
+      'Learn what Adin AI is, why it was built and who is behind it. Meet Kian Mercer, founder of Adin AI, an AI-powered platform for CVs and cover letters.',
     keywords: [
       'about adin ai',
       'adin ai founder',
@@ -352,9 +440,14 @@ export const SITEMAP_PAGES = [
   { path: '/',                priority: '1.0',  changefreq: 'daily'   },
   { path: '/free-cv-builder', priority: '0.95', changefreq: 'monthly' },
   { path: '/free-cover-letter-generator', priority: '0.95', changefreq: 'monthly' },
+  { path: '/pk/cv-format',    priority: '0.90', changefreq: 'monthly' },
+  { path: '/pk/cv-for-fresh-graduates', priority: '0.90', changefreq: 'monthly' },
+  { path: '/pk/job-application-letter', priority: '0.90', changefreq: 'monthly' },
+  { path: '/pk/cover-letter-for-freshers', priority: '0.85', changefreq: 'monthly' },
   { path: '/templates',       priority: '0.95', changefreq: 'weekly'  },
   { path: '/cover-templates', priority: '0.95', changefreq: 'weekly'  },
   { path: '/blog',            priority: '0.90', changefreq: 'weekly'  },
+  { path: '/features',        priority: '0.85', changefreq: 'monthly' },
   { path: '/founder',         priority: '0.70', changefreq: 'monthly' },
   { path: '/privacy-policy',  priority: '0.40', changefreq: 'monthly' },
   { path: '/terms-of-service',priority: '0.40', changefreq: 'monthly' },

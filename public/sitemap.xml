@@ -1,128 +1,209 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
-        http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
-
-  <!-- HOME — highest priority -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://getadinai.com/</loc>
-    <lastmod>2026-10-10</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
-
-  <!-- CV TEMPLATES -->
-  <url>
-    <loc>https://getadinai.com/templates</loc>
-    <lastmod>2026-10-10</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.95</priority>
-  </url>
-
-  <!-- COVER LETTER TEMPLATES -->
-  <url>
-    <loc>https://getadinai.com/cover-templates</loc>
-    <lastmod>2026-10-10</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.95</priority>
-  </url>
-
-  <!-- FREE CV BUILDER LANDING -->
   <url>
     <loc>https://getadinai.com/free-cv-builder</loc>
     <changefreq>monthly</changefreq>
     <priority>0.95</priority>
   </url>
-
-  <!-- FREE COVER LETTER GENERATOR LANDING -->
   <url>
     <loc>https://getadinai.com/free-cover-letter-generator</loc>
     <changefreq>monthly</changefreq>
     <priority>0.95</priority>
   </url>
-
-  <!-- BLOG -->
+  <url>
+    <loc>https://getadinai.com/pk/cv-format</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.90</priority>
+  </url>
+  <url>
+    <loc>https://getadinai.com/pk/cv-for-fresh-graduates</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.90</priority>
+  </url>
+  <url>
+    <loc>https://getadinai.com/pk/job-application-letter</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.90</priority>
+  </url>
+  <url>
+    <loc>https://getadinai.com/pk/cover-letter-for-freshers</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://getadinai.com/templates</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.95</priority>
+  </url>
+  <url>
+    <loc>https://getadinai.com/cover-templates</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.95</priority>
+  </url>
   <url>
     <loc>https://getadinai.com/blog</loc>
-    <lastmod>2026-10-21</lastmod>
+    <lastmod>2026-11-20</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.90</priority>
   </url>
-
-  <!-- BLOG POSTS -->
   <url>
-    <loc>https://getadinai.com/blog/naya-job-chahiye-cv-mistakes</loc>
-    <lastmod>2026-10-16</lastmod>
+    <loc>https://getadinai.com/blog/should-you-put-photo-on-cv-pakistan</loc>
+    <lastmod>2026-11-20</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.70</priority>
   </url>
-
   <url>
-    <loc>https://getadinai.com/blog/fresher-cv-kaise-banayein</loc>
-    <lastmod>2026-10-17</lastmod>
+    <loc>https://getadinai.com/blog/what-personal-details-to-put-on-cv-pakistan</loc>
+    <lastmod>2026-11-20</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.70</priority>
   </url>
-
   <url>
-    <loc>https://getadinai.com/blog/ats-friendly-cv-kya-hai</loc>
-    <lastmod>2026-10-18</lastmod>
+    <loc>https://getadinai.com/blog/cv-kaise-banaye-pakistan-guide</loc>
+    <lastmod>2026-11-20</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.70</priority>
   </url>
-
   <url>
-    <loc>https://getadinai.com/blog/cover-letter-kaise-likhein</loc>
-    <lastmod>2026-10-19</lastmod>
+    <loc>https://getadinai.com/blog/job-application-letter-format-pakistan</loc>
+    <lastmod>2026-11-20</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.70</priority>
   </url>
-
   <url>
-    <loc>https://getadinai.com/blog/top-10-skills-pakistan-2026</loc>
+    <loc>https://getadinai.com/blog/common-interview-questions-pakistan-freshers</loc>
+    <lastmod>2026-11-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.70</priority>
+  </url>
+  <url>
+    <loc>https://getadinai.com/blog/cv-for-gulf-jobs-from-pakistan</loc>
+    <lastmod>2026-11-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.70</priority>
+  </url>
+  <url>
+    <loc>https://getadinai.com/blog/pakistan-job-market-reality-2026</loc>
+    <lastmod>2026-10-29</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.70</priority>
+  </url>
+  <url>
+    <loc>https://getadinai.com/blog/cover-letter-template-pakistan-fresh-graduates</loc>
+    <lastmod>2026-10-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.70</priority>
+  </url>
+  <url>
+    <loc>https://getadinai.com/blog/how-to-explain-cv-gap-pakistan</loc>
+    <lastmod>2026-10-27</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.70</priority>
+  </url>
+  <url>
+    <loc>https://getadinai.com/blog/how-to-find-remote-jobs-pakistan-avoid-scams</loc>
+    <lastmod>2026-10-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.70</priority>
+  </url>
+  <url>
+    <loc>https://getadinai.com/blog/how-to-use-chatgpt-for-cv-pakistan</loc>
+    <lastmod>2026-10-25</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.70</priority>
+  </url>
+  <url>
+    <loc>https://getadinai.com/blog/will-ai-take-jobs-pakistan-2026</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.70</priority>
+  </url>
+  <url>
+    <loc>https://getadinai.com/blog/ats-keyword-optimization-pakistan-step-by-step</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.70</priority>
+  </url>
+  <url>
+    <loc>https://getadinai.com/blog/how-to-apply-online-jobs-pakistan-rozee-linkedin-indeed</loc>
+    <lastmod>2026-10-22</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.70</priority>
+  </url>
+  <url>
+    <loc>https://getadinai.com/blog/cover-letter-mistakes-pakistan</loc>
+    <lastmod>2026-10-21</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.70</priority>
+  </url>
+  <url>
+    <loc>https://getadinai.com/blog/top-10-in-demand-skills-pakistan-2026</loc>
     <lastmod>2026-10-20</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.70</priority>
   </url>
-
   <url>
-    <loc>https://getadinai.com/blog/cover-letter-ki-5-badi-galtiyan</loc>
-    <lastmod>2026-10-21</lastmod>
+    <loc>https://getadinai.com/blog/how-to-write-cover-letter-pakistan</loc>
+    <lastmod>2026-10-19</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.70</priority>
   </url>
-
-  <!-- FOUNDER -->
+  <url>
+    <loc>https://getadinai.com/blog/ats-friendly-cv-pakistan-guide</loc>
+    <lastmod>2026-10-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.70</priority>
+  </url>
+  <url>
+    <loc>https://getadinai.com/blog/fresher-cv-pakistan-no-experience</loc>
+    <lastmod>2026-10-17</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.70</priority>
+  </url>
+  <url>
+    <loc>https://getadinai.com/blog/cv-mistakes-pakistan-job-rejection</loc>
+    <lastmod>2026-10-16</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.70</priority>
+  </url>
+  <url>
+    <loc>https://getadinai.com/features</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.85</priority>
+  </url>
   <url>
     <loc>https://getadinai.com/founder</loc>
-    <lastmod>2026-10-10</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.70</priority>
   </url>
-
-  <!-- CONTACT -->
+  <url>
+    <loc>https://getadinai.com/privacy-policy</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.40</priority>
+  </url>
+  <url>
+    <loc>https://getadinai.com/terms-of-service</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.40</priority>
+  </url>
   <url>
     <loc>https://getadinai.com/contact</loc>
-    <lastmod>2026-10-10</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.60</priority>
   </url>
-
-  <!-- PRIVACY -->
   <url>
-    <loc>https://getadinai.com/privacy-policy</loc>
-    <lastmod>2026-10-10</lastmod>
+    <loc>https://getadinai.com/login</loc>
     <changefreq>monthly</changefreq>
-    <priority>0.40</priority>
+    <priority>0.50</priority>
   </url>
-
-  <!-- TERMS -->
   <url>
-    <loc>https://getadinai.com/terms-of-service</loc>
-    <lastmod>2026-10-10</lastmod>
+    <loc>https://getadinai.com/signup</loc>
     <changefreq>monthly</changefreq>
-    <priority>0.40</priority>
+    <priority>0.60</priority>
   </url>
-
 </urlset>

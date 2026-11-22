@@ -5,6 +5,7 @@
 
 import type { CSSProperties } from 'react';
 import {
+  ArrowLeft,
   ArrowRight,
   Check,
   ChevronDown,
@@ -20,7 +21,7 @@ import {
   Wand2,
 } from 'lucide-react';
 import { SEOHead } from '../components/SEO/SEOHead';
-import { markLandingIntent } from '../utils/inAppNav';
+import { cameFromApp, markLandingIntent } from '../utils/inAppNav';
 import { getSEOConfig } from '../config/seoPages';
 import { buildToolLandingSchema, type ToolLandingContent } from '../config/toolLandingContent';
 
@@ -75,7 +76,14 @@ const scrollToTemplates = () => {
   document.getElementById('templates')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
 
-export default function ToolLandingPage({ content, onStart }: ToolLandingPageProps) {
+export default function ToolLandingPage({ content, onStart, onBack }: ToolLandingPageProps) {
+  // Back sirf tab jab user app / apni site ke kisi page se aaya ho (Google / seedha open par nahi) —
+  // baaki public pages (Privacy, Terms, Features...) jaisa rule. Logo breadcrumb me hamesha rehta hai.
+  const showBack = cameFromApp();
+  const goBack = () => {
+    if (typeof window !== 'undefined' && window.history.length > 1) { window.history.back(); return; }
+    onBack?.();
+  };
   const seo = getSEOConfig(content.seoKey);
   const isCover = content.ctaTarget === 'cover-letter';
   const CtaIcon = isCover ? Mail : FileText;
@@ -135,6 +143,16 @@ export default function ToolLandingPage({ content, onStart }: ToolLandingPagePro
             </button>
           <div className="grid lg:grid-cols-2 gap-10 lg:gap-14 items-start">
             <div className="tlp-rise text-left">
+              {showBack && (
+                <button
+                  type="button"
+                  onClick={goBack}
+                  className="mb-3 -ml-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium text-slate-600 hover:text-purple-700 hover:bg-purple-50 transition-colors"
+                >
+                  <ArrowLeft size={16} />
+                  <span>Back</span>
+                </button>
+              )}
               <nav aria-label="Breadcrumb" className="mb-5 flex items-center text-xs text-slate-500">
                 <a href="/"
               onClick={markLandingIntent} className="inline-flex items-center gap-2 group" aria-label="Adin AI home">

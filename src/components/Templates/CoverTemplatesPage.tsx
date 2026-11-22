@@ -4,11 +4,25 @@
 // ✅ All 6 templates ACTIVE
 // ✅ Preview modal: NO card wrapper
 // ✅ Neutral gray scrollbar (App.tsx handles globally)
+//
+// ✅ FIXES APPLIED (this pass):
+//    - `TEMPLATES` moved OUTSIDE the component → useMemo actually caches now
+//    - `filterOptions` derived from TEMPLATES (no more stale hardcoded list)
+//    - "More" expand no longer collapses instantly on scroll (throttle + delta)
+//    - Zoom = 1 on mobile → modal body scrolls (image no longer trapped)
+//    - onContextMenu block removed (was user-hostile)
+//    - handleZoomIn/Out/Fit wrapped in useCallback (no stale deps)
+//    - Focus trap inside preview modal (Tab cycles inside)
+//    - imageErrors reset when preview closes (retry works)
+//    - Footer hint text wraps instead of truncating
+//    - Grid changed to flex-wrap + justify-center → matches CV page
+//      (orphan card on mobile auto-centers)
+//    - "Why" section made cover-letter specific (not a CV copy-paste)
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   CheckCircle, Zap, FileText, Eye, Lock, AlertCircle, Award,
-  ZoomIn, ZoomOut, Maximize, X,
+  ZoomIn, ZoomOut, Maximize, X, PenLine, UserCheck, Layers,
 } from "lucide-react";
 
 import { generatePageSchemas, generateJSONLDScript } from "../../utils/seo";
@@ -28,6 +42,98 @@ interface Template {
   features: string[];
   isPopular?: boolean;
 }
+
+// ✅ MOVED OUTSIDE THE COMPONENT — stable reference across renders
+const TEMPLATES: Template[] = [
+  {
+    id: "modern",
+    name: "Modern",
+    subtitle: "Dark Teal Header Band",
+    description: "Dark teal full-width header band with name, title, and contact line.",
+    detailedDescription: "A contemporary cover letter featuring a full-width dark teal header band that spans the top of the page. Inside the band: your name and job title in white, with a contact line below. No dividers — just clean, bold color blocking. The letter body uses clean left-aligned typography with strong visual hierarchy and ATS-friendly structure.",
+    qualities: ["Dark teal full-width header band", "White name & job title in header", "Contact line below title", "ATS-friendly structure"],
+    bestFor: ["Creative", "Tech", "Marketing"],
+    badges: ["ATS Optimized", "Popular"],
+    gradient: "from-teal-700 to-teal-500",
+    status: "active",
+    previewImage: "/Templates/images/cover-modern.webp",
+    features: ["Teal Header Band", "Contact Line"],
+    isPopular: true,
+  },
+  {
+    id: "classic",
+    name: "Classic",
+    subtitle: "Timeless Formal Layout",
+    description: "Traditional layout with thin divider and left-aligned content.",
+    detailedDescription: "A timeless formal cover letter with a left-aligned name. A single thin gray divider separates the header from the letter body, and the date sits left-aligned just below. Professional and ATS-friendly.",
+    qualities: ["Traditional formal layout", "Single thin divider", "Left-aligned date", "ATS-friendly formatting"],
+    bestFor: ["Corporate", "Legal", "Executive"],
+    badges: ["ATS Optimized", "Professional"],
+    gradient: "from-blue-600 to-indigo-500",
+    status: "active",
+    previewImage: "/Templates/images/cover-classic.webp",
+    features: ["Traditional Layout", "Single Divider"],
+  },
+  {
+    id: "minimal",
+    name: "Minimal",
+    subtitle: "Centered Header & Two-Column",
+    description: "Centered name and title, contact grid, and two-column body layout.",
+    detailedDescription: "A minimalist cover letter with a centered name and job title, a clean contact grid (labels + values in two columns), and a two-column layout below — TO/FROM/DATE blocks on the left, salutation and letter body on the right. Structured, elegant, and easy to read.",
+    qualities: ["Centered name and title", "Two-column contact grid", "TO/FROM/DATE sidebar", "Two-column body layout", "Highly ATS-compatible"],
+    bestFor: ["Design", "Freelance", "Creative"],
+    badges: ["ATS Optimized"],
+    gradient: "from-gray-600 to-zinc-500",
+    status: "active",
+    previewImage: "/Templates/images/cover-minimal.webp",
+    features: ["Centered Header", "Contact Grid", "Two-Column Body"],
+  },
+  {
+    id: "professional",
+    name: "Professional",
+    subtitle: "Dark Teal Bar & Right Contact",
+    description: "Dark teal top bar with bold name and right-aligned contact block.",
+    detailedDescription: "A polished professional cover letter with a dark teal top bar, a bold left-aligned name and subtitle, and a right-aligned contact block (values only) starting on the same line as the name. The letter body is cleanly left-aligned below.",
+    qualities: ["Dark teal top bar", "Bold name on the left", "Right-aligned contact block", "Same-line name and contact", "ATS-friendly layout"],
+    bestFor: ["All Industries", "Traditional"],
+    badges: ["ATS Optimized", "Professional"],
+    gradient: "from-blue-600 to-cyan-500",
+    status: "active",
+    previewImage: "/Templates/images/cover-professional.webp",
+    features: ["Dark Teal Bar", "Right Contact Block", "Bold Name"],
+  },
+  {
+    id: "executive",
+    name: "Executive",
+    subtitle: "Navy Bar & Gold Divider",
+    description: "Navy top bar, big navy name, and gold divider.",
+    detailedDescription: "A premium executive cover letter with a navy top bar, a large navy name, pipe-separated contact details, a gold divider below the header, and a subtle grey-blue page background. Communicates authority and polish.",
+    qualities: ["Navy top bar", "Large navy name", "Gold divider", "Grey-blue page background"],
+    bestFor: ["C-Suite", "Executive", "Leadership"],
+    badges: ["ATS Optimized", "Premium"],
+    gradient: "from-amber-600 to-orange-500",
+    status: "active",
+    previewImage: "/Templates/images/cover-executive.webp",
+    features: ["Navy Top Bar", "Gold Divider"],
+  },
+  {
+    id: "creative",
+    name: "Creative",
+    subtitle: "Black Band & Justified Body",
+    description: "Full-width black header band with justified letter body.",
+    detailedDescription: "A bold creative cover letter with a full-width black header band containing the name, title, and contact details in light text. The body is justified with a Times italic signature — distinctive and portfolio-ready.",
+    qualities: ["Full-width black header band", "Justified body text", "Times italic signature", "Distinctive creative layout"],
+    bestFor: ["Design", "Art", "Creative"],
+    badges: ["ATS Optimized"],
+    gradient: "from-pink-600 to-rose-500",
+    status: "active",
+    previewImage: "/Templates/images/cover-creative.webp",
+    features: ["Black Header Band", "Justified Body", "Times Signature"],
+  },
+];
+
+// ✅ Derived from TEMPLATES — never goes stale
+const FILTER_OPTIONS = ["All Templates", ...TEMPLATES.map((t) => t.name)];
 
 interface CoverTemplatesPageProps {
   onBackToHome?: () => void;
@@ -53,104 +159,10 @@ const CoverTemplatesPage = ({
   const imageContainerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
 
-  const templates: Template[] = [
-    {
-      id: "modern",
-      name: "Modern",
-      subtitle: "Dark Teal Header Band",
-      description: "Dark teal full-width header band with name, title, and contact line.",
-      detailedDescription: "A contemporary cover letter featuring a full-width dark teal header band that spans the top of the page. Inside the band: your name and job title in white, with a contact line below. No dividers — just clean, bold color blocking. The letter body uses clean left-aligned typography with strong visual hierarchy and ATS-friendly structure.",
-      qualities: ["Dark teal full-width header band", "White name & job title in header", "Contact line below title", "ATS-friendly structure"],
-      bestFor: ["Creative", "Tech", "Marketing"],
-      badges: ["ATS Optimized", "Popular"],
-      gradient: "from-teal-700 to-teal-500",
-      status: "active",
-      previewImage: "/Templates/images/cover-modern.webp",
-      features: ["Teal Header Band", "Contact Line"],
-      isPopular: true,
-    },
-    {
-      id: "classic",
-      name: "Classic",
-      subtitle: "Timeless Formal Layout",
-      description: "Traditional layout with thin divider and left-aligned content.",
-      detailedDescription: "A timeless formal cover letter with a left-aligned name. A single thin gray divider separates the header from the letter body, and the date sits left-aligned just below. Professional and ATS-friendly.",
-      qualities: ["Traditional formal layout", "Single thin divider", "Left-aligned date", "ATS-friendly formatting"],
-      bestFor: ["Corporate", "Legal", "Executive"],
-      badges: ["ATS Optimized", "Professional"],
-      gradient: "from-blue-600 to-indigo-500",
-      status: "active",
-      previewImage: "/Templates/images/cover-classic.webp",
-      features: ["Traditional Layout", "Single Divider"],
-    },
-    {
-      id: "minimal",
-      name: "Minimal",
-      subtitle: "Centered Header & Two-Column",
-      description: "Centered name and title, contact grid, and two-column body layout.",
-      detailedDescription: "A minimalist cover letter with a centered name and job title, a clean contact grid (labels + values in two columns), and a two-column layout below — TO/FROM/DATE blocks on the left, salutation and letter body on the right. Structured, elegant, and easy to read.",
-      qualities: ["Centered name and title", "Two-column contact grid", "TO/FROM/DATE sidebar", "Two-column body layout", "Highly ATS-compatible"],
-      bestFor: ["Design", "Freelance", "Creative"],
-      badges: ["ATS Optimized"],
-      gradient: "from-gray-600 to-zinc-500",
-      status: "active",
-      previewImage: "/Templates/images/cover-minimal.webp",
-      features: ["Centered Header", "Contact Grid", "Two-Column Body"],
-    },
-    {
-      id: "professional",
-      name: "Professional",
-      subtitle: "Dark Teal Bar & Right Contact",
-      description: "Dark teal top bar with bold name and right-aligned contact block.",
-      detailedDescription: "A polished professional cover letter with a dark teal top bar, a bold left-aligned name and subtitle, and a right-aligned contact block (values only) starting on the same line as the name. The letter body is cleanly left-aligned below.",
-      qualities: ["Dark teal top bar", "Bold name on the left", "Right-aligned contact block", "Same-line name and contact", "ATS-friendly layout"],
-      bestFor: ["All Industries", "Traditional"],
-      badges: ["ATS Optimized", "Professional"],
-      gradient: "from-blue-600 to-cyan-500",
-      status: "active",
-      previewImage: "/Templates/images/cover-professional.webp",
-      features: ["Dark Teal Bar", "Right Contact Block", "Bold Name"],
-    },
-    {
-      id: "executive",
-      name: "Executive",
-      subtitle: "Navy Bar & Gold Divider",
-      description: "Navy top bar, big navy name, and gold divider.",
-      detailedDescription: "A premium executive cover letter with a navy top bar, a large navy name, pipe-separated contact details, a gold divider below the header, and a subtle grey-blue page background. Communicates authority and polish.",
-      qualities: ["Navy top bar", "Large navy name", "Gold divider", "Grey-blue page background"],
-      bestFor: ["C-Suite", "Executive", "Leadership"],
-      badges: ["ATS Optimized", "Premium"],
-      gradient: "from-amber-600 to-orange-500",
-      status: "active",
-      previewImage: "/Templates/images/cover-executive.webp",
-      features: ["Navy Top Bar", "Gold Divider"],
-    },
-    {
-      id: "creative",
-      name: "Creative",
-      subtitle: "Black Band & Justified Body",
-      description: "Full-width black header band with justified letter body.",
-      detailedDescription: "A bold creative cover letter with a full-width black header band containing the name, title, and contact details in light text. The body is justified with a Times italic signature — distinctive and portfolio-ready.",
-      qualities: ["Full-width black header band", "Justified body text", "Times italic signature", "Distinctive creative layout"],
-      bestFor: ["Design", "Art", "Creative"],
-      badges: ["ATS Optimized"],
-      gradient: "from-pink-600 to-rose-500",
-      status: "active",
-      previewImage: "/Templates/images/cover-creative.webp",
-      features: ["Black Header Band", "Justified Body", "Times Signature"],
-    },
-  ];
-
-  const filterOptions = ["All Templates", "Modern", "Classic", "Minimal", "Professional", "Executive", "Creative"];
-
-  // ✅ Search removed — only filter by category
   const filteredTemplates = useMemo(() => {
-    let list = templates;
-    if (activeFilter !== "All Templates") {
-      list = list.filter((t) => t.name === activeFilter);
-    }
-    return list;
-  }, [templates, activeFilter]);
+    if (activeFilter === "All Templates") return TEMPLATES;
+    return TEMPLATES.filter((t) => t.name === activeFilter);
+  }, [activeFilter]);
 
   const handleUseTemplate = useCallback((templateId: string) => {
     setSelectedTemplate(templateId);
@@ -164,18 +176,30 @@ const CoverTemplatesPage = ({
   }, []);
 
   const closePreview = useCallback(() => {
+    // ✅ Reset error for the template we just closed → retry works next time
+    if (previewTemplate) {
+      setImageErrors((prev) => {
+        if (!prev[previewTemplate.id]) return prev;
+        const next = { ...prev };
+        delete next[previewTemplate.id];
+        return next;
+      });
+    }
     setPreviewTemplate(null);
     setZoomLevel(1);
     setPanPosition({ x: 0, y: 0 });
-  }, []);
+  }, [previewTemplate]);
 
   const handleImageError = useCallback((templateId: string) => {
     setImageErrors((prev) => ({ ...prev, [templateId]: true }));
   }, []);
 
-  const handleZoomIn = () => setZoomLevel((prev) => Math.min(prev + 0.25, 3));
-  const handleZoomOut = () => setZoomLevel((prev) => Math.max(prev - 0.25, 0.5));
-  const handleFitToScreen = () => { setZoomLevel(1); setPanPosition({ x: 0, y: 0 }); };
+  const handleZoomIn = useCallback(() => setZoomLevel((prev) => Math.min(prev + 0.25, 3)), []);
+  const handleZoomOut = useCallback(() => setZoomLevel((prev) => Math.max(prev - 0.25, 0.5)), []);
+  const handleFitToScreen = useCallback(() => {
+    setZoomLevel(1);
+    setPanPosition({ x: 0, y: 0 });
+  }, []);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (zoomLevel <= 1) return;
@@ -211,6 +235,7 @@ const CoverTemplatesPage = ({
 
   const handleTouchEnd = () => setIsDragging(false);
 
+  // ✅ Keyboard: ESC close, +/- zoom
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!previewTemplate) return;
@@ -220,7 +245,41 @@ const CoverTemplatesPage = ({
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [previewTemplate, closePreview]);
+  }, [previewTemplate, closePreview, handleZoomIn, handleZoomOut]);
+
+  // ✅ Focus trap inside modal — Tab / Shift+Tab cycle within
+  useEffect(() => {
+    if (!previewTemplate) return;
+    const modal = modalRef.current;
+    if (!modal) return;
+
+    const FOCUSABLE =
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+    const getFocusable = () =>
+      Array.from(modal.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+        (el) => !el.hasAttribute("disabled") && el.offsetParent !== null
+      );
+
+    const handleTab = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      const focusable = getFocusable();
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+
+      if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      } else if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    };
+
+    modal.addEventListener("keydown", handleTab);
+    return () => modal.removeEventListener("keydown", handleTab);
+  }, [previewTemplate]);
 
   useEffect(() => {
     if (previewTemplate && closeButtonRef.current) closeButtonRef.current.focus();
@@ -238,19 +297,26 @@ const CoverTemplatesPage = ({
     if (zoomLevel <= 1) setPanPosition({ x: 0, y: 0 });
   }, [zoomLevel]);
 
+  // ✅ Collapse on scroll — but ONLY when the user actually scrolls far enough.
+  //    Prevents the "click More → layout shifts → scroll fires → card collapses"
+  //    bug that made "More" feel broken.
   useEffect(() => {
     if (expandedTemplateId === null) return;
     let ticking = false;
-    const handleScroll = () => {
+    const COLLAPSE_DELTA = 80; // px — ignore tiny scroll jitters
+    const scrollStartRef = { current: window.scrollY };
+    const onScroll = () => {
       if (ticking) return;
       ticking = true;
       window.requestAnimationFrame(() => {
-        setExpandedTemplateId(null);
+        if (Math.abs(window.scrollY - scrollStartRef.current) > COLLAPSE_DELTA) {
+          setExpandedTemplateId(null);
+        }
         ticking = false;
       });
     };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, [expandedTemplateId]);
 
   const getFeatureChips = (t: Template): string[] => {
@@ -282,7 +348,6 @@ const CoverTemplatesPage = ({
         {/* ✅ Scrollable content — only this scrolls */}
         <div className="flex-1 overflow-y-auto min-h-0">
 
-
           {/* FILTERS — scrollable, scrollbar hidden, pills never shrink */}
           <section className="bg-white border-b border-slate-200">
             <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-3">
@@ -296,23 +361,23 @@ const CoverTemplatesPage = ({
                 }}
               >
                 <div className="flex flex-nowrap gap-2 w-max mx-auto">
-                {filterOptions.map((filter) => {
-                  const active = activeFilter === filter;
-                  return (
-                    <button
-                      key={filter}
-                      onClick={() => setActiveFilter(filter)}
-                      className={`px-3 sm:px-3.5 py-1.5 rounded-full text-[11px] sm:text-xs font-medium whitespace-nowrap shrink-0 flex-none transition-all border focus:outline-none focus:ring-2 focus:ring-purple-500/30 ${
-                        active
-                          ? "bg-purple-600 text-white border-purple-600 shadow-sm"
-                          : "bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:text-slate-900"
-                      }`}
-                      aria-pressed={active}
-                    >
-                      {filter}
-                    </button>
-                  );
-                })}
+                  {FILTER_OPTIONS.map((filter) => {
+                    const active = activeFilter === filter;
+                    return (
+                      <button
+                        key={filter}
+                        onClick={() => setActiveFilter(filter)}
+                        className={`px-3 sm:px-3.5 py-1.5 rounded-full text-[11px] sm:text-xs font-medium whitespace-nowrap shrink-0 flex-none transition-all border focus:outline-none focus:ring-2 focus:ring-purple-500/30 ${
+                          active
+                            ? "bg-purple-600 text-white border-purple-600 shadow-sm"
+                            : "bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:text-slate-900"
+                        }`}
+                        aria-pressed={active}
+                      >
+                        {filter}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -329,7 +394,9 @@ const CoverTemplatesPage = ({
                 <p className="text-sm text-slate-500 mt-1">Try a different category.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6 items-start">
+              /* ✅ Matches CV page: flex-wrap + justify-center on mobile (orphan centers),
+                 clean 3-col grid on desktop. */
+              <div className="flex flex-wrap justify-center gap-3 sm:gap-4 lg:grid lg:grid-cols-3 lg:justify-normal lg:gap-6 items-start">
                 {filteredTemplates.map((template) => {
                   const isActive = template.status === "active";
                   const hasImageError = imageErrors[template.id];
@@ -341,11 +408,14 @@ const CoverTemplatesPage = ({
                   return (
                     <article
                       key={template.id}
-                      className={`group relative flex flex-col bg-white rounded-xl sm:rounded-2xl border transition-all duration-200 overflow-hidden ${
-                        isSelected
-                          ? "border-purple-500 ring-2 ring-purple-500/20 shadow-md"
-                          : "border-slate-200 hover:border-slate-300 hover:shadow-lg hover:-translate-y-0.5"
-                      }`}
+                      className={`group relative flex flex-col bg-white rounded-xl sm:rounded-2xl border transition-all duration-200 overflow-hidden
+                        w-[calc(50%-6px)] sm:w-[calc(50%-8px)]
+                        lg:w-full
+                        ${
+                          isSelected
+                            ? "border-purple-500 ring-2 ring-purple-500/20 shadow-md"
+                            : "border-slate-200 hover:border-slate-300 hover:shadow-lg hover:-translate-y-0.5"
+                        }`}
                     >
                       {/* Preview Image */}
                       <div className="relative bg-slate-50 border-b border-slate-100 p-2 sm:p-4 md:p-5">
@@ -364,7 +434,6 @@ const CoverTemplatesPage = ({
                                 loading="lazy"
                                 onError={() => handleImageError(template.id)}
                                 draggable={false}
-                                onContextMenu={(e) => e.preventDefault()}
                               />
                             )}
                           </div>
@@ -495,18 +564,18 @@ const CoverTemplatesPage = ({
               </div>
             )}
 
-            {/* WHY SECTION */}
+            {/* WHY SECTION — cover-letter specific */}
             <section className="mt-12 md:mt-16 pt-10 border-t border-slate-200">
               <div className="text-center mb-8">
                 <h2 className="text-xl md:text-2xl font-bold text-slate-900">Why Our Cover Letter Templates?</h2>
-                <p className="text-sm text-slate-500 mt-1.5">Built to get you past the bots and in front of real recruiters.</p>
+                <p className="text-sm text-slate-500 mt-1.5">Purpose-built for letters — not CVs in disguise.</p>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-5">
                 {[
-                  { icon: <CheckCircle size={18} />, title: "ATS Optimized", desc: "All templates are ATS friendly." },
-                  { icon: <Award size={18} />, title: "Professional Design", desc: "Designed by HR experts." },
-                  { icon: <Zap size={18} />, title: "Easy to Customize", desc: "Fully customizable templates." },
-                  { icon: <FileText size={18} />, title: "Export Ready", desc: "Export in PDF format." },
+                  { icon: <UserCheck size={18} />, title: "Auto-fill from CV", desc: "Pick a saved CV and your details fill in the letter." },
+                  { icon: <PenLine size={18} />, title: "Tailored Structure", desc: "Salutation, body, and signature — laid out for letters." },
+                  { icon: <Layers size={18} />, title: "Matches Your CV", desc: "Pair any template with a matching CV design." },
+                  { icon: <FileText size={18} />, title: "ATS-Ready Format", desc: "Clean structure that recruiters and bots can both read." },
                 ].map((item, idx) => (
                   <div key={idx} className="p-5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all text-center group">
                     <div className="w-10 h-10 mx-auto rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center mb-3 group-hover:bg-purple-100 transition-colors">
@@ -563,9 +632,10 @@ const CoverTemplatesPage = ({
                 </div>
               </div>
 
+              {/* ✅ Zoom=1 pe bhi scroll allow (mobile pe image phans ti nahi) */}
               <div
                 ref={imageContainerRef}
-                className="tpl-modal-body p-3 md:p-6 flex justify-center items-center min-h-[200px] overflow-hidden flex-1 bg-slate-200"
+                className="tpl-modal-body p-3 md:p-6 flex justify-center items-center min-h-[200px] overflow-auto flex-1 bg-slate-200"
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
@@ -605,7 +675,8 @@ const CoverTemplatesPage = ({
               </div>
 
               <div className="tpl-modal-footer p-3 md:p-4 border-t border-slate-200 flex justify-between items-center gap-3 shrink-0 bg-white">
-                <div className="min-w-0 truncate text-[10px] md:text-xs text-slate-500">
+                {/* ✅ Wrap instead of truncate — hint text mobile pe cut nahi hota */}
+                <div className="min-w-0 text-[10px] md:text-xs text-slate-500 leading-snug">
                   <span className="hidden sm:inline">Zoom: {Math.round(zoomLevel * 100)}% • </span>
                   {zoomLevel > 1 && <span className="hidden sm:inline">Drag to pan • </span>}
                   <span className="hidden sm:inline">ESC to close • </span>

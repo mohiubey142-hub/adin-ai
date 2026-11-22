@@ -14,8 +14,18 @@ export const IN_APP_STATE = { inApp: true } as const;
 export function cameFromApp(): boolean {
   if (typeof window === 'undefined') return false;
   try {
+    // 1) App ke andar (SPA) navigation: history.state marker
     const state = window.history.state as { inApp?: boolean } | null;
-    return state?.inApp === true;
+    if (state?.inApp === true) return true;
+
+    // 2) Same-site link se aaye (jaise /free-cv-builder, /pk/... ya blog ke <a href> se full reload):
+    //    referrer hamari apni site ka ho aur history mein pichla page maujood ho -> Back kaam karega.
+    //    Google / seedha address bar / naya tab (history.length <= 1) par ye false rehta hai -> logo dikhega.
+    if (window.history.length > 1 && document.referrer) {
+      const ref = new URL(document.referrer);
+      if (ref.origin === window.location.origin) return true;
+    }
+    return false;
   } catch {
     return false;
   }

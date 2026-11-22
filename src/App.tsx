@@ -49,6 +49,7 @@ const WorkspacePage = lazy(() => import("./components/Workspace/WorkspacePage"))
 
 const MyDocuments = lazy(() => import("./components/cv-builder/components/MyDocuments"));
 const Founder = lazy(() => import("./pages/Founder"));
+const Features = lazy(() => import("./pages/Features"));
 const ToolLandingPage = lazy(() => import("./pages/ToolLandingPage"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
@@ -74,7 +75,7 @@ import toast, { Toaster, useToasterStore } from "react-hot-toast";
 import { sendToAI, saveMemoryFromResponse } from "./services/ai";
 import { saveMemory, loadMemory } from "./utils/memory";
 import { LoadingScreen } from "./components/LoadingScreen";
-import { TOOL_LANDING_CONTENT } from "./config/toolLandingContent";
+import { TOOL_LANDING_CONTENT, getToolSlugByActive } from "./config/toolLandingContent";
 
 // ═══════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
@@ -230,7 +231,7 @@ const AdinToaster = () => {
   );
 };
 
-type PageType = 'workspace' | 'my-documents' | 'app' | 'templates' | 'cover-templates' | 'founder' | 'legal' | 'blog' | 'blog-post' | 'tool-landing' | 'reset-password' | 'login' | 'signup';
+type PageType = 'workspace' | 'my-documents' | 'app' | 'templates' | 'cover-templates' | 'founder' | 'features' | 'legal' | 'blog' | 'blog-post' | 'tool-landing' | 'reset-password' | 'login' | 'signup';
 
 const BLOG_ROUTE_PATH = '/blog';
 const BLOG_POST_ROUTE_PREFIX = '/blog/';
@@ -249,6 +250,7 @@ const PATH_ROUTES: Record<string, PathRoute> = {
   '/cover-letter': { page: 'app', active: 'Cover Letter' },
   '/my-documents': { page: 'my-documents', active: 'My Documents' },
   '/founder': { page: 'founder', active: 'Founder' },
+  '/features': { page: 'features', active: 'Features' },
   '/privacy-policy': { page: 'legal', active: 'Privacy Policy' },
   '/terms-of-service': { page: 'legal', active: 'Terms of Service' },
   '/contact': { page: 'legal', active: 'Contact' },
@@ -258,6 +260,10 @@ const PATH_ROUTES: Record<string, PathRoute> = {
   '/signup': { page: 'signup', active: 'Sign Up' },
   '/free-cv-builder': { page: 'tool-landing', active: 'Free CV Builder' },
   '/free-cover-letter-generator': { page: 'tool-landing', active: 'Free Cover Letter Generator' },
+  '/pk/cv-format': { page: 'tool-landing', active: 'CV Format in Pakistan' },
+  '/pk/cv-for-fresh-graduates': { page: 'tool-landing', active: 'CV for Fresh Graduates in Pakistan' },
+  '/pk/job-application-letter': { page: 'tool-landing', active: 'Job Application Letter in Pakistan' },
+  '/pk/cover-letter-for-freshers': { page: 'tool-landing', active: 'Cover Letter for Freshers in Pakistan' },
 };
 
 const getPathRoute = (): PathRoute | null => {
@@ -315,7 +321,7 @@ const getDeepLinkRoute = () => {
   return Object.prototype.hasOwnProperty.call(DEEP_LINK_ROUTES, hash) ? DEEP_LINK_ROUTES[hash as DeepLinkHash] : null;
 };
 
-const PUBLIC_PAGES_FOR_SEO: PageType[] = ['templates', 'cover-templates', 'founder', 'legal'];
+const PUBLIC_PAGES_FOR_SEO: PageType[] = ['templates', 'cover-templates', 'founder', 'features', 'legal'];
 
 const programmingLanguages = [
   { id: "javascript", name: "JavaScript", icon: "braces", gradient: "from-amber-500 to-yellow-500", desc: "Web Development" },
@@ -828,11 +834,12 @@ function AppInner() {
     if (currentPage === 'templates') return 'templates';
     if (currentPage === 'cover-templates') return 'cover-templates';
     if (currentPage === 'founder') return 'founder';
+    if (currentPage === 'features') return 'features';
     if (currentPage === 'login') return 'login';
     if (currentPage === 'signup') return 'signup';
     if (currentPage === 'blog') return PAGE_KEY_BLOG;
     if (currentPage === 'blog-post') return PAGE_KEY_BLOG;
-    if (currentPage === 'tool-landing') return active === 'Free Cover Letter Generator' ? 'free-cover-letter-generator' : 'free-cv-builder';
+    if (currentPage === 'tool-landing') return TOOL_LANDING_CONTENT[getToolSlugByActive(active)].seoKey;
     if (currentPage === 'legal') {
       if (active === 'Privacy Policy') return 'privacy-policy';
       if (active === 'Terms of Service') return 'terms-of-service';
@@ -1142,7 +1149,7 @@ function AppInner() {
   }, []);
 
   useEffect(() => {
-    const routeMap: Record<string, string> = { 'workspace': '/', 'my-documents': '/my-documents', 'templates': '/templates', 'cover-templates': '/cover-templates', 'founder': '/founder', 'blog': BLOG_ROUTE_PATH, 'login': '/login', 'signup': '/signup' };
+    const routeMap: Record<string, string> = { 'workspace': '/', 'my-documents': '/my-documents', 'templates': '/templates', 'cover-templates': '/cover-templates', 'founder': '/founder', 'features': '/features', 'blog': BLOG_ROUTE_PATH, 'login': '/login', 'signup': '/signup' };
     let targetPath = routeMap[currentPage] || '/';
     if (currentPage === 'blog-post') targetPath = activeBlogSlug ? `${BLOG_POST_ROUTE_PREFIX}${activeBlogSlug}` : BLOG_ROUTE_PATH;
     if (currentPage === 'app') targetPath = active === 'CV Builder' ? '/cv-builder' : '/cover-letter';
@@ -1151,7 +1158,7 @@ function AppInner() {
       else if (active === 'Terms of Service') targetPath = '/terms-of-service';
       else if (active === 'Contact') targetPath = '/contact';
     }
-    if (currentPage === 'tool-landing') targetPath = active === 'Free Cover Letter Generator' ? '/free-cover-letter-generator' : '/free-cv-builder';
+    if (currentPage === 'tool-landing') targetPath = TOOL_LANDING_CONTENT[getToolSlugByActive(active)].path;
     const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
     if (currentPath !== targetPath) window.history.replaceState(window.history.state ?? {}, '', targetPath);
   }, [currentPage, active, activeBlogSlug]);
@@ -1208,7 +1215,7 @@ function AppInner() {
   })();
 
   const isBuilderPage = currentPage === 'app' && (active === 'CV Builder' || active === 'Cover Letter');
-  const isLegalPage = currentPage === 'legal' || currentPage === 'founder';
+  const isLegalPage = currentPage === 'legal' || currentPage === 'founder' || currentPage === 'features';
 
   const handleLandingBuildCV = useCallback(() => { safeSetItem('adin-has-seen-landing', 'true'); setShowLanding(false); setCurrentPage('templates'); setActive('CV Templates'); navigateToPath('/templates'); }, []);
   const handleLandingWriteCoverLetter = useCallback(() => { safeSetItem('adin-has-seen-landing', 'true'); setShowLanding(false); setCurrentPage('cover-templates'); setActive('Cover Templates'); navigateToPath('/cover-templates'); }, []);
@@ -1260,11 +1267,11 @@ function AppInner() {
     return (
       <NavigationProvider onNavigate={handleGlobalNavigate} currentRoute={currentRoute}>
         <>
-          {currentPage !== 'founder' && <SEOHead title={seoConfig.title} description={seoConfig.description} keywords={seoConfig.keywords} canonicalUrl={seoConfig.canonicalUrl} noIndex={seoConfig.noIndex} noFollow={seoConfig.noFollow} ogType="website" />}
+          {currentPage !== 'founder' && currentPage !== 'features' && <SEOHead title={seoConfig.title} description={seoConfig.description} keywords={seoConfig.keywords} canonicalUrl={seoConfig.canonicalUrl} noIndex={seoConfig.noIndex} noFollow={seoConfig.noFollow} ogType="website" />}
           <AdinToaster />
           <div className="w-full min-h-screen flex flex-col bg-slate-100">
             <Suspense fallback={<LoadingScreen />}>
-              {currentPage === 'founder' ? <Founder onBack={handleBackFromLegal} /> : (
+              {currentPage === 'features' ? <Features onBack={handleBackFromLegal} onBuildCV={handleLandingBuildCV} onWriteCoverLetter={handleLandingWriteCoverLetter} /> : currentPage === 'founder' ? <Founder onBack={handleBackFromLegal} /> : (
                 <>{active === "Privacy Policy" && <PrivacyPolicy onBack={handleBackFromLegal} />}{active === "Terms of Service" && <TermsOfService onBack={handleBackFromLegal} />}{active === "Contact" && <Contact onBack={handleBackFromLegal} />}</>
               )}
             </Suspense>
@@ -1296,7 +1303,7 @@ function AppInner() {
   }
 
   if (currentPage === 'tool-landing') {
-    const toolContent = active === 'Free Cover Letter Generator' ? TOOL_LANDING_CONTENT['free-cover-letter-generator'] : TOOL_LANDING_CONTENT['free-cv-builder'];
+    const toolContent = TOOL_LANDING_CONTENT[getToolSlugByActive(active)];
     return (
       <>
         <style>{buildScrollbarCss(true)}</style>

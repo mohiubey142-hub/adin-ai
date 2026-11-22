@@ -16,6 +16,17 @@
 //      automatically centers — feels intentional, not broken.
 //    - Desktop (≥lg): layout reverts to the original 3-column grid exactly
 //      as before.
+//
+// ✅ FIXES APPLIED (this pass):
+//    - `TEMPLATES` moved OUTSIDE the component → useMemo actually caches now
+//    - `filterOptions` derived from TEMPLATES (no more stale hardcoded list)
+//    - "More" expand no longer collapses instantly on scroll (throttle + delta)
+//    - Zoom = 1 on mobile → modal body scrolls (image no longer trapped)
+//    - onContextMenu block removed (was user-hostile)
+//    - handleZoomIn/Out/Fit wrapped in useCallback (no stale deps)
+//    - Focus trap inside preview modal (Tab cycles inside)
+//    - imageErrors reset when preview closes (retry works)
+//    - Footer hint text wraps instead of truncating
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
@@ -41,6 +52,140 @@ interface Template {
   isPopular?: boolean;
 }
 
+// ✅ MOVED OUTSIDE THE COMPONENT — stable reference across renders
+const TEMPLATES: Template[] = [
+  {
+    id: "modern",
+    name: "Modern",
+    subtitle: "Purple Accent & Tag Skills",
+    description: "Modern layout with purple accent headings and tag-style skill pills.",
+    detailedDescription: "A contemporary design featuring purple section headings, right-aligned dates, and skills displayed as filled tag pills — giving a modern, colorful edge to your CV.",
+    qualities: ["Purple accent headings", "Tag-style skill pills", "Right-aligned dates", "Strong visual hierarchy", "ATS-friendly organization"],
+    bestFor: ["Software Engineering", "Technology", "Startups"],
+    badges: ["ATS Optimized", "Popular"],
+    gradient: "from-purple-600 to-blue-500",
+    status: "active",
+    previewImage: "/Templates/images/modern.webp",
+    features: ["Purple Accent", "Tag-Style Skills", "Modern Design"],
+    isPopular: true,
+  },
+  {
+    id: "minimal",
+    name: "Minimal",
+    subtitle: "Clean, No-Frills Layout",
+    description: "Minimalist design with a subtle experience timeline and pure text layout.",
+    detailedDescription: "A stripped-down, content-first layout. Experience entries are connected by a thin vertical timeline, and skills flow as inline text — nothing distracts from your experience.",
+    qualities: ["Experience timeline", "Inline text skills", "Monochrome palette", "Content-first layout", "Highly ATS-compatible"],
+    bestFor: ["Business", "Corporate", "Banking"],
+    badges: ["ATS Optimized", "Clean"],
+    gradient: "from-slate-600 to-zinc-500",
+    status: "active",
+    previewImage: "/Templates/images/minimal.webp",
+    features: ["Experience Timeline", "Inline Skills", "Monochrome"],
+  },
+  {
+    id: "teal-curve",
+    name: "Teal Curve",
+    subtitle: "Bold Teal Header Band",
+    description: "Full-width dark teal header with white text and teal-accented section headings.",
+    detailedDescription: "A striking single-column design featuring a full-bleed dark teal header band with white name and title text. Section headings and dividers carry the same teal tone throughout.",
+    qualities: ["Full-width teal header band", "White header text", "Teal section headings", "Teal dividers", "Modern visual balance"],
+    bestFor: ["All Industries", "Modern Professionals"],
+    badges: ["ATS Optimized"],
+    gradient: "from-teal-600 to-emerald-500",
+    status: "active",
+    previewImage: "/Templates/images/teal-curve.webp",
+    features: ["Teal Header Band", "White Header Text", "Teal Accents"],
+  },
+  {
+    id: "executive",
+    name: "Executive",
+    subtitle: "Navy & Gold Premium Layout",
+    description: "Navy header band with gold border and section icon badges.",
+    detailedDescription: "A premium single-column executive design with a solid navy header band framed by a gold border. Section headings carry gold icon badges, and Education, Certifications, and Languages share a three-column row with vertical dividers.",
+    qualities: ["Navy header band", "Gold border frame", "Section icon badges", "Three-column sections", "Leadership-focused structure"],
+    bestFor: ["C-Suite", "Executive", "Leadership"],
+    badges: ["ATS Optimized", "Premium"],
+    gradient: "from-amber-600 to-orange-500",
+    status: "active",
+    previewImage: "/Templates/images/executive.webp",
+    features: ["Navy Header Band", "Gold Border", "Section Icon Badges"],
+  },
+  {
+    id: "creative",
+    name: "Creative",
+    subtitle: "Dark Sidebar, Two-Column",
+    description: "Two-column layout with a dark sidebar for contact, skills, and languages.",
+    detailedDescription: "A bold two-column design: a full-height dark sidebar on the left holds contact, skills, languages, and certifications, while the white body on the right carries name, summary, experience, education, and projects.",
+    qualities: ["Dark full-height sidebar", "Two-column layout", "Bulleted sidebar content", "Strong personal branding", "Distinctive layout"],
+    bestFor: ["Design", "Art", "Creative"],
+    badges: ["ATS Optimized", "Double Column"],
+    gradient: "from-pink-600 to-rose-500",
+    status: "active",
+    previewImage: "/Templates/images/creative.webp",
+    features: ["Dark Sidebar", "Two-Column Layout", "Bulleted Sidebar"],
+  },
+  {
+    id: "academic",
+    name: "Academic",
+    subtitle: "Black & White, Centered Header",
+    description: "Classic black-and-white layout with centered header and three-column skills.",
+    detailedDescription: "A formal black-and-white design with a centered name and contact block. Skills are split into three columns, and every section uses clean black rules — ideal for academic CVs.",
+    qualities: ["Centered header", "Three-column skills", "Pure black & white", "Formal visual tone", "Clear information hierarchy"],
+    bestFor: ["Academia", "Research", "Education"],
+    badges: ["ATS Optimized", "Structured"],
+    gradient: "from-emerald-600 to-teal-500",
+    status: "active",
+    previewImage: "/Templates/images/academic.webp",
+    features: ["Centered Header", "Three-Column Skills", "Black & White"],
+  },
+  {
+    id: "standard",
+    name: "Standard",
+    subtitle: "Serif & Banded Headings",
+    description: "Serif typography with soft gray bands behind every section heading.",
+    detailedDescription: "A classic serif layout (Times) with soft gray bands highlighting each section heading. Compact, professional, and highly readable — suits any industry.",
+    qualities: ["Serif typography", "Soft gray band headings", "Compact layout", "Comfortable readability", "ATS-friendly formatting"],
+    bestFor: ["All Industries", "General Professionals"],
+    badges: ["ATS Optimized", "Versatile"],
+    gradient: "from-blue-600 to-cyan-500",
+    status: "active",
+    previewImage: "/Templates/images/standard.webp",
+    features: ["Serif Typography", "Gray Band Headings", "Compact Layout"],
+  },
+  {
+    id: "classic",
+    name: "Classic",
+    subtitle: "Teal with Flanking Heading Lines",
+    description: "Elegant teal accents with decorative lines flanking each section heading.",
+    detailedDescription: "A timeless teal-accented layout where section headings are framed by leader lines on both sides. Experience uses a left date column, giving a refined, editorial feel.",
+    qualities: ["Flanking heading lines", "Left date column for experience", "Teal accents", "Clear section hierarchy", "Refined editorial feel"],
+    bestFor: ["Law", "Finance", "Government", "Traditional Industries"],
+    badges: ["ATS Optimized", "Traditional"],
+    gradient: "from-gray-700 to-gray-500",
+    status: "active",
+    previewImage: "/Templates/images/classic.webp",
+    features: ["Flanking Heading Lines", "Left Date Column", "Teal Accents"],
+  },
+  {
+    id: "ats-pro",
+    name: "ATS Pro",
+    subtitle: "Maroon Accents & Two-Column Skills",
+    description: "Maroon-toned headings with two-tone text and two-column skill list.",
+    detailedDescription: "Engineered for maximum ATS compatibility. Headings use a maroon accent on the first three characters, dates and bullets are maroon, and skills are laid out in two columns.",
+    qualities: ["Two-tone maroon headings", "Two-column skill list", "Maroon dates and bullets", "Optimized parsing structure", "Maximum ATS compatibility"],
+    bestFor: ["All Industries", "ATS Optimization"],
+    badges: ["ATS Optimized", "Pro"],
+    gradient: "from-green-600 to-emerald-500",
+    status: "active",
+    previewImage: "/Templates/images/ats-pro.webp",
+    features: ["Two-Tone Headings", "Two-Column Skills", "Maroon Accents"],
+  },
+];
+
+// ✅ Derived from TEMPLATES — never goes stale
+const FILTER_OPTIONS = ["All Templates", ...TEMPLATES.map((t) => t.name)];
+
 interface CVTemplatesPageProps {
   onBackToHome?: () => void;
   onTemplateSelect?: (templateId: string) => void;
@@ -65,148 +210,10 @@ const CVTemplatesPage = ({
   const imageContainerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
 
-  const templates: Template[] = [
-    {
-      id: "modern",
-      name: "Modern",
-      subtitle: "Purple Accent & Tag Skills",
-      description: "Modern layout with purple accent headings and tag-style skill pills.",
-      detailedDescription: "A contemporary design featuring purple section headings, right-aligned dates, and skills displayed as filled tag pills — giving a modern, colorful edge to your CV.",
-      qualities: ["Purple accent headings", "Tag-style skill pills", "Right-aligned dates", "Strong visual hierarchy", "ATS-friendly organization"],
-      bestFor: ["Software Engineering", "Technology", "Startups"],
-      badges: ["ATS Optimized", "Popular"],
-      gradient: "from-purple-600 to-blue-500",
-      status: "active",
-      previewImage: "/Templates/images/modern.webp",
-      features: ["Purple Accent", "Tag-Style Skills", "Modern Design"],
-      isPopular: true,
-    },
-    {
-      id: "minimal",
-      name: "Minimal",
-      subtitle: "Clean, No-Frills Layout",
-      description: "Minimalist design with a subtle experience timeline and pure text layout.",
-      detailedDescription: "A stripped-down, content-first layout. Experience entries are connected by a thin vertical timeline, and skills flow as inline text — nothing distracts from your experience.",
-      qualities: ["Experience timeline", "Inline text skills", "Monochrome palette", "Content-first layout", "Highly ATS-compatible"],
-      bestFor: ["Business", "Corporate", "Banking"],
-      badges: ["ATS Optimized", "Clean"],
-      gradient: "from-slate-600 to-zinc-500",
-      status: "active",
-      previewImage: "/Templates/images/minimal.webp",
-      features: ["Experience Timeline", "Inline Skills", "Monochrome"],
-    },
-    {
-      id: "teal-curve",
-      name: "Teal Curve",
-      subtitle: "Bold Teal Header Band",
-      description: "Full-width dark teal header with white text and teal-accented section headings.",
-      detailedDescription: "A striking single-column design featuring a full-bleed dark teal header band with white name and title text. Section headings and dividers carry the same teal tone throughout.",
-      qualities: ["Full-width teal header band", "White header text", "Teal section headings", "Teal dividers", "Modern visual balance"],
-      bestFor: ["All Industries", "Modern Professionals"],
-      badges: ["ATS Optimized"],
-      gradient: "from-teal-600 to-emerald-500",
-      status: "active",
-      previewImage: "/Templates/images/teal-curve.webp",
-      features: ["Teal Header Band", "White Header Text", "Teal Accents"],
-    },
-    {
-      id: "executive",
-      name: "Executive",
-      subtitle: "Navy & Gold Premium Layout",
-      description: "Navy header band with gold border and section icon badges.",
-      detailedDescription: "A premium single-column executive design with a solid navy header band framed by a gold border. Section headings carry gold icon badges, and Education, Certifications, and Languages share a three-column row with vertical dividers.",
-      qualities: ["Navy header band", "Gold border frame", "Section icon badges", "Three-column sections", "Leadership-focused structure"],
-      bestFor: ["C-Suite", "Executive", "Leadership"],
-      badges: ["ATS Optimized", "Premium"],
-      gradient: "from-amber-600 to-orange-500",
-      status: "active",
-      previewImage: "/Templates/images/executive.webp",
-      features: ["Navy Header Band", "Gold Border", "Section Icon Badges"],
-    },
-    {
-      id: "creative",
-      name: "Creative",
-      subtitle: "Dark Sidebar, Two-Column",
-      description: "Two-column layout with a dark sidebar for contact, skills, and languages.",
-      detailedDescription: "A bold two-column design: a full-height dark sidebar on the left holds contact, skills, languages, and certifications, while the white body on the right carries name, summary, experience, education, and projects.",
-      qualities: ["Dark full-height sidebar", "Two-column layout", "Bulleted sidebar content", "Strong personal branding", "Distinctive layout"],
-      bestFor: ["Design", "Art", "Creative"],
-      badges: ["ATS Optimized", "Double Column"],
-      gradient: "from-pink-600 to-rose-500",
-      status: "active",
-      previewImage: "/Templates/images/creative.webp",
-      features: ["Dark Sidebar", "Two-Column Layout", "Bulleted Sidebar"],
-    },
-    {
-      id: "academic",
-      name: "Academic",
-      subtitle: "Black & White, Centered Header",
-      description: "Classic black-and-white layout with centered header and three-column skills.",
-      detailedDescription: "A formal black-and-white design with a centered name and contact block. Skills are split into three columns, and every section uses clean black rules — ideal for academic CVs.",
-      qualities: ["Centered header", "Three-column skills", "Pure black & white", "Formal visual tone", "Clear information hierarchy"],
-      bestFor: ["Academia", "Research", "Education"],
-      badges: ["ATS Optimized", "Structured"],
-      gradient: "from-emerald-600 to-teal-500",
-      status: "active",
-      previewImage: "/Templates/images/academic.webp",
-      features: ["Centered Header", "Three-Column Skills", "Black & White"],
-    },
-    {
-      id: "standard",
-      name: "Standard",
-      subtitle: "Serif & Banded Headings",
-      description: "Serif typography with soft gray bands behind every section heading.",
-      detailedDescription: "A classic serif layout (Times) with soft gray bands highlighting each section heading. Compact, professional, and highly readable — suits any industry.",
-      qualities: ["Serif typography", "Soft gray band headings", "Compact layout", "Comfortable readability", "ATS-friendly formatting"],
-      bestFor: ["All Industries", "General Professionals"],
-      badges: ["ATS Optimized", "Versatile"],
-      gradient: "from-blue-600 to-cyan-500",
-      status: "active",
-      previewImage: "/Templates/images/standard.webp",
-      features: ["Serif Typography", "Gray Band Headings", "Compact Layout"],
-    },
-    {
-      id: "classic",
-      name: "Classic",
-      subtitle: "Teal with Flanking Heading Lines",
-      description: "Elegant teal accents with decorative lines flanking each section heading.",
-      detailedDescription: "A timeless teal-accented layout where section headings are framed by leader lines on both sides. Experience uses a left date column, giving a refined, editorial feel.",
-      qualities: ["Flanking heading lines", "Left date column for experience", "Teal accents", "Clear section hierarchy", "Refined editorial feel"],
-      bestFor: ["Law", "Finance", "Government", "Traditional Industries"],
-      badges: ["ATS Optimized", "Traditional"],
-      gradient: "from-gray-700 to-gray-500",
-      status: "active",
-      previewImage: "/Templates/images/classic.webp",
-      features: ["Flanking Heading Lines", "Left Date Column", "Teal Accents"],
-    },
-    {
-      id: "ats-pro",
-      name: "ATS Pro",
-      subtitle: "Maroon Accents & Two-Column Skills",
-      description: "Maroon-toned headings with two-tone text and two-column skill list.",
-      detailedDescription: "Engineered for maximum ATS compatibility. Headings use a maroon accent on the first three characters, dates and bullets are maroon, and skills are laid out in two columns.",
-      qualities: ["Two-tone maroon headings", "Two-column skill list", "Maroon dates and bullets", "Optimized parsing structure", "Maximum ATS compatibility"],
-      bestFor: ["All Industries", "ATS Optimization"],
-      badges: ["ATS Optimized", "Pro"],
-      gradient: "from-green-600 to-emerald-500",
-      status: "active",
-      previewImage: "/Templates/images/ats-pro.webp",
-      features: ["Two-Tone Headings", "Two-Column Skills", "Maroon Accents"],
-    },
-  ];
-
-  const filterOptions = [
-    "All Templates", "Modern", "Minimal", "Teal Curve", "Executive",
-    "Creative", "Academic", "Standard", "Classic", "ATS Pro",
-  ];
-
   const filteredTemplates = useMemo(() => {
-    let list = templates;
-    if (activeFilter !== "All Templates") {
-      list = list.filter((t) => t.name === activeFilter);
-    }
-    return list;
-  }, [templates, activeFilter]);
+    if (activeFilter === "All Templates") return TEMPLATES;
+    return TEMPLATES.filter((t) => t.name === activeFilter);
+  }, [activeFilter]);
 
   const handleUseTemplate = useCallback((templateId: string) => {
     setSelectedTemplate(templateId);
@@ -220,18 +227,30 @@ const CVTemplatesPage = ({
   }, []);
 
   const closePreview = useCallback(() => {
+    // ✅ Reset error for the template we just closed → retry works next time
+    if (previewTemplate) {
+      setImageErrors((prev) => {
+        if (!prev[previewTemplate.id]) return prev;
+        const next = { ...prev };
+        delete next[previewTemplate.id];
+        return next;
+      });
+    }
     setPreviewTemplate(null);
     setZoomLevel(1);
     setPanPosition({ x: 0, y: 0 });
-  }, []);
+  }, [previewTemplate]);
 
   const handleImageError = useCallback((templateId: string) => {
     setImageErrors((prev) => ({ ...prev, [templateId]: true }));
   }, []);
 
-  const handleZoomIn = () => setZoomLevel((prev) => Math.min(prev + 0.25, 3));
-  const handleZoomOut = () => setZoomLevel((prev) => Math.max(prev - 0.25, 0.5));
-  const handleFitToScreen = () => { setZoomLevel(1); setPanPosition({ x: 0, y: 0 }); };
+  const handleZoomIn = useCallback(() => setZoomLevel((prev) => Math.min(prev + 0.25, 3)), []);
+  const handleZoomOut = useCallback(() => setZoomLevel((prev) => Math.max(prev - 0.25, 0.5)), []);
+  const handleFitToScreen = useCallback(() => {
+    setZoomLevel(1);
+    setPanPosition({ x: 0, y: 0 });
+  }, []);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (zoomLevel <= 1) return;
@@ -267,6 +286,7 @@ const CVTemplatesPage = ({
 
   const handleTouchEnd = () => setIsDragging(false);
 
+  // ✅ Keyboard: ESC close, +/- zoom
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!previewTemplate) return;
@@ -276,7 +296,41 @@ const CVTemplatesPage = ({
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [previewTemplate, closePreview]);
+  }, [previewTemplate, closePreview, handleZoomIn, handleZoomOut]);
+
+  // ✅ Focus trap inside modal — Tab / Shift+Tab cycle within
+  useEffect(() => {
+    if (!previewTemplate) return;
+    const modal = modalRef.current;
+    if (!modal) return;
+
+    const FOCUSABLE =
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+    const getFocusable = () =>
+      Array.from(modal.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+        (el) => !el.hasAttribute("disabled") && el.offsetParent !== null
+      );
+
+    const handleTab = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      const focusable = getFocusable();
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+
+      if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      } else if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    };
+
+    modal.addEventListener("keydown", handleTab);
+    return () => modal.removeEventListener("keydown", handleTab);
+  }, [previewTemplate]);
 
   useEffect(() => {
     if (previewTemplate && closeButtonRef.current) closeButtonRef.current.focus();
@@ -294,19 +348,26 @@ const CVTemplatesPage = ({
     if (zoomLevel <= 1) setPanPosition({ x: 0, y: 0 });
   }, [zoomLevel]);
 
+  // ✅ Collapse on scroll — but ONLY when the user actually scrolls far enough.
+  //    Prevents the "click More → layout shifts → scroll fires → card collapses"
+  //    bug that made "More" feel broken.
   useEffect(() => {
     if (expandedTemplateId === null) return;
     let ticking = false;
-    const handleScroll = () => {
+    const COLLAPSE_DELTA = 80; // px — ignore tiny scroll jitters
+    const onScroll = () => {
       if (ticking) return;
       ticking = true;
       window.requestAnimationFrame(() => {
-        setExpandedTemplateId(null);
+        if (Math.abs(window.scrollY - scrollStartRef.current) > COLLAPSE_DELTA) {
+          setExpandedTemplateId(null);
+        }
         ticking = false;
       });
     };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+    const scrollStartRef = { current: window.scrollY };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, [expandedTemplateId]);
 
   const getFeatureChips = (t: Template): string[] => {
@@ -341,7 +402,6 @@ const CVTemplatesPage = ({
       <div className="w-full h-full flex flex-col bg-slate-100 text-slate-900 overflow-hidden">
         <div className="flex-1 overflow-y-auto min-h-0">
 
-
           {/* FILTERS — scrolls away with the page (NOT sticky), horizontal swipe works, scrollbar hidden */}
           <section className="bg-white border-b border-slate-200">
             <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-3">
@@ -355,23 +415,23 @@ const CVTemplatesPage = ({
                 }}
               >
                 <div className="flex flex-nowrap gap-2 w-max mx-auto">
-                {filterOptions.map((filter) => {
-                  const active = activeFilter === filter;
-                  return (
-                    <button
-                      key={filter}
-                      onClick={() => setActiveFilter(filter)}
-                      className={`px-3 sm:px-3.5 py-1.5 rounded-full text-[11px] sm:text-xs font-medium whitespace-nowrap shrink-0 flex-none transition-all border focus:outline-none focus:ring-2 focus:ring-purple-500/30 ${
-                        active
-                          ? "bg-purple-600 text-white border-purple-600 shadow-sm"
-                          : "bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:text-slate-900"
-                      }`}
-                      aria-pressed={active}
-                    >
-                      {filter}
-                    </button>
-                  );
-                })}
+                  {FILTER_OPTIONS.map((filter) => {
+                    const active = activeFilter === filter;
+                    return (
+                      <button
+                        key={filter}
+                        onClick={() => setActiveFilter(filter)}
+                        className={`px-3 sm:px-3.5 py-1.5 rounded-full text-[11px] sm:text-xs font-medium whitespace-nowrap shrink-0 flex-none transition-all border focus:outline-none focus:ring-2 focus:ring-purple-500/30 ${
+                          active
+                            ? "bg-purple-600 text-white border-purple-600 shadow-sm"
+                            : "bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:text-slate-900"
+                        }`}
+                        aria-pressed={active}
+                      >
+                        {filter}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -402,16 +462,14 @@ const CVTemplatesPage = ({
                   return (
                     <article
                       key={template.id}
-                      /* Width locked per breakpoint so 2 per row on mobile, 3 on desktop.
-                         Full width of a slot, minus half the gap, so the row math is exact. */
                       className={`group relative flex flex-col bg-white rounded-xl sm:rounded-2xl border transition-all duration-200 overflow-hidden
                         w-[calc(50%-6px)] sm:w-[calc(50%-8px)]
                         lg:w-full
                         ${
-                        isSelected
-                          ? "border-purple-500 ring-2 ring-purple-500/20 shadow-md"
-                          : "border-slate-200 hover:border-slate-300 hover:shadow-lg hover:-translate-y-0.5"
-                      }`}
+                          isSelected
+                            ? "border-purple-500 ring-2 ring-purple-500/20 shadow-md"
+                            : "border-slate-200 hover:border-slate-300 hover:shadow-lg hover:-translate-y-0.5"
+                        }`}
                     >
                       {/* Preview Image */}
                       <div className="relative bg-slate-50 border-b border-slate-100 p-2 sm:p-4 md:p-5">
@@ -430,7 +488,6 @@ const CVTemplatesPage = ({
                                 loading="lazy"
                                 onError={() => handleImageError(template.id)}
                                 draggable={false}
-                                onContextMenu={(e) => e.preventDefault()}
                               />
                             )}
                           </div>
@@ -458,7 +515,7 @@ const CVTemplatesPage = ({
                           {isActive && (
                             <button
                               onClick={() => handlePreview(template)}
-                              className="absolute inset-0 flex items-center justify-center bg-slate-900/0 group-hover:bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-all duration-200"
+                              className="absolute inset-0 flex items-center justify-center bg-slate-900/0 group-hover:bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-all duration-200 focus:outline-none focus-visible:opacity-100 focus-visible:bg-slate-900/40"
                               aria-label={`Open ${template.name} preview`}
                             >
                               <span className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-white text-slate-900 text-[10px] sm:text-xs font-medium shadow-md">
@@ -628,9 +685,10 @@ const CVTemplatesPage = ({
                 </div>
               </div>
 
+              {/* ✅ Zoom=1 pe bhi scroll allow (mobile pe image phans ti nahi) */}
               <div
                 ref={imageContainerRef}
-                className="tpl-modal-body p-3 md:p-6 flex justify-center items-center min-h-[200px] overflow-hidden flex-1 bg-slate-200"
+                className="tpl-modal-body p-3 md:p-6 flex justify-center items-center min-h-[200px] overflow-auto flex-1 bg-slate-200"
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
@@ -670,7 +728,8 @@ const CVTemplatesPage = ({
               </div>
 
               <div className="tpl-modal-footer p-3 md:p-4 border-t border-slate-200 flex justify-between items-center gap-3 shrink-0 bg-white">
-                <div className="min-w-0 truncate text-[10px] md:text-xs text-slate-500">
+                {/* ✅ Wrap instead of truncate — hint text mobile pe cut nahi hota */}
+                <div className="min-w-0 text-[10px] md:text-xs text-slate-500 leading-snug">
                   <span className="hidden sm:inline">Zoom: {Math.round(zoomLevel * 100)}% • </span>
                   {zoomLevel > 1 && <span className="hidden sm:inline">Drag to pan • </span>}
                   <span className="hidden sm:inline">ESC to close • </span>

@@ -53,8 +53,11 @@ async function loadData() {
   if (!seoPath) throw new Error('seoPages.ts nahi mili (src/config ya src/utils)');
   if (!fs.existsSync(rel('src/config/site.ts'))) throw new Error('src/config/site.ts nahi mili');
 
+  // Articles: pehle src/config/articles.ts (ARTICLES registry) se, warna purane article-N.ts files se
+  const hasRegistry =
+    fs.existsSync(rel('src/config/articles.ts')) && fs.readFileSync(rel('src/config/articles.ts'), 'utf8').includes('ARTICLES');
   const articlesDir = 'src/config/articles';
-  const files = fs.existsSync(rel(articlesDir))
+  const files = !hasRegistry && fs.existsSync(rel(articlesDir))
     ? fs
         .readdirSync(rel(articlesDir))
         .filter((f) => /^article-\d+\.tsx?$/.test(f))
@@ -64,10 +67,13 @@ async function loadData() {
   const imports = files
     .map((f, i) => `import * as a${i} from './${articlesDir}/${f.replace(/\.tsx?$/, '')}';`)
     .join('\n');
+  const articlesExport = hasRegistry
+    ? "export { ARTICLES } from './src/config/articles.ts';"
+    : `export const ARTICLES = [${files.map((_, i) => `...Object.values(a${i})`).join(', ')}].filter((a) => a && a.slug);`;
   const entry = `${imports}
 export * from './src/config/site';
 export { SEO_PAGES, SITEMAP_PAGES } from './${seoPath.replace(/\.ts$/, '')}';
-export const ARTICLES = [${files.map((_, i) => `...Object.values(a${i})`).join(', ')}].filter((a) => a && a.slug);
+${articlesExport}
 ${fs.existsSync(rel('src/config/toolLandingContent.ts')) ? "export { TOOL_LANDING_CONTENT, buildToolLandingSchema } from './src/config/toolLandingContent';" : 'export const TOOL_LANDING_CONTENT = {}; export const buildToolLandingSchema = () => null;'}
 `;
 
@@ -104,6 +110,11 @@ async function main() {
           <a href="/free-cover-letter-generator">Free Cover Letter Generator</a>
           <a href="/cover-templates">Free Cover Letter Templates</a>
           <a href="/blog">Career Tips, CV &amp; Cover Letter Blog</a>
+          <a href="/features">Features</a>
+          <a href="/pk/cv-format">CV Format in Pakistan</a>
+          <a href="/pk/cv-for-fresh-graduates">CV for Fresh Graduates in Pakistan</a>
+          <a href="/pk/job-application-letter">Job Application Letter in Pakistan</a>
+          <a href="/pk/cover-letter-for-freshers">Cover Letter for Freshers in Pakistan</a>
           <a href="/founder">About Adin AI &amp; Founder</a>
           <a href="/contact">Contact</a>
           <a href="/privacy-policy">Privacy Policy</a>
@@ -256,7 +267,7 @@ async function main() {
         </article>
         ${navHtml}`;
     const head = headBlock({
-      title: `${a.title} | Adin AI Blog`,
+      title: a.seoTitle ?? `${a.title} | Adin AI Blog`,
       description: a.excerpt,
       canonical: url,
       ogType: 'article',
