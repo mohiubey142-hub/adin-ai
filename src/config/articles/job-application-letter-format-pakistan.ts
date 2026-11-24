@@ -9,6 +9,7 @@ export const jobApplicationLetterPakistan: BlogArticle = {
   date: 'November 20, 2026',
   readTime: '5 min read',
   author: 'Adin AI Team',
+  image: '/blog-images/job-application-letter.jpg',
   cta: 'cover-letter',
   content: `
 In Pakistan, people often say "application" when they mean a cover letter, and the two are used almost interchangeably. When a job ad says "send your application," it usually means a CV plus a short letter introducing you.

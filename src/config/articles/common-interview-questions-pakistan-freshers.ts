@@ -9,6 +9,7 @@ export const interviewQuestionsPakistan: BlogArticle = {
   date: 'November 20, 2026',
   readTime: '6 min read',
   author: 'Adin AI Team',
+  image: '/blog-images/common-interview-questions.jpg',
   content: `
 You have sent your CV, and finally you got an interview call. Now the question is, what will they ask?
 

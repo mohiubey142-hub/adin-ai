@@ -9,6 +9,7 @@ export const personalDetailsCvPakistan: BlogArticle = {
   date: 'November 20, 2026',
   readTime: '4 min read',
   author: 'Adin AI Team',
+  image: '/blog-images/personal-details-cv.jpg',
   content: `
 Many Pakistani CVs still have a long section called Personal Information. It lists father name, CNIC number, date of birth, religion, marital status, domicile, and a full home address.
 

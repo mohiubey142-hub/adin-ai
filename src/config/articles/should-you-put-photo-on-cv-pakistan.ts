@@ -9,6 +9,7 @@ export const photoOnCvPakistan: BlogArticle = {
   date: 'November 20, 2026',
   readTime: '4 min read',
   author: 'Adin AI Team',
+  image: '/blog-images/photo-on-cv.jpg',
   content: `
 Open a few CVs from Pakistan and you will often see a passport-size photo in the corner. Open a CV made for a multinational company and you will usually see none. So which one is right for you?
 

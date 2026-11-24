@@ -9,6 +9,7 @@ export const cvForGulfJobsPakistan: BlogArticle = {
   date: 'November 20, 2026',
   readTime: '5 min read',
   author: 'Adin AI Team',
+  image: '/blog-images/cv-for-gulf-jobs.jpg',
   content: `
 Many Pakistanis look for work in the UAE, Saudi Arabia, Qatar, and other Gulf countries. A CV that works well for a local job may need a few changes for these employers.
 

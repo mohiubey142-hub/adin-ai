@@ -9,6 +9,7 @@ export const cvKaiseBanayePakistan: BlogArticle = {
   date: 'November 20, 2026',
   readTime: '5 min read',
   author: 'Adin AI Team',
+  image: '/blog-images/cv-kaise-banaye-roman-urdu.jpg',
   content: `
 Bohat se log job ke liye CV banana chahte hain, lekin samajh nahi aata ke kahan se shuru karein. Kaunsi cheez pehle likhni hai, kitne pages hone chahiye, aur kya nahi likhna chahiye.
 
