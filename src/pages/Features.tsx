@@ -9,7 +9,7 @@ import {
   ArrowLeft, ArrowRight, Sparkles, FileText, Mail, Eye, MousePointerClick, Repeat, ListOrdered,
   LayoutList, SlidersHorizontal, Type, Download, FileImage, ShieldCheck, FolderOpen, CloudUpload,
   Pin, BookOpen, Layers, Wand2, Briefcase, FolderKanban, Award, Lightbulb, UserCheck, Heart, Users,
-  PenLine, Image as ImageIcon, CheckCircle, Zap,
+  PenLine, Image as ImageIcon, CheckCircle, Zap, BadgeCheck, Video, Bot,
 } from "lucide-react";
 import { SEOHead } from "../components/SEO/SEOHead";
 import { getSEOConfig } from "../utils/seoPages";
@@ -140,6 +140,19 @@ const GROUPS: Group[] = [
     ],
   },
 ];
+
+// ─── COMING NEXT (in development — NOT live yet). Keep it high-level: what & why, not how. ───
+const COMING_NEXT: { eyebrow: string; title: string; intro: string; items: Item[] } = {
+  eyebrow: 'Coming next',
+  title: 'Adin Verified Skills',
+  intro:
+    'Anyone can write "expert in Excel" on a CV. Adin Verified Skills is being built to let you back your skills up with proof that employers can trust, so your CV says what you can do and shows it too.',
+  items: [
+    { icon: <BadgeCheck size={ICON} />, title: 'Proof, not just claims', text: 'Skills on your profile that carry a verified badge instead of a bare keyword.' },
+    { icon: <Video size={ICON} />, title: 'Live skill interviews', text: 'Show what you know in a real, live conversation, not a copy-paste test.' },
+    { icon: <Bot size={ICON} />, title: 'Honest use of AI', text: 'Modern work involves AI. Verification will reflect how well you work with it.' },
+  ],
+};
 
 const FOOTER_COLUMNS: { heading: string; links: { href: string; label: string }[] }[] = [
   {
@@ -303,6 +316,19 @@ export default function Features({ onBack, onBuildCV, onWriteCoverLetter }: Feat
                   </a>
                 </li>
               ))}
+              <li>
+                <a
+                  href="#coming-next"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    document.getElementById('coming-next')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-purple-200 bg-purple-50 text-xs font-semibold text-purple-700 hover:bg-purple-100 transition-colors"
+                >
+                  <Sparkles size={12} />
+                  {COMING_NEXT.eyebrow}
+                </a>
+              </li>
             </ul>
           </nav>
 
@@ -377,6 +403,42 @@ export default function Features({ onBack, onBuildCV, onWriteCoverLetter }: Feat
               </section>
             );
           })}
+
+          {/* COMING NEXT — Adin Verified Skills (in development) */}
+          <section id="coming-next" className="px-4 sm:px-6 py-14 sm:py-20 border-t border-slate-100 scroll-mt-16 bg-gradient-to-b from-white to-purple-50/60">
+            <div className="max-w-6xl mx-auto">
+              <div className="max-w-3xl mb-10 lg:mb-12">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <p className="text-[11px] font-semibold tracking-[0.2em] uppercase text-purple-600">{COMING_NEXT.eyebrow}</p>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-purple-100 border border-purple-200 text-[11px] font-semibold text-purple-700">
+                    In development
+                  </span>
+                </div>
+                <h2 className="mt-2 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+                  {COMING_NEXT.title}
+                </h2>
+                <p className="mt-3 text-sm sm:text-base text-slate-600 leading-relaxed">{COMING_NEXT.intro}</p>
+              </div>
+
+              <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-6">
+                {COMING_NEXT.items.map((it) => (
+                  <li key={it.title} className="flex gap-3.5">
+                    <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white border border-purple-100 text-purple-600">
+                      {it.icon}
+                    </span>
+                    <div>
+                      <h3 className="text-sm font-semibold text-slate-900">{it.title}</h3>
+                      <p className="mt-1 text-sm text-slate-600 leading-relaxed">{it.text}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+
+              <p className="mt-8 text-xs text-slate-500">
+                Verified Skills is not available yet. Details and timing may change as we build it.
+              </p>
+            </div>
+          </section>
 
           {/* HONEST NOTE */}
           <section className="px-4 sm:px-6 py-10 border-t border-slate-100">

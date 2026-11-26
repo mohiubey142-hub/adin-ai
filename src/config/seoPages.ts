@@ -290,7 +290,7 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
   features: {
     title: 'Features: AI CV Builder, Cover Letters & ATS | Adin AI',
     description:
-      'Explore Adin AI features: AI suggestions, live preview, click-to-edit, fast template switching, custom sections, PDF/PNG/TXT export and cover letters. Free.',
+      'Adin AI features: AI suggestions, live preview, click-to-edit, templates, PDF/PNG/TXT export, cover letters. Free. Coming next: Verified Skills.',
     keywords: [
       'adin ai features',
       'ai cv builder features',
@@ -298,6 +298,7 @@ export const SEO_PAGES: Record<string, SEOConfig> = {
       'cv builder live preview',
       'free cv builder no watermark',
       'ai cover letter generator',
+      'adin verified skills',
     ].join(', '),
     canonicalUrl: canonicalFor('/features'),
     ...DEFAULTS,
