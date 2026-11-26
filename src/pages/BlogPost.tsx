@@ -43,6 +43,16 @@ export default function BlogPost({ slug, onBackToBlog, onBuildCV, onWriteCoverLe
     window.scrollTo(0, 0);
   }, []);
 
+  // Unknown/old slug: tell Google not to index this "not found" view (SPA returns HTTP 200)
+  useEffect(() => {
+    if (article) return;
+    const meta = document.createElement('meta');
+    meta.name = 'robots';
+    meta.content = 'noindex, follow';
+    document.head.appendChild(meta);
+    return () => { meta.remove(); };
+  }, [article]);
+
   if (!article) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">

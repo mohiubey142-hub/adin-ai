@@ -4,14 +4,89 @@
   "redirects": [
     {
       "source": "/(.*)",
-      "has": [{ "type": "host", "value": "www.getadinai.com" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "www.getadinai.com"
+        }
+      ],
       "destination": "https://getadinai.com/$1",
       "permanent": true
     },
     {
       "source": "/(.*)",
-      "has": [{ "type": "host", "value": "adin-ai-gray.vercel.app" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "adin-ai-gray.vercel.app"
+        }
+      ],
       "destination": "https://getadinai.com/$1",
+      "permanent": true
+    },
+    {
+      "source": "/blog/cover-letter-ki-5-badi-galtiyan",
+      "destination": "/blog/cover-letter-mistakes-pakistan",
+      "permanent": true
+    },
+    {
+      "source": "/blog/naya-job-chahiye-cv-mistakes",
+      "destination": "/blog/cv-mistakes-pakistan-job-rejection",
+      "permanent": true
+    },
+    {
+      "source": "/blog/fresher-cv-kaise-banayein",
+      "destination": "/blog/fresher-cv-pakistan-no-experience",
+      "permanent": true
+    },
+    {
+      "source": "/blog/cover-letter-kaise-likhein",
+      "destination": "/blog/how-to-write-cover-letter-pakistan",
+      "permanent": true
+    },
+    {
+      "source": "/blog/ats-friendly-cv-kya-hai",
+      "destination": "/blog/ats-friendly-cv-pakistan-guide",
+      "permanent": true
+    },
+    {
+      "source": "/blog/top-10-skills-pakistan-2026",
+      "destination": "/blog/top-10-in-demand-skills-pakistan-2026",
+      "permanent": true
+    },
+    {
+      "source": "/blog/pakistan-online-job-apply-sahi-tareeqa",
+      "destination": "/blog/how-to-apply-online-jobs-pakistan-rozee-linkedin-indeed",
+      "permanent": true
+    },
+    {
+      "source": "/blog/ats-keyword-optimization-pakistan",
+      "destination": "/blog/ats-keyword-optimization-pakistan-step-by-step",
+      "permanent": true
+    },
+    {
+      "source": "/blog/ai-se-naukri-jaye-gi-pakistan-2026",
+      "destination": "/blog/will-ai-take-jobs-pakistan-2026",
+      "permanent": true
+    },
+    {
+      "source": "/blog/chatgpt-se-cv-kaise-banayein",
+      "destination": "/blog/how-to-use-chatgpt-for-cv-pakistan",
+      "permanent": true
+    },
+    {
+      "source": "/blog/pakistan-remote-jobs-kaise-dhundain",
+      "destination": "/blog/how-to-find-remote-jobs-pakistan-avoid-scams",
+      "permanent": true
+    },
+    {
+      "source": "/blog/cv-mein-gap-kaise-explain-karein",
+      "destination": "/blog/how-to-explain-cv-gap-pakistan",
+      "permanent": true
+    },
+    {
+      "source": "/blog/pakistan-job-market-haqeeqat-2026",
+      "destination": "/blog/pakistan-job-market-reality-2026",
       "permanent": true
     }
   ],
@@ -31,31 +106,46 @@
     {
       "source": "/my-documents",
       "headers": [
-        { "key": "X-Robots-Tag", "value": "noindex, follow" }
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, follow"
+        }
       ]
     },
     {
       "source": "/cv-builder",
       "headers": [
-        { "key": "X-Robots-Tag", "value": "noindex, follow" }
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, follow"
+        }
       ]
     },
     {
       "source": "/cover-letter",
       "headers": [
-        { "key": "X-Robots-Tag", "value": "noindex, follow" }
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, follow"
+        }
       ]
     },
     {
       "source": "/assets/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
       ]
     },
     {
       "source": "/Templates/images/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
       ]
     }
   ]
