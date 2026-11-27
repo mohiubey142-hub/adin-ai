@@ -7,22 +7,18 @@ import toast from 'react-hot-toast';
 import { FORCE_LANDING_KEY } from '../../utils/inAppNav';
 import { requestCaptchaToken } from '../../utils/captcha';
 import { suggestEmailFix } from '../../utils/emailTypo';
-
+import { enableAnalytics } from '../../utils/analytics'; // ✅ Analytics consent
 
 interface AuthScreenProps {
   onSuccess: () => void;
   onBack?: () => void;
-  /** Controlled mode — parent (URL: /login → 'signin', /signup → 'signup') decides. */
   mode?: 'signin' | 'signup';
-  /** Toggle link click par parent ko batata hai (controlled mode mein). */
   onModeChange?: (mode: 'signin' | 'signup') => void;
-  /** Sirf uncontrolled use ke liye (jaise Onboarding ke andar): starting mode. */
   initialMode?: 'signin' | 'signup';
 }
 
 type Mode = 'signin' | 'signup';
 
-// Terms / Privacy ka version — policy badalne par yahan date update karein
 const TERMS_VERSION = '2026-11';
 const TERMS_STORAGE_KEY = 'adin-terms-accepted';
 
@@ -31,20 +27,13 @@ const TermsLink = ({ href, children }: { href: string; children: React.ReactNode
   <a href={href} target="_blank" rel="noopener noreferrer" className={LEGAL_LINK_CLASS}>{children}</a>
 );
 
-// ✅ Kickresume-style Password Validation (8+ chars, must have number or special char)
 const validatePassword = (pass: string) => {
   const minLength = pass.length >= 8;
   const hasNumberOrSpecial = /[0-9!@#$%^&*(),.?":{}|<>]/.test(pass);
-  
-  return { 
-    minLength, 
-    hasNumberOrSpecial, 
-    isValid: minLength && hasNumberOrSpecial 
-  };
+  return { minLength, hasNumberOrSpecial, isValid: minLength && hasNumberOrSpecial };
 };
 
 export const AuthScreen = ({ onSuccess, onBack, mode: modeProp, onModeChange, initialMode = 'signup' }: AuthScreenProps) => {
-  // ✅ URL-driven: mode prop diya ho to wahi sach hai; warna (Onboarding ke andar) purana local state
   const [localMode, setLocalMode] = useState<Mode>(initialMode);
   const mode: Mode = modeProp ?? localMode;
   const [name, setName] = useState('');
@@ -57,19 +46,16 @@ export const AuthScreen = ({ onSuccess, onBack, mode: modeProp, onModeChange, in
   const [resetLoading, setResetLoading] = useState(false);
   const [emailTouched, setEmailTouched] = useState(false);
 
-  // Typo hint (sirf signup, sirf email field se nikalne ke baad) — kabhi block nahi karta
   const emailSuggestion = useMemo(
     () => (mode === 'signup' && emailTouched ? suggestEmailFix(email) : null),
     [mode, emailTouched, email],
   );
 
-  // Mode badalne par (toggle ya browser Back/Forward) purana error/password saaf
   useEffect(() => {
     setError('');
     setPassword('');
   }, [mode]);
 
-  // Toggle: asli <a href> (crawlable). Plain click par SPA switch; Ctrl/Cmd/middle-click browser par.
   const handleModeLink = (next: Mode) => (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     e.preventDefault();
@@ -79,18 +65,10 @@ export const AuthScreen = ({ onSuccess, onBack, mode: modeProp, onModeChange, in
 
   const passCheck = validatePassword(password);
 
-  // ✅ Back button AuthScreen ka apna hai — Onboarding/parent par depend nahi.
-  //    1) parent onBack de to wahi   2) warna App ko 'adin:go-landing' event (SPA, reload nahi)
-  //    3) App handle na kare to reload fallback (stale login keys saaf karke, warna landing skip ho jati ha)
   const handleBack = () => {
-    if (onBack) {
-      onBack();
-      return;
-    }
-
+    if (onBack) { onBack(); return; }
     const handledByApp = !window.dispatchEvent(new CustomEvent('adin:go-landing', { cancelable: true }));
     if (handledByApp) return;
-
     try {
       window.sessionStorage.setItem(FORCE_LANDING_KEY, 'true');
       window.localStorage.removeItem('adin-has-seen-landing');
@@ -101,7 +79,6 @@ export const AuthScreen = ({ onSuccess, onBack, mode: modeProp, onModeChange, in
     window.location.assign('/');
   };
 
-  // Agree karne ka record: date + version (browser mein). Email signup par account metadata mein bhi (best-effort).
   const recordTermsAcceptance = () => {
     try {
       window.localStorage.setItem(TERMS_STORAGE_KEY, JSON.stringify({ version: TERMS_VERSION, at: new Date().toISOString() }));
@@ -111,7 +88,9 @@ export const AuthScreen = ({ onSuccess, onBack, mode: modeProp, onModeChange, in
   const handleGoogleLogin = async () => {
     try {
       setError('');
-      if (mode === 'signup') recordTermsAcceptance();   // Google signup: neeche wala notice = sign-in-wrap agreement
+      if (mode === 'signup') recordTermsAcceptance();
+      // ✅ Consent: Google se login karne ka matlab hai Terms accept karna
+      enableAnalytics();
       setGoogleLoading(true);
       let justSignedOut = false;
       try { justSignedOut = window.localStorage.getItem('adin-just-signed-out') === '1'; } catch { /* ignore */ }
@@ -138,7 +117,6 @@ export const AuthScreen = ({ onSuccess, onBack, mode: modeProp, onModeChange, in
     setError('');
     setResetLoading(true);
     try {
-      // Token na mile to bhi request jaati hai — captcha ka asli faisla Supabase (server) karta hai
       const captchaToken = await requestCaptchaToken();
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: `${window.location.origin}/reset-password`,
@@ -167,7 +145,6 @@ export const AuthScreen = ({ onSuccess, onBack, mode: modeProp, onModeChange, in
       return;
     }
     
-    // Kickresume-style Password Check
     if (mode === 'signup' && !passCheck.isValid) {
       setError('Password must be at least 8 characters and include a number or special character.');
       return;
@@ -180,7 +157,6 @@ export const AuthScreen = ({ onSuccess, onBack, mode: modeProp, onModeChange, in
 
     setLoading(true);
     try {
-      // Token na mile to bhi request jaati hai — captcha ka asli faisla Supabase (server) karta hai
       const captchaToken = await requestCaptchaToken();
       const res = mode === 'signup'
         ? await authService.signUpWithPassword(email, password, name, captchaToken)
@@ -191,9 +167,12 @@ export const AuthScreen = ({ onSuccess, onBack, mode: modeProp, onModeChange, in
         setLoading(false);
         return;
       }
+
+      // ✅ Consent: Signup ya Login successful → Analytics enable
+      enableAnalytics();
+
       if (mode === 'signup') {
         recordTermsAcceptance();
-        // Best-effort: session na ho (email confirmation) to chupchap skip
         void supabase.auth
           .updateUser({ data: { terms_accepted_at: new Date().toISOString(), terms_version: TERMS_VERSION } })
           .catch(() => { /* ignore */ });
@@ -206,33 +185,16 @@ export const AuthScreen = ({ onSuccess, onBack, mode: modeProp, onModeChange, in
   };
 
   return (
-    // ✅ Added custom scrollbar styling via inline style tag to match the theme
     <>
       <style>{`
-        html, body {
-          background-color: #f8fafc; /* slate-50 */
-          scrollbar-width: thin;
-          scrollbar-color: #a855f7 #f1f5f9; /* thumb color, track color */
-        }
-        /* Webkit Scrollbar (Chrome, Edge, Safari) */
-        ::-webkit-scrollbar {
-          width: 8px;
-          height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-          background: #f1f5f9; /* slate-100 */
-        }
-        ::-webkit-scrollbar-thumb {
-          background: #a855f7; /* purple-500 */
-          border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-          background: #9333ea; /* purple-600 */
-        }
+        html, body { background-color: #f8fafc; scrollbar-width: thin; scrollbar-color: #a855f7 #f1f5f9; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #a855f7; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #9333ea; }
       `}</style>
 
       <div className="relative min-h-screen w-full flex items-center justify-center bg-gradient-to-b from-slate-50 via-white to-slate-50 px-4 py-8">
-        {/* ✅ Back to landing — screen ke top-left corner par */}
         <button
           type="button"
           onClick={handleBack}
@@ -244,12 +206,10 @@ export const AuthScreen = ({ onSuccess, onBack, mode: modeProp, onModeChange, in
         </button>
 
         <div className="w-full max-w-md">
-          {/* Logo */}
           <div className="flex justify-center mb-8">
             <img src="/icon-1024x1024.png" alt="Adin AI" className="w-16 h-16 rounded-2xl shadow-lg shadow-purple-600/10" />
           </div>
 
-          {/* Dynamic Heading based on Mode */}
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-slate-900">
               {mode === 'signup' ? 'Create your account' : 'Welcome back'}
@@ -259,7 +219,6 @@ export const AuthScreen = ({ onSuccess, onBack, mode: modeProp, onModeChange, in
             </p>
           </div>
 
-          {/* Google Login Button */}
           <button
             type="button"
             onClick={handleGoogleLogin}
@@ -279,14 +238,12 @@ export const AuthScreen = ({ onSuccess, onBack, mode: modeProp, onModeChange, in
             Continue with Google
           </button>
 
-          {/* Divider */}
           <div className="flex items-center gap-3 my-6">
             <div className="flex-1 h-px bg-slate-200" />
             <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">Or continue with email</span>
             <div className="flex-1 h-px bg-slate-200" />
           </div>
 
-          {/* Email / Password Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === 'signup' && (
               <div className="relative">
@@ -338,7 +295,6 @@ export const AuthScreen = ({ onSuccess, onBack, mode: modeProp, onModeChange, in
                 autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                 className="w-full h-12 pl-10 pr-12 rounded-xl bg-white border border-slate-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none text-slate-900 placeholder:text-slate-400 transition-all"
               />
-              {/* Show/Hide Password Eye */}
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
@@ -348,7 +304,6 @@ export const AuthScreen = ({ onSuccess, onBack, mode: modeProp, onModeChange, in
               </button>
             </div>
 
-            {/* ✅ Kickresume-style Password Checklist (Only for Signup) */}
             {mode === 'signup' && password.length > 0 && (
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
                 <p className="text-xs font-semibold text-slate-700 mb-1">Password must contain:</p>
@@ -399,7 +354,6 @@ export const AuthScreen = ({ onSuccess, onBack, mode: modeProp, onModeChange, in
             </button>
           </form>
 
-          {/* Sign-in-wrap notice: Google button + email button dono ko cover karta ha (signup + login) */}
           <p className="text-center mt-5 text-xs leading-relaxed text-slate-500">
             By clicking <span className="font-medium text-slate-600">Continue with Google</span> or{' '}
             <span className="font-medium text-slate-600">{mode === 'signup' ? 'Create Account' : 'Sign In'}</span>, you agree to our{' '}
@@ -407,7 +361,6 @@ export const AuthScreen = ({ onSuccess, onBack, mode: modeProp, onModeChange, in
             <TermsLink href="/privacy-policy">Privacy Policy</TermsLink>.
           </p>
 
-          {/* Toggle Mode */}
           <div className="text-center mt-6 text-sm text-slate-500">
             {mode === 'signup' ? (
               <>Already have an account?{' '}
@@ -423,7 +376,6 @@ export const AuthScreen = ({ onSuccess, onBack, mode: modeProp, onModeChange, in
               </>
             )}
           </div>
-
         </div>
       </div>
     </>

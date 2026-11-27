@@ -955,6 +955,7 @@ function AppInner() {
   }, [isOnboardingComplete, currentPage]);
 
   useEffect(() => {
+    initializeGA(); // GA4 loads with Consent Mode (anonymous until consent)
     const pagePath = window.location.pathname + window.location.hash;
     trackPageView(pagePath);
   }, [active, currentPage]);
