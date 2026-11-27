@@ -19,7 +19,33 @@ const TRAFFIC_TYPE_INTERNAL_VALUE = 'internal';
 const DEBUG_MODE_PARAM = 'debug_mode';
 const DEBUG_MODE_ON = true;
 
+// ---- Consent Mode / gtag ----
+const CONSENT_DENIED = 'denied';
+const CONSENT_GRANTED = 'granted';
+const GTAG_COMMAND_CONSENT = 'consent';
+const GTAG_COMMAND_SET = 'set';
+const CONSENT_ACTION_DEFAULT = 'default';
+const SEND_PAGE_VIEW_PARAM = 'send_page_view';
+const SEND_PAGE_VIEW_OFF = false; // SPA: pageview hum khud bhejte hain (trackPageView)
+
+type GtagWindow = Window & { dataLayer?: unknown[]; gtag?: (...args: unknown[]) => void };
+
 let initialized = false;
+
+// gtag ko script load hone se PEHLE define karna zaroori hai taake consent 'default'
+// config se pehle queue mein jaye (Consent Mode ki requirement).
+const ensureGtag = (): ((...args: unknown[]) => void) | undefined => {
+  if (typeof window === 'undefined') return undefined;
+  const w = window as GtagWindow;
+  w.dataLayer = w.dataLayer || [];
+  if (!w.gtag) {
+    w.gtag = function gtag() {
+      // eslint-disable-next-line prefer-rest-params
+      (w.dataLayer as unknown[]).push(arguments);
+    };
+  }
+  return w.gtag;
+};
 
 const isEnabled = (): boolean => Boolean(GA_MEASUREMENT_ID) && import.meta.env.PROD;
 
@@ -73,12 +99,25 @@ export const initializeGA = (): void => {
   setOptOutFlag(false);
   const hasConsent = readConsent();
 
+  // 1) Consent default PEHLE (config se pehle)
+  const gtag = ensureGtag();
+  if (gtag) {
+    gtag(GTAG_COMMAND_CONSENT, CONSENT_ACTION_DEFAULT, {
+      ad_storage: CONSENT_DENIED,
+      analytics_storage: hasConsent ? CONSENT_GRANTED : CONSENT_DENIED,
+      ad_user_data: CONSENT_DENIED,
+      ad_personalization: CONSENT_DENIED,
+    });
+    gtag(GTAG_COMMAND_SET, 'ads_data_redaction', true);
+    gtag(GTAG_COMMAND_SET, 'url_passthrough', true);
+  }
+
+  // 2) Phir GA load + config
   ReactGA.initialize(GA_MEASUREMENT_ID as string, {
     gtagOptions: {
-      'ads_data_redaction': true,
-      'url_passthrough': true,
-      'allow_google_signals': hasConsent,
-      'allow_ad_personalization_signals': false,
+      [SEND_PAGE_VIEW_PARAM]: SEND_PAGE_VIEW_OFF,
+      allow_google_signals: hasConsent,
+      allow_ad_personalization_signals: false,
       ...(isInternalSession()
         ? {
             [TRAFFIC_TYPE_PARAM]: TRAFFIC_TYPE_INTERNAL_VALUE,
@@ -87,15 +126,6 @@ export const initializeGA = (): void => {
         : {}),
     },
   });
-
-  if (typeof window !== 'undefined' && (window as any).gtag) {
-    (window as any).gtag('consent', 'default', {
-      ad_storage: 'denied',
-      analytics_storage: hasConsent ? 'granted' : 'denied',
-      ad_user_data: 'denied',
-      ad_personalization: 'denied',
-    });
-  }
 
   initialized = true;
 };
