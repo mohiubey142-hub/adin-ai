@@ -1,6 +1,7 @@
 // src/pages/Founder.tsx - Kian Mercer - Founder of Adin AI
 // ✅ NEW: onBack prop — entry-aware back navigation
 // ✅ FIXED: Neutral gray scrollbar (no purple, matches app)
+// ✅ NEW: VisionLongTermSection added (From CV to Career)
 
 import { useState } from "react";
 import { SEOHead } from "../components/SEO/SEOHead";
@@ -12,6 +13,7 @@ import AdinIntroSection from "../components/founder/AdinIntroSection";
 import AboutLinksSection from "../components/founder/AboutLinksSection";
 import TimelineSection from "../components/founder/TimelineSection";
 import FAQSection from "../components/founder/FAQSection";
+import VisionLongTermSection from "../components/founder/VisionLongTermSection"; // ✅ NEW
 import { ArrowLeft } from "lucide-react";
 import { SITE_URL } from "../config/site";
 import { cameFromApp, markLandingIntent } from "../utils/inAppNav";
@@ -77,7 +79,7 @@ export default function Founder({ onBack }: FounderProps) {
             ) : (
               <a
                 href="/"
-              onClick={markLandingIntent}
+                onClick={markLandingIntent}
                 aria-label="Adin AI home"
                 className="flex items-center gap-2.5 group shrink-0"
               >
@@ -97,6 +99,10 @@ export default function Founder({ onBack }: FounderProps) {
         <AdinIntroSection />
         <AboutSection />
         <TimelineSection />
+
+        {/* ✅ NAYA SECTION: Long-term Vision (From CV to Career) */}
+        <VisionLongTermSection />
+
         <FAQSection />
         <AboutLinksSection />
 
